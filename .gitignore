@@ -30,3 +30,5 @@
 *.exe
 *.out
 *.app
+wtsne_cpu
+wtsne_gpu
