@@ -46,20 +46,24 @@ def iterDistRows(refSeqs, querySeqs, self=True):
 def get_options():
     import argparse
 
-    description = 'Run poppunk sketching/distances'
+    description = 'Visualisation of genomic distances in pathogen populations'
     parser = argparse.ArgumentParser(description=description,
-                                     prog='pp_sketch')
+                                     prog='pathoSCE')
 
-    modeGroup = parser.add_argument_group('Mode of operation')
+    modeGroup = parser.add_argument_group('Input file')
     mode = modeGroup.add_mutually_exclusive_group(required=True)
-    mode.add_argument('--sketch',
-                        action='store_true',
-                        default=False,
-                        help='Create a database of sketches')
-    mode.add_argument('--query',
-                        action='store_true',
-                        default=False,
-                        help='Find distances between two sketch databases')
+    mode.add_argument('--alignment',
+                        default=None,
+                        help='Work from an alignment')
+    mode.add_argument('--accessory',
+                        default=None,
+                        help='Work from accessory genome presence/absence')
+    mode.add_argument('--sequence',
+                        default=None,
+                        help='Work from assembly or read data')
+    mode.add_argument('--sketches',
+                        default=None,
+                        help='Work from sketch data')
 
     io = parser.add_argument_group('Input/output')
     io.add_argument('--rfile',
@@ -69,7 +73,7 @@ def get_options():
     io.add_argument('--query-db',
                     help='Prefix of query database file')
 
-    kmerGroup = parser.add_argument_group('Kmer comparison options')
+    kmerGroup = parser.add_argument_group('Kmer comparison options (for sequence input)')
     kmerGroup.add_argument('--min-k', default = 13, type=int, help='Minimum kmer length [default = 13]')
     kmerGroup.add_argument('--max-k', default = 29, type=int, help='Maximum kmer length [default = 29]')
     kmerGroup.add_argument('--k-step', default = 4, type=int, help='K-mer step size [default = 4]')
@@ -91,48 +95,51 @@ def get_options():
 def main():
     args = get_options()
 
-    if args.min_k >= args.max_k or args.min_k < 9 or args.max_k > 31 or args.k_step < 2:
-        sys.stderr.write("Minimum kmer size " + str(args.min_k) + " must be smaller than maximum kmer size " +
-                         str(args.max_k) + "; range must be between 9 and 31, step must be at least one\n")
-        sys.exit(1)
-    kmers = np.arange(args.min_k, args.max_k + 1, args.k_step)
+    #***********************#
+    #* Run seq -> distance *#
+    #***********************#
+    
+    # alignment 
+    sparse_matrix, consensus, seq_names = calculate_snp_matrix(fasta.file.name)
+    distMat = calculate_distance_matrix(sparse_matrix, consensus, "dist", False)
 
-    if args.sketch:
-        names = []
-        sequences = []
-        
-        with open(args.rfile, 'rU') as refFile:
-            for refLine in refFile:
-                refFields = refLine.rstrip().split("\t")
-                names.append(refFields[0])
-                sequences.append(list(refFields[1:]))
+    # accessory
+    # TODO: read csv and calculate dists
 
+    # sequence
+    distMat = pp_sketchlib.constructAndQuery(ref_db, names, sequences, kmers, int(round(sketch_size/64)), min_count, cpus)
 
-        if len(set(names)) != len(names):
-            sys.stderr.write("Input contains duplicate names! All names must be unique\n")
-            sys.exit(1)
+    # sketches
+    pp_sketchlib.constructDatabase(ref_db, names, sequences, kmers, int(round(sketch_size/64)), min_count, cpus)
+    distMat = pp_sketchlib.queryDatabase(ref_db, ref_db, rList, qList, kmers, cpus)
 
-        pp_sketchlib.constructDatabase(args.ref_db, names, sequences, kmers, int(round(args.sketch_size/64)), args.min_count, args.cpus)
+    #***********************#
+    #* Save distances      *#
+    #***********************#
+    names = iterDistRows(rList, rList, True)
+    sys.stdout.write("\t".join(['Query', 'Reference', 'Core', 'Accessory']) + "\n")
+    for i, (ref, query) in enumerate(names):
+        sys.stdout.write("\t".join([query, ref, str(distMat[i,0]), str(distMat[i,1])]) + "\n")
 
-    elif args.query:
-        # TODO: add option to get names from HDF5 files
-        rList = []
-        ref = h5py.File(args.ref_db + ".h5", 'r')
-        for sample_name in list(ref['sketches'].keys()):
-            rList.append(sample_name)
+    #***********************#
+    #* set up data for SCE *#
+    #***********************#
+    # TODO
 
-        qList = []
-        query = h5py.File(args.query_db + ".h5", 'r')
-        for sample_name in list(query['sketches'].keys()):
-            qList.append(sample_name)
+    #***********************#
+    #* run SCE             *#
+    #***********************#
+    embedding = wtsne(I, J, P, weights, maxIter, threads, nRepuSamp, eta0)
 
-        distMat = pp_sketchlib.queryDatabase(args.ref_db, args.query_db, rList, qList, kmers, args.cpus)
-        
-        # get names order
-        names = iterDistRows(rList, qList, rList == qList)
-        sys.stdout.write("\t".join(['Query', 'Reference', 'Core', 'Accessory']) + "\n")
-        for i, (ref, query) in enumerate(names):
-            sys.stdout.write("\t".join([query, ref, str(distMat[i,0]), str(distMat[i,1])]) + "\n")
+    #***********************#
+    #* plot embedding      *#
+    #***********************#
+    # (both core and accessory if available)
+    # static
+    # TODO
+
+    # dynamic
+    # TODO
 
     sys.exit(0)
 
