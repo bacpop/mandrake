@@ -1,5 +1,5 @@
 
-CXXFLAGS=-Wall -Wextra -std=c++11 -march=native -fopenmp -ffast-math
+CXXFLAGS=-Wall -Wextra -std=c++11 -march=native -ffast-math -fopenmp
 ifdef DEBUG
   CXXFLAGS+= -O0 -g
 else ifdef PROFILE
@@ -18,17 +18,14 @@ ifeq ($(UNAME_S),Linux)
 	LDFLAGS=-Wl,-as-needed
 endif
 ifeq ($(UNAME_S),Darwin)
-	LALIBS=-llapack -lopenblas -pthread
+	LDFLAGS="-L/usr/local/opt/llvm/lib -Wl,-rpath,/usr/local/opt/llvm/lib"
 endif
-LALIBS=
 
-CPPFLAGS=--I$(LIBLOC)/include
+CPPFLAGS=-I$(LIBLOC)/include
 LDFLAGS+= -L$(LIBLOC)/lib -lm -lgsl -lgslcblas -lgomp
 
 PROGRAMS=wtsne_cpu wtsne_gpu
 #nvcc wtsne_gpu.cu -o  wtsne_gpu --cudart static -O3 --relocatable-device-code=false -gencode arch=compute_35,code=compute_35 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_50,code=sm_50 -lgsl -lgslcblas
-
-SKETCH_OBJS=dist.o reference.o seqio.o sketch.o database.o countmin.o api.o linear_regression.o
 
 all: $(PROGRAMS)
 
