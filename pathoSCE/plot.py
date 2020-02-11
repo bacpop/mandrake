@@ -9,5 +9,5 @@ def plotSCE(embedding, names, output_prefix):
                             'y': embedding[:, 1],
                             'names': names})
     fig = px.scatter(plot_df, x="x", y="y", hover_name='names')
-    fig.write_image(output_prefix + ".embedding.png")
+    # fig.write_image(output_prefix + ".embedding.png")
     fig.show()

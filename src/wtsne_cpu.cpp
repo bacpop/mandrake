@@ -26,70 +26,7 @@ namespace py = pybind11;
 #define MAX(a,b) ( (a) > (b) ? (a) : (b) )
 #define MIN(a,b) ( (a) < (b) ? (a) : (b) )
 
-void loadP(const char *fnameP, int bBinaryInput)
-{
-    FILE *fpP = fopen(fnameP, "r");
-
-    if (bBinaryInput)
-    {
-        if (fread(&nn, sizeof(long long), 1, fpP)!=1) perror("Error in reading nn");
-        if (fread(&ne, sizeof(long long), 1, fpP)!=1) perror("Error in reading ne");
-        I = new long long[ne];
-        J = new long long[ne];
-        P = new double[ne];
-        if (fread(I, sizeof(long long), ne, fpP)!=ne) perror("Error in reading I");
-        if (fread(J, sizeof(long long), ne, fpP)!=ne) perror("Error in reading J");
-        if (fread(P, sizeof(double), ne, fpP)!=ne) perror("Error in reading P");
-    }
-    else
-    {
-        if (fscanf(fpP, "%lld %lld", &nn, &ne)!=2) perror("Error in reading nn and ne from text file");
-        I = new long long[ne];
-        J = new long long[ne];
-        P = new double[ne];
-        for (long long e=0; e<ne; e++)
-            if (fscanf(fpP, "%lld %lld %lg", I+e, J+e, P+e)!=3) perror("Error in reading triplets from text file");
-    }
-    fclose(fpP);
-}
-
-void loadWeights(const char *fnameWeights, int bBinaryInput)
-{
-    weights = new double[nn];
-    if (strcmp(fnameWeights, "none")==0)
-    {
-        for (long long i=0; i<nn; i++)
-            weights[i] = 1.0;
-    }
-    else
-    {
-        FILE *fpWeights = fopen(fnameWeights, "r");
-        if (bBinaryInput)
-            if (fread(weights, sizeof(double), nn, fpWeights)!=nn) perror("Error in reading weights from binary file");
-        else
-            for (long long i=0; i<nn; i++)
-                if (fscanf(fpWeights, "%lg", weights+i)!=1) perror("Error in reading weights from text file");
-        fclose(fpWeights);
-    }
-}
-
-void
-saveY (const char* fnameY)
-{
-	FILE *fpY = fopen (fnameY, "w+");
-	for (long long i = 0; i < nn; i++) {
-		for (long long d = 0; d < DIM; d++) {
-			fprintf (fpY, "%.6f", Y[d + i * DIM]);
-			if (d<DIM-1)
-				fprintf(fpY, " ");
-		}
-		fprintf(fpY, "\n");
-	}
-
-	fclose (fpY);
-}
-
-std::vector<long long> wtsne(std::vector<long long>& I,
+std::vector<double> wtsne(std::vector<long long>& I,
            std::vector<long long>& J,
            std::vector<double>& P,
            std::vector<double>& weights,
@@ -101,7 +38,7 @@ std::vector<long long> wtsne(std::vector<long long>& I,
     // Check input
     if (I.size() != J.size() || I.size() != P.size() || J.size() != P.size())
     {
-        std::err << "Mismatching sizes in input vectors" << std::endl;
+        std::cerr << "Mismatching sizes in input vectors" << std::endl;
     }
     long long nn = weights.size();
     long long ne = P.size();
@@ -117,14 +54,15 @@ std::vector<long long> wtsne(std::vector<long long>& I,
 
     // Set starting Y0
     srand(0);
-    std::vector<long long> Y(nn*DIM);
+    std::vector<double> Y(nn*DIM);
     for (long long i = 0; i < nn; i++)
         for (long long d = 0; d < DIM; d++)
             Y[d + i*DIM] = rand() * 1e-4 / RAND_MAX;
 
     // Set up random number generation
+    const gsl_rng_type * gsl_T;
     gsl_rng_env_setup();
-    gsl_rng_type * gsl_T = gsl_rng_default;
+    gsl_T = gsl_rng_default;
     gsl_rng * gsl_r_nn = gsl_rng_alloc(gsl_T);
     gsl_rng * gsl_r_ne = gsl_rng_alloc(gsl_T);
     gsl_rng_set(gsl_r_nn, 314159);
@@ -145,7 +83,7 @@ std::vector<long long> wtsne(std::vector<long long>& I,
         double qsum = 0;
         long long qcount = 0;
 
-        double attrCoef = (bInit && iter<maxIter/10) ? 8 : 2;
+        double attrCoef = (iter<maxIter/10) ? 8 : 2;
         double repuCoef = 2 * c / nRepuSamp * nsq;
         #pragma omp parallel for reduction(+:qsum,qcount)
         for (long long worker=0; worker<workerCount; worker++)
@@ -201,10 +139,11 @@ std::vector<long long> wtsne(std::vector<long long>& I,
 
         if (iter % MAX(1,maxIter/1000)==0)
         {
-            printf("%cOptimizing\t eta=%f Progress: %.3lf%%, Eq=%.20f", 13, eta, (double)iter / maxIter * 100, 1.0/(c*nsq));
-            fflush(stdout);
+            fprintf(stderr, "%cOptimizing\t eta=%f Progress: %.3lf%%, Eq=%.20f", 13, eta, (double)iter / maxIter * 100, 1.0/(c*nsq));
+            fflush(stderr);
         }
     }
+    std::cerr << std::endl << "Optimizing done" << std::endl;
 
     // Free memory from GSL functions
     gsl_ran_discrete_free(gsl_de);

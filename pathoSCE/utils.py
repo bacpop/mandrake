@@ -42,8 +42,9 @@ def readRfile(rFile):
 
 @jit(nopython=True)
 def distVec(length):
-    I_vec = np.empty((length))
-    J_vec = np.empty((length))
+    dist_length = int(0.5*length*(length-1))
+    I_vec = np.empty((dist_length), dtype=np.int64)
+    J_vec = np.empty((dist_length), dtype=np.int64)
     
     counter = 0
     for i in range(length):

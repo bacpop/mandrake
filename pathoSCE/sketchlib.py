@@ -43,8 +43,7 @@ def getSketchSize(dbPrefix):
         sketchSize (int)
             sketch size (64x C++ definition)
     """
-    db_file = dbPrefix + "/" + dbPrefix + ".h5"
-    ref_db = h5py.File(db_file, 'r')
+    ref_db = h5py.File(dbPrefix, 'r')
     prev_sketch = 0
     for sample_name in list(ref_db['sketches'].keys()):
         sketch_size = ref_db['sketches/' + sample_name].attrs['sketchsize64']
@@ -68,8 +67,7 @@ def getKmersFromReferenceDatabase(dbPrefix):
         kmers (list)
             List of k-mer lengths used in database
     """
-    db_file = dbPrefix + "/" + dbPrefix + ".h5"
-    ref_db = h5py.File(db_file, 'r')
+    ref_db = h5py.File(dbPrefix, 'r')
     prev_kmer_sizes = []
     for sample_name in list(ref_db['sketches'].keys()):
         kmer_size = ref_db['sketches/' + sample_name].attrs['kmers']

@@ -15,6 +15,9 @@ ENDIF(CMAKE_COMPILER_IS_GNUCC)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math -fopenmp -m64")
 if(APPLE)
+    set(CMAKE_C_COMPILER "/usr/local/opt/llvm/bin//clang")    
+    set(CMAKE_CXX_COMPILER "/usr/local/opt/llvm/bin//clang")    
+    set(CPP_FLAGS "${CPP_FLAGS} -I/usr/local/opt/llvm/include")
     set(LD_FLAGS "${LD_FLAGS} -L/usr/local/opt/llvm/lib -Wl,-rpath,/usr/local/opt/llvm/lib")
 endif()
 
