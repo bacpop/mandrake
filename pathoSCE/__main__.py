@@ -1,47 +1,26 @@
 # Copyright 2019 John Lees
 
-'''Wrapper around sketch functions'''
+'''Main control function for pathoSCE'''
 
 import os, sys
 
 import numpy as np
+import pandas as pd
+from scipy.spatial.distance import pdist
+from numba import jit
 
 import pp_sketchlib
-from pairsnp import calculate_snp_matrix, calculate_distance_matrix
 from SCE import wtsne
 
 from .__init__ import __version__
 
-def iterDistRows(refSeqs, querySeqs, self=True):
-    """Gets the ref and query ID for each row of the distance matrix
+from .sketchlib import readDBParams
+from .sketchlib import getSeqsInDb
 
-    Returns an iterable with ref and query ID pairs by row.
+from .plot import plotSCE
 
-    Args:
-        refSeqs (list)
-            List of reference sequence names.
-        querySeqs (list)
-            List of query sequence names.
-        self (bool)
-            Whether a self-comparison, used when constructing a database.
-
-            Requires refSeqs == querySeqs
-
-            Default is True
-    Returns:
-        ref, query (str, str)
-            Iterable of tuples with ref and query names for each distMat row.
-    """
-    if self:
-        if refSeqs != querySeqs:
-            raise RuntimeError('refSeqs must equal querySeqs for db building (self = true)')
-        for i, ref in enumerate(refSeqs):
-            for j in range(i + 1, len(refSeqs)):
-                yield(refSeqs[j], ref)
-    else:
-        for query in querySeqs:
-            for ref in refSeqs:
-                yield(ref, query)
+from .utils import distVec
+from .utils import readRfile
 
 def get_options():
     import argparse
@@ -50,7 +29,7 @@ def get_options():
     parser = argparse.ArgumentParser(description=description,
                                      prog='pathoSCE')
 
-    modeGroup = parser.add_argument_group('Input file')
+    modeGroup = parser.add_argument_group('Input type')
     mode = modeGroup.add_mutually_exclusive_group(required=True)
     mode.add_argument('--alignment',
                         default=None,
@@ -64,16 +43,24 @@ def get_options():
     mode.add_argument('--sketches',
                         default=None,
                         help='Work from sketch data')
+    mode.add_argument('--distances',
+                        default=None,
+                        help='Work from pre-calculated distances')
 
-    io = parser.add_argument_group('Input/output')
-    io.add_argument('--rfile',
-                    help='Samples to sketch')
-    io.add_argument('--ref-db',
-                    help='Prefix of reference database file')
-    io.add_argument('--query-db',
-                    help='Prefix of query database file')
+    distanceGroup = parser.add_argument('Output options')
+    distanceGroup.add_argument('--output', default="pathoSCE", type=str, help='Prefix for output files')
+    distanceGroup.add_argument('--threshold', default=1, type=float, help='Maximum distance to consider')
 
-    kmerGroup = parser.add_argument_group('Kmer comparison options (for sequence input)')
+    sceGroup = parser.add_argument('SCE options')
+    sceGroup.add_argument('--weight-file', default=None, help="Weights for samples")
+    sceGroup.add_argument('--maxIter', default=1000, type=int, help="Maximum SCE iterations")
+    sceGroup.add_argument('--nRepuSamp', default=5, type=int, help="Number of neighbours for calculating repulsion (1 or 5)")
+    sceGroup.add_argument('--eta0', default=1, type=float, help="Learning rate")
+
+    kmerGroup = parser.add_argument_group('Sequence input options')
+    distType = kmerGroup.add_mutually_exclusive_group()
+    distType.add_argument('--core', action='store_true', default=False, help="Use core distances")
+    distType.add_argument('--accessort', action='store_true', default=False, help="Use accessory distances")
     kmerGroup.add_argument('--min-k', default = 13, type=int, help='Minimum kmer length [default = 13]')
     kmerGroup.add_argument('--max-k', default = 29, type=int, help='Maximum kmer length [default = 29]')
     kmerGroup.add_argument('--k-step', default = 4, type=int, help='K-mer step size [default = 4]')
@@ -98,48 +85,88 @@ def main():
     #***********************#
     #* Run seq -> distance *#
     #***********************#
-    
-    # alignment 
-    sparse_matrix, consensus, seq_names = calculate_snp_matrix(fasta.file.name)
-    distMat = calculate_distance_matrix(sparse_matrix, consensus, "dist", False)
+    if args.distances is not None:
+        sys.stderr.write("Calculating distances\n")
+        if (args.alignment is not None):
+            # alignment
+            # TODO replace this with call to C++ program 
+            sparse_matrix, consensus, seq_names = calculate_snp_matrix(fasta.file.name)
+            P = calculate_distance_matrix(sparse_matrix, consensus, "dist", False)
+        
+        elif (args.accessory is not None):
+            # accessory
+            acc_mat = pd.read_csv(args.accessory, sep="\t", header=0, index_col=0, dtype=np.bool_)
+            names = list(acc_mat.columns())
+            P = pdist(acc_mat.values, 'hamming')
 
-    # accessory
-    # TODO: read csv and calculate dists
+        elif (args.sequence is not None or args.sketches is not None):
+            if args.min_k >= args.max_k or args.min_k < 9 or args.max_k > 31 or args.k_step < 2:
+                sys.stderr.write("Minimum kmer size " + str(args.min_k) + " must be smaller than maximum kmer size " +
+                                str(args.max_k) + "; range must be between 9 and 31, step must be at least one\n")
+                sys.exit(1)
+            kmers = np.arange(args.min_k, args.max_k + 1, args.k_step)
 
-    # sequence
-    distMat = pp_sketchlib.constructAndQuery(ref_db, names, sequences, kmers, int(round(sketch_size/64)), min_count, cpus)
+            if (not args.core and not args.accessory):
+                sys.stderr.write("Must choose either --core or --accessory distances from sequence/sketches\n")
+                sys.exit(1)
+            elif (args.core):
+                dist_col = 0
+            elif (args.accessory):
+                dist_col = 1
+            
+            if (args.sequence is not None):
+                # sequence
+                names, sequences = readRfile(args.sequence)
+                P = pp_sketchlib.constructAndQuery(args.output, 
+                                                        names, 
+                                                        sequences, 
+                                                        kmers, 
+                                                        int(round(args.sketch_size/64)), 
+                                                        args.min_count, 
+                                                        args.cpus)[:,dist_col]
 
-    # sketches
-    pp_sketchlib.constructDatabase(ref_db, names, sequences, kmers, int(round(sketch_size/64)), min_count, cpus)
-    distMat = pp_sketchlib.queryDatabase(ref_db, ref_db, rList, qList, kmers, cpus)
+            elif (args.sketches is not None):
+                # sketches
+                names = getSeqsInDb(args.sketches)
+                kmers, sketch_size = readDBParams(args.sketches, kmers, int(round(args.sketch_size/64)))
+                P = pp_sketchlib.queryDatabase(args.sketches, args.sketches, names, names, kmers, args.cpus)[:,dist_col]
 
-    #***********************#
-    #* Save distances      *#
-    #***********************#
-    names = iterDistRows(rList, rList, True)
-    sys.stdout.write("\t".join(['Query', 'Reference', 'Core', 'Accessory']) + "\n")
-    for i, (ref, query) in enumerate(names):
-        sys.stdout.write("\t".join([query, ref, str(distMat[i,0]), str(distMat[i,1])]) + "\n")
+        #***********************#
+        #* Set up for SCE and  *#
+        #* save distances      *#
+        #***********************#
+        pd.Series(names).to_csv('names.txt', sep='\n', header=False, index=False)
+        I, J = distVec(len(names))
+        np.savez(args.output, I=I, J=J, P=P)
 
-    #***********************#
-    #* set up data for SCE *#
-    #***********************#
-    # TODO
+    # Load existing distances
+    else:
+        sys.stderr.write("Loading distances\n")
+        npzfile = np.load(args.distances)
+        I = npzfile['I']
+        J = npzfile['J']
+        P = npzfile['P']
 
     #***********************#
     #* run SCE             *#
     #***********************#
-    embedding = wtsne(I, J, P, weights, maxIter, threads, nRepuSamp, eta0)
-
+    sys.stderr.write("Running SCE\n")
+    weights = np.ones((len(names)))
+    if (args.weights):
+        weights_in = pd.read_csv(args.weights, sep="\t", header=None, index_col=0)
+        if (weights_in.index.symmetric_difference(names)):
+            sys.stderr.write("Names in weights do not match sequences - using equal weights\n")
+        else:
+            intersecting_samples = weights_in.index.intersection(names)
+            weights = weights_in.loc[intersecting_samples]
+    
+    embedding = wtsne(I, J, P, weights, args.maxIter, args.cpus, args.nRepuSamp, args.eta0)
+    
     #***********************#
     #* plot embedding      *#
     #***********************#
-    # (both core and accessory if available)
-    # static
-    # TODO
-
-    # dynamic
-    # TODO
+    np.savetxt(args.output + ".embedding.txt", embedding)
+    plotSCE(embedding, names, args.output)
 
     sys.exit(0)
 
