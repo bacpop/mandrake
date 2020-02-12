@@ -22,7 +22,7 @@ from .utils import readRfile
 
 # Run exits if fewer samples than this
 MIN_SAMPLES = 100
-DEFAULT_THRESHOLD = 1
+DEFAULT_THRESHOLD = 0
 
 def get_options():
     import argparse
@@ -56,7 +56,7 @@ def get_options():
     distanceGroup.add_argument('--sparse', default=False, action='store_true', 
                                help='Use sparse matrix calculations to speed up'
                                     'distance calculation from --accessory [default = False"]')
-    distanceGroup.add_argument('--threshold', default=1, type=float, help='Maximum distance to consider [default = 1]')
+    distanceGroup.add_argument('--threshold', default=1, type=float, help='Maximum distance to consider [default = 0]')
 
     sceGroup = parser.add_argument_group('SCE options')
     sceGroup.add_argument('--weight-file', default=None, help="Weights for samples")
@@ -151,7 +151,7 @@ def main():
             sys.stderr.write("Distances calculated, but not running SCE\n")
         
         pd.Series(names).to_csv('names.txt', sep='\n', header=False, index=False)
-        if args.threshold < default_threshold:
+        if args.threshold < DEFAULT_THRESHOLD:
             I, J, P = distVecCutoff(P, len(names), args.threshold)
         else:
             I, J = distVec(len(names))
