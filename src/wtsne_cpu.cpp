@@ -33,7 +33,8 @@ std::vector<double> wtsne(std::vector<long long>& I,
            long long maxIter, 
            long long workerCount, 
            long long nRepuSamp,
-           double eta0)
+           double eta0,
+           bool bInit)
 {
     // Check input
     if (I.size() != J.size() || I.size() != P.size() || J.size() != P.size())
@@ -83,7 +84,7 @@ std::vector<double> wtsne(std::vector<long long>& I,
         double qsum = 0;
         long long qcount = 0;
 
-        double attrCoef = (iter<maxIter/10) ? 8 : 2;
+        double attrCoef = (bInit && iter<maxIter/10) ? 8 : 2;
         double repuCoef = 2 * c / nRepuSamp * nsq;
         #pragma omp parallel for reduction(+:qsum,qcount)
         for (long long worker=0; worker<workerCount; worker++)
@@ -139,7 +140,7 @@ std::vector<double> wtsne(std::vector<long long>& I,
 
         if (iter % MAX(1,maxIter/1000)==0)
         {
-            fprintf(stderr, "%cOptimizing\t eta=%f Progress: %.3lf%%, Eq=%.20f", 13, eta, (double)iter / maxIter * 100, 1.0/(c*nsq));
+            fprintf(stderr, "%cOptimizing\t eta=%f Progress: %.1lf%%, Eq=%.20f", 13, eta, (double)iter+1 / maxIter * 100, 1.0/(c*nsq));
             fflush(stderr);
         }
     }
@@ -167,6 +168,7 @@ PYBIND11_MODULE(SCE, m)
         py::arg("maxIter"),
         py::arg("workerCount") = 1,
         py::arg("nRepuSamp") = 5,
-        py::arg("eta0") = 1);
+        py::arg("eta0") = 1,
+        py::arg("bInit") = 0);
 }
 

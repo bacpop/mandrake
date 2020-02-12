@@ -17,11 +17,15 @@ from .__init__ import __version__
 from .sketchlib import readDBParams
 from .sketchlib import getSeqsInDb
 
+from .dists import sparseJaccard
+from .dists import denseJaccard
+
 from .plot import plotSCE
 
 from .utils import distVec
 from .utils import readRfile
 
+# Run exits if fewer samples than this
 MIN_SAMPLES = 100
 
 def get_options():
@@ -48,16 +52,22 @@ def get_options():
     mode.add_argument('--distances',
                         default=None,
                         help='Work from pre-calculated distances')
+    
+    ioGroup = parser.add_argument_group('I/O options')
+    ioGroup.add_argument('--output', default="pathoSCE", type=str, help='Prefix for output files [default = "pathoSCE"]')
 
-    distanceGroup = parser.add_argument_group('Output options')
-    distanceGroup.add_argument('--output', default="pathoSCE", type=str, help='Prefix for output files [default = "pathoSCE"]')
-    distanceGroup.add_argument('--threshold', default=1, type=float, help='Maximum distance to consider [default = 1')
+    distanceGroup = parser.add_argument_group('Distance options')
+    distanceGroup.add_argument('--sparse', default=False, action='store_true', 
+                               help='Use sparse matrix calculations to speed up'
+                                    'distance calculation from --accessory [default = False"]')
+    distanceGroup.add_argument('--threshold', default=1, type=float, help='Maximum distance to consider [default = 1]')
 
     sceGroup = parser.add_argument_group('SCE options')
     sceGroup.add_argument('--weight-file', default=None, help="Weights for samples")
     sceGroup.add_argument('--maxIter', default=1000000, type=int, help="Maximum SCE iterations [default = 1000000]")
     sceGroup.add_argument('--nRepuSamp', default=5, type=int, help="Number of neighbours for calculating repulsion (1 or 5) [default = 5]")
     sceGroup.add_argument('--eta0', default=1, type=float, help="Learning rate [default = 1]")
+    sceGroup.add_argument('--bInit', default=0, type=bool, help="1 for over-exaggeration in early stage [default = 0]")
 
     kmerGroup = parser.add_argument_group('Sequence input options')
     distType = kmerGroup.add_mutually_exclusive_group()
@@ -99,7 +109,10 @@ def main():
             # accessory
             acc_mat = pd.read_csv(args.accessory, sep="\t", header=0, index_col=0, dtype=np.bool_)
             names = list(acc_mat.columns())
-            P = pdist(acc_mat.values, 'hamming')
+            if args.sparse:
+                P = sparseJaccard(acc_mat.values)
+            else:
+                P = denseJaccard(acc_mat.values)
 
         elif (args.sequence is not None or args.sketches is not None):
             if args.min_k >= args.max_k or args.min_k < 9 or args.max_k > 31 or args.k_step < 2:
@@ -166,7 +179,7 @@ def main():
             intersecting_samples = weights_in.index.intersection(names)
             weights = weights_in.loc[intersecting_samples]
     
-    embedding = np.array(wtsne(I, J, P, weights, args.maxIter, args.cpus, args.nRepuSamp, args.eta0))
+    embedding = np.array(wtsne(I, J, P, weights, args.maxIter, args.cpus, args.nRepuSamp, args.eta0, args.bInit))
     embedding = embedding.reshape(-1, 2)
     
     #***********************#

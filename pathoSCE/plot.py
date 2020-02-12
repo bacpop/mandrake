@@ -1,5 +1,5 @@
 # vim: set fileencoding=<utf-8> :
-# Copyright 2020 John Lee
+# Copyright 2020 John Lees
 
 import pandas as pd
 import plotly.express as px
