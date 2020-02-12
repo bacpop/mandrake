@@ -41,6 +41,26 @@ def readRfile(rFile):
     return (names, sequences)
 
 @jit(nopython=True)
+def distVecCutoff(P, length, cutoff):
+    dist_length = int(0.5*length*(length-1))
+    I_vec = np.empty((dist_length), dtype=np.int64)
+    J_vec = np.empty((dist_length), dtype=np.int64)
+    P_vec = np.empty((dist_length), dtype=np.int64)
+    
+    counter = 0
+    included = 0
+    for i in range(length):
+        for j in range(i + 1, length):
+            if cutoff == None or P[counter] < cutoff:
+                I_vec[counter] = i
+                J_vec[counter] = j
+                P_vec[counter] = P[counter]
+                included +=1
+            counter += 1
+
+    return(I_vec[0:included], J_vec[0:included], P_vec[0:included])
+
+@jit(nopython=True)
 def distVec(length):
     dist_length = int(0.5*length*(length-1))
     I_vec = np.empty((dist_length), dtype=np.int64)

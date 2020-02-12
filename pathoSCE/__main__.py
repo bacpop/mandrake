@@ -14,19 +14,15 @@ from SCE import wtsne
 
 from .__init__ import __version__
 
-from .sketchlib import readDBParams
-from .sketchlib import getSeqsInDb
-
-from .dists import sparseJaccard
-from .dists import denseJaccard
-
+from .sketchlib import readDBParams, getSeqsInDb
+from .dists import sparseJaccard, denseJaccard
 from .plot import plotSCE
-
-from .utils import distVec
+from .utils import distVec, distVecCutoff
 from .utils import readRfile
 
 # Run exits if fewer samples than this
 MIN_SAMPLES = 100
+DEFAULT_THRESHOLD = 1
 
 def get_options():
     import argparse
@@ -155,7 +151,10 @@ def main():
             sys.stderr.write("Distances calculated, but not running SCE\n")
         
         pd.Series(names).to_csv('names.txt', sep='\n', header=False, index=False)
-        I, J = distVec(len(names))
+        if args.threshold < default_threshold:
+            I, J, P = distVecCutoff(P, len(names), args.threshold)
+        else:
+            I, J = distVec(len(names))
         np.savez(args.output, I=I, J=J, P=P)
 
     # Load existing distances
