@@ -51,7 +51,7 @@ def distVecCutoff(P, length, cutoff):
     included = 0
     for i in range(length):
         for j in range(i + 1, length):
-            if cutoff == None or P[counter] > cutoff:
+            if cutoff == None or P[counter] < cutoff:
                 I_vec[counter] = i
                 J_vec[counter] = j
                 P_vec[counter] = P[counter]

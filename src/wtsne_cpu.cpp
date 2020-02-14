@@ -39,7 +39,7 @@ std::vector<double> wtsne(std::vector<long long>& I,
     // Check input
     if (I.size() != J.size() || I.size() != P.size() || J.size() != P.size())
     {
-        std::cerr << "Mismatching sizes in input vectors" << std::endl;
+        throw std::runtime_error("Mismatching sizes in input vectors");
     }
     long long nn = weights.size();
     long long ne = P.size();
@@ -138,9 +138,9 @@ std::vector<double> wtsne(std::vector<long long>& I,
         }
         Eq = (Eq * nsq + qsum) / (nsq + qcount);
 
-        if (iter % MAX(1,maxIter/1000)==0)
+        if (iter % MAX(1,maxIter/1000)==0 || iter==maxIter-1)
         {
-            fprintf(stderr, "%cOptimizing\t eta=%f Progress: %.1lf%%, Eq=%.20f", 13, eta, (double)iter+1 / maxIter * 100, 1.0/(c*nsq));
+            fprintf(stderr, "%cOptimizing\t eta=%f Progress: %.1lf%%, Eq=%.20f", 13, eta, (double)iter / maxIter * 100, 1.0/(c*nsq));
             fflush(stderr);
         }
     }

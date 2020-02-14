@@ -6,11 +6,12 @@ import os, sys
 
 import numpy as np
 import pandas as pd
-from scipy.spatial.distance import pdist
 from numba import jit
 
 import pp_sketchlib
 from SCE import wtsne
+from sklearn.manifold.t_sne import _joint_probabilities
+from scipy.spatial.distance import squareform
 
 from .__init__ import __version__
 
@@ -22,7 +23,7 @@ from .utils import readRfile
 
 # Run exits if fewer samples than this
 MIN_SAMPLES = 100
-DEFAULT_THRESHOLD = 0
+DEFAULT_THRESHOLD = 1.0
 
 def get_options():
     import argparse
@@ -56,11 +57,12 @@ def get_options():
     distanceGroup.add_argument('--sparse', default=False, action='store_true', 
                                help='Use sparse matrix calculations to speed up'
                                     'distance calculation from --accessory [default = False"]')
-    distanceGroup.add_argument('--threshold', default=1, type=float, help='Maximum distance to consider [default = 0]')
+    distanceGroup.add_argument('--threshold', default=DEFAULT_THRESHOLD, type=float, help='Maximum distance to consider [default = 0]')
 
     sceGroup = parser.add_argument_group('SCE options')
     sceGroup.add_argument('--weight-file', default=None, help="Weights for samples")
-    sceGroup.add_argument('--maxIter', default=1000000, type=int, help="Maximum SCE iterations [default = 1000000]")
+    sceGroup.add_argument('--maxIter', default=100000, type=int, help="Maximum SCE iterations [default = 100000]")
+    sceGroup.add_argument('--perplexity', default=15, type=float, help="Perplexity for distance to similarity conversion [default = 15]")
     sceGroup.add_argument('--nRepuSamp', default=5, type=int, help="Number of neighbours for calculating repulsion (1 or 5) [default = 5]")
     sceGroup.add_argument('--eta0', default=1, type=float, help="Learning rate [default = 1]")
     sceGroup.add_argument('--bInit', default=0, type=bool, help="1 for over-exaggeration in early stage [default = 0]")
@@ -151,10 +153,19 @@ def main():
             sys.stderr.write("Distances calculated, but not running SCE\n")
         
         pd.Series(names).to_csv('names.txt', sep='\n', header=False, index=False)
-        if args.threshold < DEFAULT_THRESHOLD:
-            I, J, P = distVecCutoff(P, len(names), args.threshold)
-        else:
+        if args.threshold == DEFAULT_THRESHOLD:
             I, J = distVec(len(names))
+        else:
+            I, J, P = distVecCutoff(P, len(names), args.threshold)
+        
+        # convert to similarity
+        P = _joint_probabilities(squareform(P), desired_perplexity=args.perplexity, verbose=0)
+        # SCE needs symmetric distances too
+        I_stack = np.concatenate((I, J), axis=None)
+        J_stack = np.concatenate((J, I), axis=None)
+        I = I_stack
+        J = J_stack
+        P = np.concatenate((P, P), axis=None)
         np.savez(args.output, I=I, J=J, P=P)
 
     # Load existing distances
