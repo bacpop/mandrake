@@ -8,10 +8,13 @@ import numpy as np
 import pandas as pd
 from numba import jit
 
-import pp_sketchlib
-from SCE import wtsne
+import hdbscan
 from sklearn.manifold.t_sne import _joint_probabilities
 from scipy.spatial.distance import squareform
+
+# C++ extensions
+import pp_sketchlib
+from SCE import wtsne
 
 from .__init__ import __version__
 
@@ -200,12 +203,21 @@ def main():
     
     embedding = np.array(wtsne(I, J, P, weights, args.maxIter, args.cpus, args.nRepuSamp, args.eta0, args.bInit))
     embedding = embedding.reshape(-1, 2)
+
+    #***********************#
+    #* run HDBSCAN             *#
+    #***********************#
+    hdb = hdbscan.HDBSCAN(algorithm='boruvka_balltree',
+                     min_samples = None,
+                     prediction_data = False,
+                     min_cluster_size = 5 
+                     ).fit(embedding)
     
     #***********************#
     #* plot embedding      *#
     #***********************#
     np.savetxt(args.output + ".embedding.txt", embedding)
-    plotSCE(embedding, names, args.output)
+    plotSCE(embedding, names, hdb.labels_, args.output)
 
     sys.exit(0)
 
