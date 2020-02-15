@@ -54,15 +54,18 @@ def get_options():
     ioGroup.add_argument('--output', default="pathoSCE", type=str, help='Prefix for output files [default = "pathoSCE"]')
 
     distanceGroup = parser.add_argument_group('Distance options')
+    distanceGroup.add_argument('--no-preprocessing', default=False, action='store_true',
+                                                     help="Turn of entropy pre-processing of distances")
+    distanceGroup.add_argument('--perplexity', default=15, type=float, help="Perplexity for distance to similarity "
+                                                                            "conversion [default = 15]")
     distanceGroup.add_argument('--sparse', default=False, action='store_true', 
                                help='Use sparse matrix calculations to speed up'
-                                    'distance calculation from --accessory [default = False"]')
+                                    'distance calculation from --accessory [default = False]')
     distanceGroup.add_argument('--threshold', default=DEFAULT_THRESHOLD, type=float, help='Maximum distance to consider [default = 0]')
 
     sceGroup = parser.add_argument_group('SCE options')
     sceGroup.add_argument('--weight-file', default=None, help="Weights for samples")
     sceGroup.add_argument('--maxIter', default=100000, type=int, help="Maximum SCE iterations [default = 100000]")
-    sceGroup.add_argument('--perplexity', default=15, type=float, help="Perplexity for distance to similarity conversion [default = 15]")
     sceGroup.add_argument('--nRepuSamp', default=5, type=int, help="Number of neighbours for calculating repulsion (1 or 5) [default = 5]")
     sceGroup.add_argument('--eta0', default=1, type=float, help="Learning rate [default = 1]")
     sceGroup.add_argument('--bInit', default=0, type=bool, help="1 for over-exaggeration in early stage [default = 0]")
@@ -159,7 +162,13 @@ def main():
             I, J, P = distVecCutoff(P, len(names), args.threshold)
         
         # convert to similarity
-        P = _joint_probabilities(squareform(P), desired_perplexity=args.perplexity, verbose=0)
+        if args.no_preprocessing:
+            P = 1 - P/np.max(P)
+        else:
+            # entropy preprocessing
+            P = _joint_probabilities(squareform(P, force='tomatrix', checks=False), 
+                                     desired_perplexity=args.perplexity, 
+                                     verbose=0)
         # SCE needs symmetric distances too
         I_stack = np.concatenate((I, J), axis=None)
         J_stack = np.concatenate((J, I), axis=None)
