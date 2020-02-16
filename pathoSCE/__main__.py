@@ -6,6 +6,7 @@ import os, sys
 
 import numpy as np
 import pandas as pd
+from scipy.spatial.distance import pdist, squareform
 from numba import jit
 
 import hdbscan
@@ -19,6 +20,7 @@ from SCE import wtsne
 from .__init__ import __version__
 
 from .sketchlib import readDBParams, getSeqsInDb
+from .pairsnp import runPairsnp
 from .dists import sparseJaccard, denseJaccard
 from .plot import plotSCE
 from .utils import distVec, distVecCutoff
@@ -83,6 +85,9 @@ def get_options():
     kmerGroup.add_argument('--sketch-size', default=10000, type=int, help='Kmer sketch size [default = 10000]')
     kmerGroup.add_argument('--min-count', default=20, type=int, help='Minimum k-mer count from reads [default = 20]')
 
+    alnGroup = parser.add_argument_group('Alignment options')
+    alnGroup.add_argument('--pairsnp-exe', default="pairsnp", type=str, help="Location of pairsnp executable (default='pairsnp')")
+
     other = parser.add_argument_group('Other')
     other.add_argument('--cpus',
                         type=int,
@@ -105,9 +110,13 @@ def main():
         sys.stderr.write("Calculating distances\n")
         if (args.alignment is not None):
             # alignment
-            # TODO replace this with call to C++ program 
-            sparse_matrix, consensus, seq_names = calculate_snp_matrix(fasta.file.name)
-            P = calculate_distance_matrix(sparse_matrix, consensus, "dist", False)
+            P, names = runPairsnp(args.pairsnp_exe,
+                                  args.alignment, 
+                                  args.output, 
+                                  threshold=args.threshold, 
+                                  threads=args.cpus)
+            # TODO: keep as sparse if possible later on.
+            P = squareform(P.todense(), force='tovector', checks=False)
         
         elif (args.accessory is not None):
             # accessory
