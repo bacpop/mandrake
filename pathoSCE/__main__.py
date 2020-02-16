@@ -86,7 +86,7 @@ def get_options():
     kmerGroup.add_argument('--min-count', default=20, type=int, help='Minimum k-mer count from reads [default = 20]')
 
     alnGroup = parser.add_argument_group('Alignment options')
-    alnGroup.add_argument('--max-snp-dist', default=np.Inf, help="Maximum SNP distance to consider.")
+    alnGroup.add_argument('--pairsnp-exe', default="pairsnp", type=str, help="Location of pairsnp executable (default='pairsnp')")
 
     other = parser.add_argument_group('Other')
     other.add_argument('--cpus',
@@ -110,10 +110,11 @@ def main():
         sys.stderr.write("Calculating distances\n")
         if (args.alignment is not None):
             # alignment
-            P, names = runPairsnp(args.alignment, 
-                                      args.output, 
-                                      distance=args.max_snp_dist, 
-                                      threads=args.cpus)
+            P, names = runPairsnp(args.pairsnp_exe,
+                                  args.alignment, 
+                                  args.output, 
+                                  threshold=args.threshold, 
+                                  threads=args.cpus)
             # TODO: keep as sparse if possible later on.
             P = squareform(P.todense(), force='tovector', checks=False)
         
