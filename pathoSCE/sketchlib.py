@@ -14,7 +14,7 @@ import h5py
 sketchlib_exe = "poppunk_sketch"
 
 def checkSketchlibVersion():
-    """Checks that sketchlib can be run, and returns versiob
+    """Checks that sketchlib can be run, and returns version
 
     Returns:
         version (str)
