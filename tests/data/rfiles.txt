@@ -1,0 +1,5 @@
+12673_8_24	./assemblies/12673_8#24.contigs_velvet.fa	./reads/12673_8#24.fq
+12673_8_26	./assemblies/12673_8#26.contigs_velvet.fa
+12673_8_27	./assemblies/12673_8#27.contigs_velvet.fa
+12673_8_28	./assemblies/12673_8#28.contigs_velvet.fa
+12673_8_29	./assemblies/12673_8#29.contigs_velvet.fa

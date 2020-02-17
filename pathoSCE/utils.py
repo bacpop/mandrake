@@ -22,7 +22,7 @@ def readRfile(rFile):
     """
     names = []
     sequences = []
-    with open(rFile, 'rU') as refFile:
+    with open(rFile, 'r') as refFile:
         for refLine in refFile:
             rFields = refLine.rstrip().split("\t")
             if len(rFields) < 2:
@@ -31,10 +31,11 @@ def readRfile(rFile):
                 sys.exit(1)
             
             names.append(rFields[0])
-            sample_files = []
-            for sequence in rFields[1:]:
-                sample_files.append(sequence)
-                sequences.append(sample_files)
+            sequences.append(list(rFields[1:]))
+            #sample_files = []
+            #for sequence in rFields[1:]:
+            #    sample_files.append(sequence)
+            #sequences.append(sample_files)
 
     if len(set(names)) != len(names):
         sys.stderr.write("Input contains duplicate names! All names must be unique\n")
@@ -47,7 +48,7 @@ def distVecCutoff(P, length, cutoff):
     dist_length = int(0.5*length*(length-1))
     I_vec = np.empty((dist_length), dtype=np.int64)
     J_vec = np.empty((dist_length), dtype=np.int64)
-    P_vec = np.empty((dist_length), dtype=np.int64)
+    P_vec = np.empty((dist_length), dtype=np.float64)
     
     counter = 0
     included = 0
