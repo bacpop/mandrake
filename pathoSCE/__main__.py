@@ -214,12 +214,12 @@ def main():
     embedding = embedding.reshape(-1, 2)
 
     #***********************#
-    #* run HDBSCAN             *#
+    #* run HDBSCAN         *#
     #***********************#
     hdb = hdbscan.HDBSCAN(algorithm='boruvka_balltree',
-                     min_samples = None,
-                     prediction_data = False,
-                     min_cluster_size = 5 
+                     min_cluster_size = 4,
+                     min_samples = 2,
+                     cluster_selection_epsilon = 0.2
                      ).fit(embedding)
     
     #***********************#
