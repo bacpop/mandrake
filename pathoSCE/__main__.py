@@ -6,29 +6,15 @@ import os, sys
 
 import numpy as np
 import pandas as pd
-from scipy.spatial.distance import pdist, squareform
-from numba import jit
-
-import hdbscan
-from sklearn.manifold.t_sne import _joint_probabilities
-from scipy.spatial.distance import squareform
-
-# C++ extensions
-import pp_sketchlib
-from SCE import wtsne
 
 from .__init__ import __version__
 
-from .sketchlib import readDBParams, getSeqsInDb
-from .pairsnp import runPairsnp
-from .dists import sparseJaccard, denseJaccard
+from .dists import pairSnpDists, accessoryDists, sketchlibDists, sketchlibDbDists
+from .sce import generateIJP, loadIJP, runSCE, saveEmbedding
+from .sce import DEFAULT_THRESHOLD
+from .clustering import runHDBSCAN
 from .plot import plotSCE
-from .utils import distVec, distVecCutoff
-from .utils import readRfile
 
-# Run exits if fewer samples than this
-MIN_SAMPLES = 100
-DEFAULT_THRESHOLD = 1.0
 
 def get_options():
     import argparse
@@ -109,24 +95,9 @@ def main():
     if args.distances is None:
         sys.stderr.write("Calculating distances\n")
         if (args.alignment is not None):
-            # alignment
-            P, names = runPairsnp(args.pairsnp_exe,
-                                  args.alignment, 
-                                  args.output, 
-                                  threshold=args.threshold, 
-                                  threads=args.cpus)
-            # TODO: keep as sparse if possible later on.
-            P = squareform(P.todense(), force='tovector', checks=False)
-        
+            P, names = pairSnpDists(args.pairsnp_exe, args.alignment, args.output, args.threshold, args.cpus)
         elif (args.accessory is not None):
-            # accessory
-            acc_mat = pd.read_csv(args.accessory, sep="\t", header=0, index_col=0, dtype=np.bool_)
-            names = list(acc_mat.columns())
-            if args.sparse:
-                P = sparseJaccard(acc_mat.values)
-            else:
-                P = denseJaccard(acc_mat.values)
-
+            P, names = accessoryDists(args.accessory, args.sparse)
         elif (args.sequence is not None or args.sketches is not None):
             if args.min_k >= args.max_k or args.min_k < 9 or args.max_k > 31 or args.k_step < 2:
                 sys.stderr.write("Minimum kmer size " + str(args.min_k) + " must be smaller than maximum kmer size " +
@@ -144,89 +115,59 @@ def main():
             
             if (args.sequence is not None):
                 # sequence
-                names, sequences = readRfile(args.sequence)
-                P = pp_sketchlib.constructAndQuery(args.output, 
-                                                        names, 
-                                                        sequences, 
-                                                        kmers, 
-                                                        int(round(args.sketch_size/64)), 
-                                                        args.min_count, 
-                                                        args.cpus)[:,dist_col]
+                P, names = sketchlibDists(args.sequence, 
+                                          args.output, 
+                                          kmers, 
+                                          args.sketch_size, 
+                                          args.min_count, 
+                                          dist_col, 
+                                          args.cpus)
 
             elif (args.sketches is not None):
                 # sketches
-                names = getSeqsInDb(args.sketches + ".h5")
-                kmers, sketch_size = readDBParams(args.sketches+ ".h5", kmers, int(round(args.sketch_size/64)))
-                P = pp_sketchlib.queryDatabase(args.sketches, args.sketches, names, names, kmers, args.cpus)[:,dist_col]
+                P, names = sketchlibDbDists(args.sketches, 
+                                            kmers, 
+                                            args.sketch_size, 
+                                            dist_col, 
+                                            args.cpus)
 
         #***********************#
         #* Set up for SCE and  *#
         #* save distances      *#
         #***********************#
-        if (len(names) < MIN_SAMPLES):
-            sys.stderr.write("Less than minimum number of samples used (" + str(MIN_SAMPLES) + ")\n")
-            sys.stderr.write("Distances calculated, but not running SCE\n")
-        
-        pd.Series(names).to_csv('names.txt', sep='\n', header=False, index=False)
-        if args.threshold == DEFAULT_THRESHOLD:
-            I, J = distVec(len(names))
-        else:
-            I, J, P = distVecCutoff(P, len(names), args.threshold)
-        
-        # convert to similarity
-        if args.no_preprocessing:
-            P = 1 - P/np.max(P)
-        else:
-            # entropy preprocessing
-            P = _joint_probabilities(squareform(P, force='tomatrix', checks=False), 
-                                     desired_perplexity=args.perplexity, 
-                                     verbose=0)
-        # SCE needs symmetric distances too
-        I_stack = np.concatenate((I, J), axis=None)
-        J_stack = np.concatenate((J, I), axis=None)
-        I = I_stack
-        J = J_stack
-        P = np.concatenate((P, P), axis=None)
-        np.savez(args.output, I=I, J=J, P=P)
+        I, J, P = generateIJP(names, 
+                              args.output, 
+                              args.threshold, 
+                              P, 
+                              not args.no_preprocessing, 
+                              args.perplexity)
 
     # Load existing distances
     else:
         sys.stderr.write("Loading distances\n")
-        npzfile = np.load(args.distances)
-        I = npzfile['I']
-        J = npzfile['J']
-        P = npzfile['P']
+        I, J, P = loadIJP(args.distances)
 
     #***********************#
     #* run SCE             *#
     #***********************#
     sys.stderr.write("Running SCE\n")
-    weights = np.ones((len(names)))
-    if (args.weight_file):
-        weights_in = pd.read_csv(args.weights, sep="\t", header=None, index_col=0)
-        if (weights_in.index.symmetric_difference(names)):
-            sys.stderr.write("Names in weights do not match sequences - using equal weights\n")
-        else:
-            intersecting_samples = weights_in.index.intersection(names)
-            weights = weights_in.loc[intersecting_samples]
-    
-    embedding = np.array(wtsne(I, J, P, weights, args.maxIter, args.cpus, args.nRepuSamp, args.eta0, args.bInit))
-    embedding = embedding.reshape(-1, 2)
+    SCE_opts = {'maxIter': args.maxIter,
+               'cpus': args.cpus,
+               'nRepuSamp': args.nRepuSamp,
+               'eta0': args.eta0,
+               'bInit': args.bInit}
+    embedding = runSCE(I, J, P, args.weight_file, names, SCE_opts)
+    saveEmbedding(embedding, args.output)
 
     #***********************#
     #* run HDBSCAN         *#
     #***********************#
-    hdb = hdbscan.HDBSCAN(algorithm='boruvka_balltree',
-                     min_cluster_size = 4,
-                     min_samples = 2,
-                     cluster_selection_epsilon = 0.2
-                     ).fit(embedding)
+    hdb_clusters = runHDBSCAN(embedding)
     
     #***********************#
     #* plot embedding      *#
     #***********************#
-    np.savetxt(args.output + ".embedding.txt", embedding)
-    plotSCE(embedding, names, hdb.labels_, args.output)
+    plotSCE(embedding, names, hdb_clusters, args.output)
 
     sys.exit(0)
 

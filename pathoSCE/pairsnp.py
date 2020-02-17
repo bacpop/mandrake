@@ -1,7 +1,8 @@
 # vim: set fileencoding=<utf-8> :
 # Copyright 2020 Gerry Tonkin-Hill
 
-'''pairsnp functions for determining pairwise SNP distances from a multiple sequence file'''
+'''pairsnp functions for determining pairwise SNP distances 
+from a multiple sequence file'''
 
 import sys
 import subprocess

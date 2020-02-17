@@ -1,6 +1,8 @@
 # vim: set fileencoding=<utf-8> :
 # Copyright 2020 John Lees
 
+'''Methods for making plots of embeddings'''
+
 import pandas as pd
 import numpy as np
 import plotly.express as px

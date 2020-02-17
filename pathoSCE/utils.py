@@ -1,6 +1,8 @@
 # vim: set fileencoding=<utf-8> :
 # Copyright 2020 John Lees
 
+'''Utilities for file reading and vector generation'''
+
 import sys, os
 import numpy as np
 from numba import jit
