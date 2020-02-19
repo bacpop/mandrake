@@ -8,6 +8,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
+
 def plotSCE(embedding, names, labels, output_prefix):
     not_noise = labels != -1
     not_noise_list = list(np.where(not_noise)[0])
@@ -63,4 +64,5 @@ def plotSCE(embedding, names, labels, output_prefix):
 
     # needs separate library for static image
     # fig.write_image(output_prefix + ".embedding.png")
-    fig.show()
+    # fig.show()
+    fig.write_html('plot_result.html')

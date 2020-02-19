@@ -8,50 +8,50 @@ import sys
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import squareform
-from sklearn.manifold.t_sne import _joint_probabilities
+from sklearn.manifold.t_sne import _joint_probabilities_nn, _joint_probabilities
+from scipy.sparse import coo_matrix, csr_matrix
 
 # C++ extensions
 from SCE import wtsne
 
-from .utils import distVec, distVecCutoff
+# from .utils import distVec, distVecCutoff
 
 # Run exits if fewer samples than this
 MIN_SAMPLES = 100
 DEFAULT_THRESHOLD = 1.0
 
-def generateIJP(names, output_prefix, threshold, P, preprocessing, perplexity):
+def generateIJP(names, output_prefix, P, preprocessing, perplexity):
     if (len(names) < MIN_SAMPLES):
         sys.stderr.write("Less than minimum number of samples used (" + str(MIN_SAMPLES) + ")\n")
         sys.stderr.write("Distances calculated, but not running SCE\n")
         sys.exit(1)
         
     pd.Series(names).to_csv(output_prefix + 'names.txt', sep='\n', header=False, index=False)
-    if threshold == DEFAULT_THRESHOLD:
-        I, J = distVec(len(names))
-    else:
-        I, J, P = distVecCutoff(P, len(names), threshold)
-        
+
     # convert to similarity
     P = distancePreprocess(P, preprocessing, perplexity)
 
-    # SCE needs symmetric distances too
-    I_stack = np.concatenate((I, J), axis=None)
-    J_stack = np.concatenate((J, I), axis=None)
-    I = I_stack
-    J = J_stack
-    P = np.concatenate((P, P), axis=None)
-
-    _saveDists(output_prefix, I, J, P)
-    return(I, J, P)
+    _saveDists(output_prefix, P.row, P.col, P.data)
+    return(P.row, P.col, P.data)
 
 def distancePreprocess(P, preprocessing, perplexity):
     if preprocessing:
-        # entropy preprocessing
-        P = _joint_probabilities(squareform(P, force='tomatrix', checks=False), 
-                                    desired_perplexity=perplexity, 
-                                    verbose=0)
+        # entropy preprocessing 
+        
+        P = P.todense()
+        P[P==0] = 1
+        P = _joint_probabilities(P, 
+                                desired_perplexity=perplexity, 
+                                verbose=0)
+        P = coo_matrix(squareform(P, force='tomatrix', checks=False))
+
+        # TODO: get sparse version working  
+        # P = _joint_probabilities_nn(csr_matrix(P), 
+        #                         desired_perplexity=perplexity,
+        #                         verbose=0)
     else:
-        P = 1 - P/np.max(P)
+        P.data = 1 - P.data/np.max(P.data)
+
     return P
 
 def loadIJP(npzfilename):

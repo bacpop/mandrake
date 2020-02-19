@@ -96,7 +96,9 @@ std::vector<double> wtsne(std::vector<long long>& I,
             long long j = J[e];
 
             for (long long r=0; r<nRepuSamp+1; r++)
-            {
+            {   
+                // fprintf(stderr, "r: %d", r);
+                // fflush(stderr);
                 long long k, l;
                 if (r==0)
                 {
