@@ -6,6 +6,8 @@
 import sys, os
 import numpy as np
 from numba import jit
+from sklearn.manifold import _utils as ut
+MACHINE_EPSILON = np.finfo(np.double).eps
 
 def readRfile(rFile):
     """Reads in files for sketching. Names and sequence, tab separated
@@ -43,37 +45,16 @@ def readRfile(rFile):
 
     return (names, sequences)
 
-# @jit(nopython=True)
-# def distVecCutoff(P, length, cutoff):
-#     dist_length = int(0.5*length*(length-1))
-#     I_vec = np.empty((dist_length), dtype=np.int64)
-#     J_vec = np.empty((dist_length), dtype=np.int64)
-#     P_vec = np.empty((dist_length), dtype=np.float64)
-    
-#     counter = 0
-#     included = 0
-#     for i in range(length):
-#         for j in range(i + 1, length):
-#             if cutoff == None or P[counter] < cutoff:
-#                 I_vec[counter] = i
-#                 J_vec[counter] = j
-#                 P_vec[counter] = P[counter]
-#                 included +=1
-#             counter += 1
-
-#     return(I_vec[0:included], J_vec[0:included], P_vec[0:included])
-
-# @jit(nopython=True)
-# def distVec(length):
-#     dist_length = int(0.5*length*(length-1))
-#     I_vec = np.empty((dist_length), dtype=np.int64)
-#     J_vec = np.empty((dist_length), dtype=np.int64)
-    
-#     counter = 0
-#     for i in range(length):
-#         for j in range(i + 1, length):
-#             I_vec[counter] = i
-#             J_vec[counter] = j
-#             counter += 1
-
-#     return(I_vec, J_vec)
+def sparse_joint_probabilities(D, perplexity):
+    nsamples = D.shape[0]
+    # calculate probabilities row by row
+    for i in range(nsamples):
+        temp = D[i,:].data
+        temp = np.full((1, len(temp)), temp, dtype=np.float32)
+        D[i,:].data = ut._binary_search_perplexity(
+                        temp, perplexity, False)
+    D = D + D.T
+    # Normalize the joint probability distribution
+    sum_P = np.maximum(D.sum(), MACHINE_EPSILON)
+    D /= sum_P
+    return(D)

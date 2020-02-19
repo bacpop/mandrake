@@ -8,8 +8,8 @@ import sys
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import squareform
-from sklearn.manifold.t_sne import _joint_probabilities_nn, _joint_probabilities
 from scipy.sparse import coo_matrix, csr_matrix
+from .utils import sparse_joint_probabilities
 
 # C++ extensions
 from SCE import wtsne
@@ -37,21 +37,13 @@ def generateIJP(names, output_prefix, P, preprocessing, perplexity):
 def distancePreprocess(P, preprocessing, perplexity):
     if preprocessing:
         # entropy preprocessing 
-        
-        P = P.todense()
-        P[P==0] = 1
-        P = _joint_probabilities(P, 
-                                desired_perplexity=perplexity, 
-                                verbose=0)
-        P = coo_matrix(squareform(P, force='tomatrix', checks=False))
-
-        # TODO: get sparse version working  
-        # P = _joint_probabilities_nn(csr_matrix(P), 
-        #                         desired_perplexity=perplexity,
-        #                         verbose=0)
+        P = distancePreprocess(P, preprocessing, perplexity)
     else:
         P.data = 1 - P.data/np.max(P.data)
-
+        P = P + D.T
+        # Normalize
+        sum_P = np.maximum(P.sum(), MACHINE_EPSILON)
+        P /= sum_P
     return P
 
 def loadIJP(npzfilename):
