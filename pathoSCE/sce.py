@@ -25,7 +25,7 @@ def generateIJP(names, output_prefix, threshold, P, preprocessing, perplexity):
         sys.stderr.write("Distances calculated, but not running SCE\n")
         sys.exit(1)
         
-    pd.Series(names).to_csv(output_prefix + 'names.txt', sep='\n', header=False, index=False)
+    pd.Series(names).to_csv(output_prefix + '.names.txt', sep='\n', header=False, index=False)
     if threshold == DEFAULT_THRESHOLD:
         I, J = distVec(len(names))
     else:
