@@ -6,6 +6,7 @@
 import sys, os
 import numpy as np
 from numba import jit
+from scipy.sparse import coo_matrix, csr_matrix
 from sklearn.manifold import _utils as ut
 MACHINE_EPSILON = np.finfo(np.double).eps
 
@@ -46,15 +47,26 @@ def readRfile(rFile):
     return (names, sequences)
 
 def sparse_joint_probabilities(D, perplexity):
+    D = csr_matrix(D)
     nsamples = D.shape[0]
+    print(D.size)
     # calculate probabilities row by row
+    conditional_P = np.empty(D.size, dtype=np.float32)
+    j=0
     for i in range(nsamples):
-        temp = D[i,:].data
-        temp = np.full((1, len(temp)), temp, dtype=np.float32)
-        D[i,:].data = ut._binary_search_perplexity(
-                        temp, perplexity, False)
-    D = D + D.T
+        temp = np.zeros((1, len(D[i,:].data)+1),  dtype=np.float32)
+        temp[0,1:] = D[i,:].data
+        temp = ut._binary_search_perplexity(temp, perplexity, False)[0][1:]
+        conditional_P[j:(j+temp.size)] = temp
+        j+=temp.size
+
+    P = csr_matrix((conditional_P, D.indices,
+                        D.indptr),
+                    shape=(nsamples, nsamples)).tocoo()
+
+    P = P + P.T 
     # Normalize the joint probability distribution
-    sum_P = np.maximum(D.sum(), MACHINE_EPSILON)
-    D /= sum_P
-    return(D)
+    sum_P = np.maximum(P.sum(), MACHINE_EPSILON)
+    P /= sum_P
+
+    return(P.tocoo())

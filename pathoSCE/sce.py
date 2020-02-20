@@ -8,7 +8,8 @@ import sys
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import squareform
-from scipy.sparse import coo_matrix, csr_matrix
+from scipy.sparse import coo_matrix
+from sklearn.manifold.t_sne import _joint_probabilities
 from .utils import sparse_joint_probabilities
 
 # C++ extensions
@@ -20,6 +21,8 @@ from SCE import wtsne
 MIN_SAMPLES = 100
 DEFAULT_THRESHOLD = 1.0
 
+MACHINE_EPSILON = np.finfo(np.double).eps
+
 def generateIJP(names, output_prefix, P, preprocessing, perplexity):
     if (len(names) < MIN_SAMPLES):
         sys.stderr.write("Less than minimum number of samples used (" + str(MIN_SAMPLES) + ")\n")
@@ -30,21 +33,22 @@ def generateIJP(names, output_prefix, P, preprocessing, perplexity):
 
     # convert to similarity
     P = distancePreprocess(P, preprocessing, perplexity)
-
+    print(P.row)
     _saveDists(output_prefix, P.row, P.col, P.data)
     return(P.row, P.col, P.data)
 
 def distancePreprocess(P, preprocessing, perplexity):
     if preprocessing:
         # entropy preprocessing 
-        P = distancePreprocess(P, preprocessing, perplexity)
+        P = sparse_joint_probabilities(P, perplexity)
     else:
         P.data = 1 - P.data/np.max(P.data)
-        P = P + D.T
+        P = P + P.T
         # Normalize
         sum_P = np.maximum(P.sum(), MACHINE_EPSILON)
         P /= sum_P
-    return P
+ 
+    return(P)
 
 def loadIJP(npzfilename):
     npzfile = np.load(npzfilename)
