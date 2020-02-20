@@ -104,7 +104,7 @@ def main():
                                     args.kNN, 
                                     args.cpus)
         elif (args.accessory is not None):
-            P, names = accessoryDists(args.accessory, args.sparse, args.kNN)
+            P, names = accessoryDists(args.accessory, args.sparse, args.kNN, args.threshold)
         elif (args.sequence is not None or args.sketches is not None):
             if args.min_k >= args.max_k or args.min_k < 9 or args.max_k > 31 or args.k_step < 2:
                 sys.stderr.write("Minimum kmer size " + str(args.min_k) + " must be smaller than maximum kmer size " +

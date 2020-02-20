@@ -17,7 +17,7 @@ from .pairsnp import runPairsnp
 from .sketchlib import readDBParams, getSeqsInDb
 from .utils import readRfile
 
-def accessoryDists(accessory_file, sparse, kNN):
+def accessoryDists(accessory_file, sparse, kNN, threshold):
     acc_mat = pd.read_csv(accessory_file, sep="\t", header=0, index_col=0)
     names = list(acc_mat.columns)
     if kNN is not None:
@@ -75,17 +75,22 @@ def sketchlibDbDists(sketch_db, default_kmers, default_sketchsize, dist_col, kNN
 
 # Internal functions
 
-def _sparseJaccard(m):
+def _sparseJaccard(m, threshold=None):
     sm = csc_matrix(m)
     cTT = sm*sm.transpose()
     cTT = cTT.todense()
     temp = 1-np.eye(sm.shape[0])
     di = np.diag(cTT)
     d = 1-(cTT/((temp*di).transpose() + temp*di - cTT))
+    if threshold is not None:
+        d[d>threshold=None] = 0
     return coo_matrix(d)
 
-def _denseJaccard(m):
-    return(coo_matrix(squareform(pdist(m, 'jaccard'))))
+def _denseJaccard(m, threshold=None):
+    d = squareform(pdist(m, 'jaccard'))
+    if threshold is not None:
+        d[d>threshold=None] = 0
+    return(coo_matrix(d))
 
 def _kNNJaccard(m, k):
     neigh = NearestNeighbors(n_neighbors=k, metric='jaccard')
