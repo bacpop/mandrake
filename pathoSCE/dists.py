@@ -83,13 +83,13 @@ def _sparseJaccard(m, threshold=None):
     di = np.diag(cTT)
     d = 1-(cTT/((temp*di).transpose() + temp*di - cTT))
     if threshold is not None:
-        d[d>threshold=None] = 0
+        d[d>threshold] = 0
     return coo_matrix(d)
 
 def _denseJaccard(m, threshold=None):
     d = squareform(pdist(m, 'jaccard'))
     if threshold is not None:
-        d[d>threshold=None] = 0
+        d[d>threshold] = 0
     return(coo_matrix(d))
 
 def _kNNJaccard(m, k):
