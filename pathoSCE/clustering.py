@@ -1,7 +1,7 @@
 # vim: set fileencoding=<utf-8> :
 # Copyright 2020 John Lees and Gerry Tonkin-Hill
 
-'''Methods for clustering on embedding
+'''Methods for clustering using an embedding as input
 '''
 
 import hdbscan

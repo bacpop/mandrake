@@ -39,7 +39,7 @@ def pairSnpDists(pairsnp_exe, alignment, output, threshold, kNN, cpus):
 
     return P, names
 
-def sketchlibDists(sequence_file, output, kmers, sketch_size, min_count, dist_col, kNN, cpus):
+def sketchlibDists(sequence_file, output, kmers, sketch_size, min_count, dist_col, kNN, threshold, cpus):
     names, sequences = readRfile(sequence_file)
     P = pp_sketchlib.constructAndQuery(output, 
                                         names, 
@@ -50,20 +50,24 @@ def sketchlibDists(sequence_file, output, kmers, sketch_size, min_count, dist_co
                                         cpus)[:,dist_col]
     # TODO: replace with sparse version
     if kNN is not None:
-        P = _KNN_conv(P)
+        P = _KNN_conv(P, k=kNN)
+    if threshold is not None:
+        P= _threshold_conv(P, threshold=threshold)
     else:
         P = coo_matrix(squareform(P, force='tomatrix', checks=False))
 
     return P, names
 
-def sketchlibDbDists(sketch_db, default_kmers, default_sketchsize, dist_col, kNN, cpus):
+def sketchlibDbDists(sketch_db, default_kmers, default_sketchsize, dist_col, kNN, threshold, cpus):
     names = getSeqsInDb(sketch_db + ".h5")
     kmers, sketch_size = readDBParams(sketch_db + ".h5", default_kmers, int(round(default_sketchsize/64)))
     P = pp_sketchlib.queryDatabase(sketch_db, sketch_db, names, names, kmers, cpus)[:,dist_col]
     
     # TODO: replace with sparse version
     if kNN is not None:
-        P = _KNN_conv(P)
+        P = _KNN_conv(P, k=kNN)
+    if threshold is not None:
+        P= _threshold_conv(P, threshold=threshold)
     else:
         P = coo_matrix(squareform(P, force='tomatrix', checks=False))
 
@@ -94,12 +98,18 @@ def _kNNJaccard(m, k):
 
     return(d)
 
-# TODO: Remove. This is a temporary function used until we've updated the other distance functions
+# TODO: Remove these functions. This is a temporary function used until we've updated the other distance functions
 def _KNN_conv(P, k=None):
     P = squareform(P, force='tomatrix', checks=False)
     for i in range(P.shape[0]):
         m = np.max(P[i,np.argpartition(P[i,:], k)])
         P[i,P[i,:]>m] = 0
 
+    P = coo_matrix(P)
+    return(P)
+
+def _threshold_conv(P, threshold=None):
+    P = squareform(P, force='tomatrix', checks=False)
+    P[P<=threshold] = 0
     P = coo_matrix(P)
     return(P)

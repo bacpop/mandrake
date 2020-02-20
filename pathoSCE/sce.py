@@ -5,6 +5,7 @@
 and loading results'''
 
 import sys
+from functools import partial
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import squareform
@@ -14,6 +15,11 @@ from .utils import sparse_joint_probabilities
 
 # C++ extensions
 from SCE import wtsne
+try:
+    from SCE import wtsne_gpu
+    gpu_available = True
+except ImportError:
+    gpu_available = False
 
 # from .utils import distVec, distVecCutoff
 
@@ -57,7 +63,7 @@ def loadIJP(npzfilename):
     P = npzfile['P']
     return I, J, P
 
-def runSCE(I, J, P, weight_file, names, SCE_opts):
+def runSCE(I, J, P, weight_file, names, SCE_opts, use_gpu=False):
     weights = np.ones((len(names)))
     if (weight_file):
         weights_in = pd.read_csv(weights, sep="\t", header=None, index_col=0)
@@ -67,12 +73,26 @@ def runSCE(I, J, P, weight_file, names, SCE_opts):
             intersecting_samples = weights_in.index.intersection(names)
             weights = weights_in.loc[intersecting_samples]
     
-    embedding = np.array(wtsne(I, J, P, weights, 
-                               SCE_opts['maxIter'], 
-                               SCE_opts['cpus'], 
-                               SCE_opts['nRepuSamp'], 
-                               SCE_opts['eta0'], 
-                               SCE_opts['bInit']))
+    # Set up function call with either CPU or GPU
+    if use_gpu and gpu_available:
+        sys.stderr.write("Running on GPU\n")
+        wtsne_call = partial(wtsne_gpu, 
+                             maxIter = SCE_opts['maxIter'], 
+                             blockSize = 128, blockCount = 128,
+                             nRepuSamp = SCE_opts['nRepuSamp'],
+                             eta0 = SCE_opts['eta0'],
+                             bInit = SCE_opts['bInit'])
+    else:
+        sys.stderr.write("Running on CPU\n")
+        wtsne_call = partial(wtsne,
+                             maxIter = SCE_opts['maxIter'], 
+                             workerCount = SCE_opts['cpus'],
+                             nRepuSamp = SCE_opts['nRepuSamp'],
+                             eta0 = SCE_opts['eta0'],
+                             bInit = SCE_opts['bInit'])
+
+    # Run embedding with C++ extension
+    embedding = np.array(wtsne_call(I, J, P, weights))
     embedding = embedding.reshape(-1, 2)
     return(embedding)
 

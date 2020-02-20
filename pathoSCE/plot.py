@@ -64,5 +64,5 @@ def plotSCE(embedding, names, labels, output_prefix):
 
     # needs separate library for static image
     # fig.write_image(output_prefix + ".embedding.png")
-    # fig.show()
-    fig.write_html('plot_result.html')
+    fig.write_html(output_prefix + '_SCE_result.html')
+
