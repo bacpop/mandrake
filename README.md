@@ -30,3 +30,6 @@ pathoSCE --sketches sketchlib --output sketch --use-accessory --cpus 2 --nRepuSa
 ```
 This would use a file `sketchlib.h5` created by [pp-sketchlib](https://github.com/johnlees/pp-sketchlib)
 to calculate accessory distances. Output can be found in `sketch_SCE_result.html`.
+
+To use the GPU accelerated code add the `--use-gpu` flag. If not available in the library, the
+CPU code will be used instead.

@@ -79,6 +79,7 @@ def runSCE(I, J, P, weight_file, names, SCE_opts, use_gpu=False):
     
     # Set up function call with either CPU or GPU
     if use_gpu and gpu_available:
+        sys.stderr.write("Running on GPU\n")
         wtsne_call = partial(wtsne_gpu, 
                              maxIter = SCE_opts['maxIter'], 
                              blockSize = 128, blockCount = 128,
@@ -86,6 +87,7 @@ def runSCE(I, J, P, weight_file, names, SCE_opts, use_gpu=False):
                              eta0 = SCE_opts['eta0'],
                              bInit = SCE_opts['bInit'])
     else:
+        sys.stderr.write("Running on CPU\n")
         wtsne_call = partial(wtsne,
                              maxIter = SCE_opts['maxIter'], 
                              workerCount = SCE_opts['cpus'],
