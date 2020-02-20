@@ -11,10 +11,6 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
-
 #include "wtsne.hpp"
 
 std::vector<double> wtsne_init(const std::vector<long long>& I,

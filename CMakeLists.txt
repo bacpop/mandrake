@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(SCE)
+project(SCE LANUGAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 
 # Variable definitions
@@ -23,6 +23,26 @@ endif()
 
 # Add libraries
 find_package(pybind11 REQUIRED)
+find_package(GSL REQUIRED)
+find_package(OpenMP REQUIRED)
+
+# Check for CUDA
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+    message(STATUS "CUDA found, compiling CPU and GPU code")
+    
+    enable_language(CUDA)
+    set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)    
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGPU_AVAILABLE")
+    set(CMAKE_NVCC_FLAGS "--cudart static -O3 --relocatable-device-code=false \
+                          -gencode arch=compute_35,code=compute_35 -gencode \
+                          arch=compute_35,code=sm_35 -gencode arch=compute_50,code=sm_50")
+    
+    set(TARGET_FILES src/wtsne_gpu.cu)
+else()
+    message(STATUS "CUDA not found, compiling CPU code only")
+endif()
+
 
 # Set paths for non standard lib/ and include/ locations
 if(DEFINED ENV{CONDA_PREFIX})
@@ -31,5 +51,7 @@ if(DEFINED ENV{CONDA_PREFIX})
     link_directories($ENV{CONDA_PREFIX}/lib/intel64)
 endif()
 
-pybind11_add_module("${TARGET_NAME}" src/wtsne_cpu.cpp)
-target_link_libraries("${TARGET_NAME}" PRIVATE m gsl gslcblas gomp)
+set(TARGET_FILES "${TARGET_FILES}" src/wtsne_cpu.cpp src/python_bindings.cpp)
+
+pybind11_add_module("${TARGET_NAME}" "${TARGET_FILES}")
+target_link_libraries("${TARGET_NAME}" PRIVATE m GSL::gsl GSL::gslcblas OpenMP::OpenMP_CXX gfortran rt)

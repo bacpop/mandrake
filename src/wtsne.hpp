@@ -24,4 +24,27 @@
 std::vector<double> wtsne_init(const std::vector<long long>& I,
            const std::vector<long long>& J,
            std::vector<double>& P,
-           std::vector<double>& weights)
+           std::vector<double>& weights);
+
+std::vector<double> wtsne(std::vector<long long>& I,
+           std::vector<long long>& J,
+           std::vector<double>& P,
+           std::vector<double>& weights,
+           long long maxIter, 
+           long long workerCount, 
+           long long nRepuSamp,
+           double eta0,
+           bool bInit);
+
+std::vector<double> wtsne_gpu(
+	std::vector<long long>& I,
+	std::vector<long long>& J,
+	std::vector<double>& P,
+	std::vector<double>& weights,
+	long long maxIter, 
+	long long workerCount,
+	int blockSize, 
+	int blockCount,
+	long long nRepuSamp,
+	double eta0,
+	bool bInit);
