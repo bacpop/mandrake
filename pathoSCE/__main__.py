@@ -55,6 +55,8 @@ def get_options():
     distanceGroup.add_argument('--threshold', default=DEFAULT_THRESHOLD, type=float, help='Maximum distance to consider [default = 0]')
 
     sceGroup = parser.add_argument_group('SCE options')
+    sceGroup.add_argument('--use-gpu', default=False, action='store_true',
+                          help="Run SCE on the GPU. If this fails, the CPU will be used [default = False]")
     sceGroup.add_argument('--weight-file', default=None, help="Weights for samples")
     sceGroup.add_argument('--maxIter', default=100000, type=int, help="Maximum SCE iterations [default = 100000]")
     sceGroup.add_argument('--nRepuSamp', default=5, type=int, help="Number of neighbours for calculating repulsion (1 or 5) [default = 5]")
@@ -156,7 +158,7 @@ def main():
                'nRepuSamp': args.nRepuSamp,
                'eta0': args.eta0,
                'bInit': args.bInit}
-    embedding = runSCE(I, J, P, args.weight_file, names, SCE_opts)
+    embedding = runSCE(I, J, P, args.weight_file, names, SCE_opts, args.use_gpu)
     saveEmbedding(embedding, args.output)
 
     #***********************#

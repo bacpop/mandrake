@@ -56,7 +56,7 @@ std::vector<double> wtsne(std::vector<long long>& I,
            bool bInit)
 {
     // Check input
-    Y = wtsne_init(I, J, P, weights);
+    std::vector<double> Y = wtsne_init(I, J, P, weights);
     long long nn = weights.size();
     long long ne = P.size();
 
@@ -153,22 +153,5 @@ std::vector<double> wtsne(std::vector<long long>& I,
     gsl_rng_free(gsl_r_ne);
 
     return(Y);
-}
-
-PYBIND11_MODULE(SCE, m)
-{
-  m.doc() = "Stochastic cluster embedding";
-
-  // Exported functions
-  m.def("wtsne", &wtsne, py::return_value_policy::take_ownership, "Run stochastic cluster embedding", 
-        py::arg("I_vec"),
-        py::arg("J_vec"),
-        py::arg("P_vec"),
-        py::arg("weights"),
-        py::arg("maxIter"),
-        py::arg("workerCount") = 1,
-        py::arg("nRepuSamp") = 5,
-        py::arg("eta0") = 1,
-        py::arg("bInit") = 0);
 }
 

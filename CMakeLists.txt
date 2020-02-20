@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(SCE LANUGAGES CXX)
+project(SCE)
 set(CMAKE_CXX_STANDARD 11)
 
 # Variable definitions
@@ -27,17 +27,20 @@ find_package(GSL REQUIRED)
 find_package(OpenMP REQUIRED)
 
 # Check for CUDA
+include(check_language)
 check_language(CUDA)
-if(CMAKE_CUDA_COMPILER)
+if(CMAKE_CUDA_HOST_COMPILER)
     message(STATUS "CUDA found, compiling CPU and GPU code")
     
     enable_language(CUDA)
-    set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)    
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGPU_AVAILABLE")
-    set(CMAKE_NVCC_FLAGS "--cudart static -O3 --relocatable-device-code=false \
+    set_property(TARGET SCE 
+                 PROPERTY CUDA_SEPARABLE_COMPILATION ON) 
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGPU_AVAILABLE")
+    set(CMAKE_CUDA_FLAGS "--cudart static -O3 --relocatable-device-code=false \
                           -gencode arch=compute_35,code=compute_35 -gencode \
                           arch=compute_35,code=sm_35 -gencode arch=compute_50,code=sm_50")
     
+    add_compile_definitions(GPU_AVAILABLE) 
     set(TARGET_FILES src/wtsne_gpu.cu)
 else()
     message(STATUS "CUDA not found, compiling CPU code only")

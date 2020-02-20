@@ -112,7 +112,7 @@ setup(
             ]
     },
     install_requires=['numpy'],
-    ext_modules=[CMakeExtension('pp_sketchlib')],
+    ext_modules=[CMakeExtension('SCE')],
     cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False
 )
