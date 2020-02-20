@@ -81,7 +81,6 @@ def runSCE(I, J, P, weight_file, names, SCE_opts, use_gpu=False):
     if use_gpu and gpu_available:
         wtsne_call = partial(wtsne_gpu, 
                              maxIter = SCE_opts['maxIter'], 
-                             workerCount = 1,
                              blockSize = 128, blockCount = 128,
                              nRepuSamp = SCE_opts['nRepuSamp'],
                              eta0 = SCE_opts['eta0'],

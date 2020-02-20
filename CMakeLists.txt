@@ -26,27 +26,6 @@ find_package(pybind11 REQUIRED)
 find_package(GSL REQUIRED)
 find_package(OpenMP REQUIRED)
 
-# Check for CUDA
-include(check_language)
-check_language(CUDA)
-if(CMAKE_CUDA_HOST_COMPILER)
-    message(STATUS "CUDA found, compiling CPU and GPU code")
-    
-    enable_language(CUDA)
-    set_property(TARGET SCE 
-                 PROPERTY CUDA_SEPARABLE_COMPILATION ON) 
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGPU_AVAILABLE")
-    set(CMAKE_CUDA_FLAGS "--cudart static -O3 --relocatable-device-code=false \
-                          -gencode arch=compute_35,code=compute_35 -gencode \
-                          arch=compute_35,code=sm_35 -gencode arch=compute_50,code=sm_50")
-    
-    add_compile_definitions(GPU_AVAILABLE) 
-    set(TARGET_FILES src/wtsne_gpu.cu)
-else()
-    message(STATUS "CUDA not found, compiling CPU code only")
-endif()
-
-
 # Set paths for non standard lib/ and include/ locations
 if(DEFINED ENV{CONDA_PREFIX})
     include_directories($ENV{CONDA_PREFIX}/include)
@@ -54,7 +33,37 @@ if(DEFINED ENV{CONDA_PREFIX})
     link_directories($ENV{CONDA_PREFIX}/lib/intel64)
 endif()
 
-set(TARGET_FILES "${TARGET_FILES}" src/wtsne_cpu.cpp src/python_bindings.cpp)
+# Check for CUDA and compiles GPU library
+include(CheckLanguage)
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+    message(STATUS "CUDA found, compiling both GPU and CPU code")
+    
+    enable_language(CUDA)
+    set(CMAKE_CUDA_FLAGS "--cudart static --relocatable-device-code=false -gencode arch=compute_35,code=compute_35 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_50,code=sm_50")
+    
+    add_compile_definitions(GPU_AVAILABLE)
+    add_library(CUDA_LIB STATIC src/wtsne_gpu.cu)
+    set_property(TARGET CUDA_LIB 
+                 PROPERTY POSITION_INDEPENDENT_CODE ON
+                 #CUDA_SEPARABLE_COMPILATION ON
+                 CUDA_VISIBILITY_PRESET "hidden")
+else()
+    message(STATUS "CUDA not found, compiling CPU code only")
+endif()
 
-pybind11_add_module("${TARGET_NAME}" "${TARGET_FILES}")
-target_link_libraries("${TARGET_NAME}" PRIVATE m GSL::gsl GSL::gslcblas OpenMP::OpenMP_CXX gfortran rt)
+# Compile CPU library
+add_library("${TARGET_NAME}" MODULE src/wtsne_cpu.cpp src/python_bindings.cpp)
+set_target_properties("${TARGET_NAME}" PROPERTIES 
+    CXX_VISIBILITY_PRESET "hidden"
+    INTERPROCEDURAL_OPTIMIZATION TRUE
+    PREFIX "${PYTHON_MODULE_PREFIX}"
+    SUFFIX "${PYTHON_MODULE_EXTENSION}"
+)
+
+#pybind11_add_module("${TARGET_NAME}" "${TARGET_FILES}")
+if(CMAKE_CUDA_COMPILER)
+    target_link_libraries("${TARGET_NAME}" PRIVATE CUDA_LIB)
+endif()
+target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module GSL::gsl GSL::gslcblas OpenMP::OpenMP_CXX gfortran m rt)
+

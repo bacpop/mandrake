@@ -34,128 +34,7 @@ CheckCudaErrorAux(const char *, unsigned, const char *, cudaError_t);
 	exit(1);
 }
 
-/****************************
-* Functions to move data    *
-* and functions on/off GPUs *
-****************************/
 
-// Moves arrays onto GPU
-void allocateDataAndCopy2Device(float* d_Y, float* d_I, float* d_J, float* d_Eq,
-								std::vector<double>& Y,
-								std::vector<double>& I,
-								std::vector<double>& J,
-								long long nn, long long ne,
-								float* d_qsum, int* d_qcount, 
-								float* d_qsum_total, float* d_qcount_total,
-								int nWorker) {
-	CUDA_CHECK_RETURN(cudaMalloc((void**)&d_Y, sizeof(float)*nn*DIM));
-	CUDA_CHECK_RETURN(cudaMalloc((void** )&d_I, sizeof(long long) * ne));
-	CUDA_CHECK_RETURN(cudaMalloc((void** )&d_J, sizeof(long long) * ne));
-
-	CUDA_CHECK_RETURN(
-			cudaMemcpy(d_Y, Y.data(), sizeof(float)*nn*DIM, cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-			cudaMemcpy(d_I, I.data(), sizeof(long long) * ne, cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-			cudaMemcpy(d_J, J.data(), sizeof(long long) * ne, cudaMemcpyHostToDevice));
-
-	float Eq = 1;
-	CUDA_CHECK_RETURN(cudaMalloc((void** )&d_Eq, sizeof(float)));
-	CUDA_CHECK_RETURN(
-			cudaMemcpy(d_Eq, &Eq, sizeof(float), cudaMemcpyHostToDevice));
-
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_qsum, nWorker * sizeof(float)));
-	CUDA_CHECK_RETURN(
-			cudaMalloc((void ** )&d_qcount, nWorker * sizeof(long long)));
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_qsum_total, sizeof(float)));
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_qcount_total, sizeof(long long)));
-}
-
-void setupDiscreteDistribution(curandState *d_nnStates1, curandState *d_nnStates2, curandState *d_neStates,
-	std::vector<double>& P, std::vector<double>& weights,
-	gsl_ran_discrete_t *d_gsl_de, gsl_ran_discrete_t *d_gsl_dn,
-	double *d_gsl_de_F, double *d_gsl_dn_F,
-	size_t *d_gsl_de_A, size_t *d_gsl_dn_A,
-	int blockCount, int blockSize, long long nn, long long ne)
-{
-	CUDA_CHECK_RETURN(
-	cudaMalloc((void ** )&d_nnStates1,
-	blockCount * blockSize * sizeof(curandState)));
-	CUDA_CHECK_RETURN(
-	cudaMalloc((void ** )&d_nnStates2,
-	blockCount * blockSize * sizeof(curandState)));
-	CUDA_CHECK_RETURN(
-	cudaMalloc((void ** )&d_neStates,
-	blockCount * blockSize * sizeof(curandState)));
-	setupCURANDKernel<<<blockCount, blockSize>>>(d_nnStates1, d_nnStates2,
-	d_neStates);
-
-	// These are free'd at the end of the function
-	gsl_rng_env_setup();
-	gsl_ran_discrete_t * gsl_de = gsl_ran_discrete_preproc(ne, P.data());
-	gsl_ran_discrete_t * gsl_dn = gsl_ran_discrete_preproc(nn, weights.data());
-
-	CUDA_CHECK_RETURN(
-	cudaMalloc((void ** )&d_gsl_de, sizeof(gsl_ran_discrete_t)));
-	CUDA_CHECK_RETURN(
-	cudaMalloc((void ** )&d_gsl_dn, sizeof(gsl_ran_discrete_t)));
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_gsl_de_A, sizeof(size_t) * ne));
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_gsl_de_F, sizeof(double) * ne));
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_gsl_dn_A, sizeof(size_t) * nn));
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_gsl_dn_F, sizeof(double) * nn));
-	CUDA_CHECK_RETURN(
-	cudaMemcpy(d_gsl_de, gsl_de, sizeof(gsl_ran_discrete_t),
-	cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-	cudaMemcpy(d_gsl_de_A, gsl_de->A, sizeof(size_t) * ne,
-	cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-	cudaMemcpy(d_gsl_de_F, gsl_de->F, sizeof(double) * ne,
-	cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-	cudaMemcpy(d_gsl_dn, gsl_dn, sizeof(gsl_ran_discrete_t),
-	cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-	cudaMemcpy(d_gsl_dn_A, gsl_dn->A, sizeof(size_t) * nn,
-	cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-	cudaMemcpy(d_gsl_dn_F, gsl_dn->F, sizeof(double) * nn,
-	cudaMemcpyHostToDevice));
-	assembleGSLKernel<<<1, 1>>>(d_gsl_de, d_gsl_de_A, d_gsl_de_F, d_gsl_dn,
-	d_gsl_dn_A, d_gsl_dn_F);
-	gsl_ran_discrete_free(gsl_de);
-	gsl_ran_discrete_free(gsl_dn);
-}
-
-// Frees memory on GPU
-void freeDataInDevice(float* d_Y, float* d_I, float* d_J,
-	float* d_qsum, int* d_qcount, 
-	float* d_qsum_total, float* d_qcount_total,
-	curandState *d_nnStates1, curandState *d_nnStates2, curandState *d_neStates,
-	gsl_ran_discrete_t *d_gsl_de, gsl_ran_discrete_t *d_gsl_dn,
-	double *d_gsl_de_F, double *d_gsl_dn_F,
-	size_t *d_gsl_de_A, size_t *d_gsl_dn_A)
-{
-	// data
-	CUDA_CHECK_RETURN(cudaFree(d_Y));
-	CUDA_CHECK_RETURN(cudaFree(d_I));
-	CUDA_CHECK_RETURN(cudaFree(d_J));
-	CUDA_CHECK_RETURN(cudaFree(d_qsum));
-	CUDA_CHECK_RETURN(cudaFree(d_qcount));
-	CUDA_CHECK_RETURN(cudaFree(d_qsum_total));
-	CUDA_CHECK_RETURN(cudaFree(d_qcount_total));
-
-	// rng
-	CUDA_CHECK_RETURN(cudaFree(d_nnStates1));
-	CUDA_CHECK_RETURN(cudaFree(d_nnStates2));
-	CUDA_CHECK_RETURN(cudaFree(d_neStates));
-	CUDA_CHECK_RETURN(cudaFree(d_gsl_de_A));
-	CUDA_CHECK_RETURN(cudaFree(d_gsl_de_F));
-	CUDA_CHECK_RETURN(cudaFree(d_gsl_de));
-	CUDA_CHECK_RETURN(cudaFree(d_gsl_dn_A));
-	CUDA_CHECK_RETURN(cudaFree(d_gsl_dn_F));
-	CUDA_CHECK_RETURN(cudaFree(d_gsl_dn));
-}
 
 /****************************
 * Functions run on the      *
@@ -284,6 +163,130 @@ __global__ void updateEqKernel(float *d_Eq, float *d_qsum_total,
 }
 
 /****************************
+* Functions to move data    *
+* and functions on/off GPUs *
+****************************/
+
+// Moves arrays onto GPU
+void allocateDataAndCopy2Device(float* d_Y, long long* d_I, long long* d_J, float* d_Eq,
+								std::vector<double>& Y,
+								std::vector<long long>& I,
+								std::vector<long long>& J,
+								long long nn, long long ne,
+								float* d_qsum, int* d_qcount, 
+								float* d_qsum_total, int* d_qcount_total,
+								int nWorker) {
+	CUDA_CHECK_RETURN(cudaMalloc((void**)&d_Y, sizeof(float)*nn*DIM));
+	CUDA_CHECK_RETURN(cudaMalloc((void** )&d_I, sizeof(long long) * ne));
+	CUDA_CHECK_RETURN(cudaMalloc((void** )&d_J, sizeof(long long) * ne));
+
+	CUDA_CHECK_RETURN(
+			cudaMemcpy(d_Y, Y.data(), sizeof(float)*nn*DIM, cudaMemcpyHostToDevice));
+	CUDA_CHECK_RETURN(
+			cudaMemcpy(d_I, I.data(), sizeof(long long) * ne, cudaMemcpyHostToDevice));
+	CUDA_CHECK_RETURN(
+			cudaMemcpy(d_J, J.data(), sizeof(long long) * ne, cudaMemcpyHostToDevice));
+
+	float Eq = 1;
+	CUDA_CHECK_RETURN(cudaMalloc((void** )&d_Eq, sizeof(float)));
+	CUDA_CHECK_RETURN(
+			cudaMemcpy(d_Eq, &Eq, sizeof(float), cudaMemcpyHostToDevice));
+
+	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_qsum, nWorker * sizeof(float)));
+	CUDA_CHECK_RETURN(
+			cudaMalloc((void ** )&d_qcount, nWorker * sizeof(long long)));
+	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_qsum_total, sizeof(float)));
+	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_qcount_total, sizeof(long long)));
+}
+
+void setupDiscreteDistribution(curandState *d_nnStates1, curandState *d_nnStates2, curandState *d_neStates,
+	std::vector<double>& P, std::vector<double>& weights,
+	gsl_ran_discrete_t *d_gsl_de, gsl_ran_discrete_t *d_gsl_dn,
+	double *d_gsl_de_F, double *d_gsl_dn_F,
+	size_t *d_gsl_de_A, size_t *d_gsl_dn_A,
+	int blockCount, int blockSize, long long nn, long long ne)
+{
+	CUDA_CHECK_RETURN(
+	cudaMalloc((void ** )&d_nnStates1,
+	blockCount * blockSize * sizeof(curandState)));
+	CUDA_CHECK_RETURN(
+	cudaMalloc((void ** )&d_nnStates2,
+	blockCount * blockSize * sizeof(curandState)));
+	CUDA_CHECK_RETURN(
+	cudaMalloc((void ** )&d_neStates,
+	blockCount * blockSize * sizeof(curandState)));
+	setupCURANDKernel<<<blockCount, blockSize>>>(d_nnStates1, d_nnStates2,
+	d_neStates);
+
+	// These are free'd at the end of the function
+	gsl_rng_env_setup();
+	gsl_ran_discrete_t * gsl_de = gsl_ran_discrete_preproc(ne, P.data());
+	gsl_ran_discrete_t * gsl_dn = gsl_ran_discrete_preproc(nn, weights.data());
+
+	CUDA_CHECK_RETURN(
+	cudaMalloc((void ** )&d_gsl_de, sizeof(gsl_ran_discrete_t)));
+	CUDA_CHECK_RETURN(
+	cudaMalloc((void ** )&d_gsl_dn, sizeof(gsl_ran_discrete_t)));
+	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_gsl_de_A, sizeof(size_t) * ne));
+	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_gsl_de_F, sizeof(double) * ne));
+	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_gsl_dn_A, sizeof(size_t) * nn));
+	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_gsl_dn_F, sizeof(double) * nn));
+	CUDA_CHECK_RETURN(
+	cudaMemcpy(d_gsl_de, gsl_de, sizeof(gsl_ran_discrete_t),
+	cudaMemcpyHostToDevice));
+	CUDA_CHECK_RETURN(
+	cudaMemcpy(d_gsl_de_A, gsl_de->A, sizeof(size_t) * ne,
+	cudaMemcpyHostToDevice));
+	CUDA_CHECK_RETURN(
+	cudaMemcpy(d_gsl_de_F, gsl_de->F, sizeof(double) * ne,
+	cudaMemcpyHostToDevice));
+	CUDA_CHECK_RETURN(
+	cudaMemcpy(d_gsl_dn, gsl_dn, sizeof(gsl_ran_discrete_t),
+	cudaMemcpyHostToDevice));
+	CUDA_CHECK_RETURN(
+	cudaMemcpy(d_gsl_dn_A, gsl_dn->A, sizeof(size_t) * nn,
+	cudaMemcpyHostToDevice));
+	CUDA_CHECK_RETURN(
+	cudaMemcpy(d_gsl_dn_F, gsl_dn->F, sizeof(double) * nn,
+	cudaMemcpyHostToDevice));
+	assembleGSLKernel<<<1, 1>>>(d_gsl_de, d_gsl_de_A, d_gsl_de_F, d_gsl_dn,
+	d_gsl_dn_A, d_gsl_dn_F);
+	gsl_ran_discrete_free(gsl_de);
+	gsl_ran_discrete_free(gsl_dn);
+}
+
+// Frees memory on GPU
+void freeDataInDevice(float* d_Y, long long* d_I, long long* d_J,
+	float* d_qsum, int* d_qcount, 
+	float* d_qsum_total, int* d_qcount_total,
+	curandState *d_nnStates1, curandState *d_nnStates2, curandState *d_neStates,
+	gsl_ran_discrete_t *d_gsl_de, gsl_ran_discrete_t *d_gsl_dn,
+	double *d_gsl_de_F, double *d_gsl_dn_F,
+	size_t *d_gsl_de_A, size_t *d_gsl_dn_A)
+{
+	// data
+	CUDA_CHECK_RETURN(cudaFree(d_Y));
+	CUDA_CHECK_RETURN(cudaFree(d_I));
+	CUDA_CHECK_RETURN(cudaFree(d_J));
+	CUDA_CHECK_RETURN(cudaFree(d_qsum));
+	CUDA_CHECK_RETURN(cudaFree(d_qcount));
+	CUDA_CHECK_RETURN(cudaFree(d_qsum_total));
+	CUDA_CHECK_RETURN(cudaFree(d_qcount_total));
+
+	// rng
+	CUDA_CHECK_RETURN(cudaFree(d_nnStates1));
+	CUDA_CHECK_RETURN(cudaFree(d_nnStates2));
+	CUDA_CHECK_RETURN(cudaFree(d_neStates));
+	CUDA_CHECK_RETURN(cudaFree(d_gsl_de_A));
+	CUDA_CHECK_RETURN(cudaFree(d_gsl_de_F));
+	CUDA_CHECK_RETURN(cudaFree(d_gsl_de));
+	CUDA_CHECK_RETURN(cudaFree(d_gsl_dn_A));
+	CUDA_CHECK_RETURN(cudaFree(d_gsl_dn_F));
+	CUDA_CHECK_RETURN(cudaFree(d_gsl_dn));
+}
+
+
+/****************************
 * Main control function     *
 ****************************/
 std::vector<double> wtsne_gpu(
@@ -292,7 +295,6 @@ std::vector<double> wtsne_gpu(
 	std::vector<double>& P,
 	std::vector<double>& weights,
 	long long maxIter, 
-	long long workerCount,
 	int blockSize, 
 	int blockCount,
 	long long nRepuSamp,
@@ -300,14 +302,14 @@ std::vector<double> wtsne_gpu(
 	bool bInit) 
 {
 	// Check input
-	Y = wtsne_init(I, J, P, weights);
+	std::vector<double> Y = wtsne_init(I, J, P, weights);
     long long nn = weights.size();
     long long ne = P.size();
 	
 	// Initialise CUDA
 	cudaSetDevice(0);
 	cudaDeviceReset();
-	nWorker = blockSize * blockCount;
+	int nWorker = blockSize * blockCount;
 	float nsq = (float) nn * (nn - 1);
 
 	// Create pointers for mallocs
@@ -327,14 +329,14 @@ std::vector<double> wtsne_gpu(
 	// Set up random number generation
 	curandState *d_nnStates1, *d_nnStates2;
 	curandState *d_neStates;
-	gsl_ran_discrete_t *d_gsl_de, *d_gsl_dn;
+	gsl_ran_discrete_t d_gsl_de, d_gsl_dn;
 	double *d_gsl_de_F, *d_gsl_dn_F;
 	size_t *d_gsl_de_A, *d_gsl_dn_A;
 	setupDiscreteDistribution(d_nnStates1, d_nnStates2, d_neStates,
 							  P, weights,
 		                      *d_gsl_de, *d_gsl_dn,
-		                      *d_gsl_de_F, *d_gsl_dn_F,
-							  *d_gsl_de_A, *d_gsl_dn_A,
+		                      d_gsl_de_F, d_gsl_dn_F,
+							  d_gsl_de_A, d_gsl_dn_A,
 							  blockCount, blockSize, 
 							  nn, ne);
 

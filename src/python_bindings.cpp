@@ -33,7 +33,6 @@ PYBIND11_MODULE(SCE, m)
 	py::arg("P"),
 	py::arg("weights"),
 	py::arg("maxIter"), 
-	py::arg("workerCount") = 1,
 	py::arg("blockSize") = 128, 
 	py::arg("blockCount") = 128,
 	py::arg("nRepuSamp") = 5,
