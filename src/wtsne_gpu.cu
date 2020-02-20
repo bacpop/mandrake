@@ -334,7 +334,7 @@ std::vector<double> wtsne_gpu(
 	size_t *d_gsl_de_A, *d_gsl_dn_A;
 	setupDiscreteDistribution(d_nnStates1, d_nnStates2, d_neStates,
 							  P, weights,
-		                      *d_gsl_de, *d_gsl_dn,
+		                      &d_gsl_de, &d_gsl_dn,
 		                      d_gsl_de_F, d_gsl_dn_F,
 							  d_gsl_de_A, d_gsl_dn_A,
 							  blockCount, blockSize, 
@@ -347,7 +347,7 @@ std::vector<double> wtsne_gpu(
 
 		float attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
 		wtsneUpdateYKernel<<<blockCount, blockSize>>>(d_nnStates1, d_nnStates2,
-				d_neStates, d_gsl_dn, d_gsl_de, d_Y, d_I, d_J, d_Eq, d_qsum,
+				d_neStates, &d_gsl_dn, &d_gsl_de, d_Y, d_I, d_J, d_Eq, d_qsum,
 				d_qcount, nn, ne, eta, nRepuSamp, nsq, attrCoef);
 
 		resetQsumQCountTotalKernel<<<1, 1>>>(d_qsum_total, d_qcount_total);
@@ -373,7 +373,7 @@ std::vector<double> wtsne_gpu(
 					 d_qsum, d_qcount, 
 					 d_qsum_total, d_qcount_total,
 					 d_nnStates1, d_nnStates2, d_neStates,
-					 d_gsl_de, d_gsl_dn,
+					 &d_gsl_de, &d_gsl_dn,
 					 d_gsl_de_F, d_gsl_dn_F,
 					 d_gsl_de_A, d_gsl_dn_A);
 

@@ -43,8 +43,8 @@ if(CMAKE_CUDA_COMPILER)
     set(CMAKE_CUDA_FLAGS "--cudart static --relocatable-device-code=false -gencode arch=compute_35,code=compute_35 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_50,code=sm_50")
     
     add_compile_definitions(GPU_AVAILABLE)
-    add_library(CUDA_LIB STATIC src/wtsne_gpu.cu)
-    set_property(TARGET CUDA_LIB 
+    add_library("${TARGET_NAME}_CUDA" STATIC src/wtsne_gpu.cu)
+    set_property(TARGET "${TARGET_NAME}_CUDA" 
                  PROPERTY POSITION_INDEPENDENT_CODE ON
                  #CUDA_SEPARABLE_COMPILATION ON
                  CUDA_VISIBILITY_PRESET "hidden")
@@ -63,7 +63,7 @@ set_target_properties("${TARGET_NAME}" PROPERTIES
 
 #pybind11_add_module("${TARGET_NAME}" "${TARGET_FILES}")
 if(CMAKE_CUDA_COMPILER)
-    target_link_libraries("${TARGET_NAME}" PRIVATE CUDA_LIB)
+    target_link_libraries("${TARGET_NAME}" PRIVATE "${TARGET_NAME}_CUDA")
 endif()
 target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module GSL::gsl GSL::gslcblas OpenMP::OpenMP_CXX gfortran m rt)
 

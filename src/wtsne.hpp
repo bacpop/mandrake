@@ -42,7 +42,6 @@ std::vector<double> wtsne_gpu(
 	std::vector<double>& P,
 	std::vector<double>& weights,
 	long long maxIter, 
-	long long workerCount,
 	int blockSize, 
 	int blockCount,
 	long long nRepuSamp,
