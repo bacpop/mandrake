@@ -5,7 +5,6 @@
 
 import sys, os
 import numpy as np
-from numba import jit
 from scipy.sparse import coo_matrix, csr_matrix
 from sklearn.manifold import _utils as ut
 MACHINE_EPSILON = np.finfo(np.double).eps
