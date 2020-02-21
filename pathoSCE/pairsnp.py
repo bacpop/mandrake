@@ -7,7 +7,7 @@ from a multiple sequence file'''
 import sys
 import subprocess
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import coo_matrix
 
 
 def checkPairsnpVersion():
@@ -38,8 +38,8 @@ def read_fasta(fp):
             seq.append(line)
     if name: yield (name, ''.join(seq))
 
-def runPairsnp(pairsnp_exe, msaFile, output, threshold=None, threads=1):
-    """Runs pairsnp in sparse output mode with the option of supplying a distance cutoff
+def runPairsnp(pairsnp_exe, msaFile, output, kNN=None, threshold=None, threads=1):
+    """Runs pairsnp in sparse output mode with the option of supplying a distance or kNN cutoff
 
     Args:
         msaFile (str)
@@ -58,6 +58,10 @@ def runPairsnp(pairsnp_exe, msaFile, output, threshold=None, threads=1):
             A list of sequence names in the same order as the distance matrix
     """
 
+    if (kNN is None) and (threshold is None):
+        sys.stderr.write("Can not specify both kNN and threshold with pairsnp!\n")
+        sys.exit(1)
+
     # get alignment length
     with open(msaFile, 'r') as msa:
         aln_len = len(next(read_fasta(msa))[1])
@@ -66,8 +70,9 @@ def runPairsnp(pairsnp_exe, msaFile, output, threshold=None, threads=1):
     cmd = pairsnp_exe + ' -s'
     if threshold is not None:
         distance = int(np.floor(threshold*aln_len))
-        print(distance)
         cmd += ' -d ' + str(distance)
+    if kNN is not None:
+        cmd += ' -k ' + str(kNN)    
     cmd += ' -t ' + str(threads)
     cmd += ' ' + msaFile
 
@@ -83,7 +88,7 @@ def runPairsnp(pairsnp_exe, msaFile, output, threshold=None, threads=1):
         sys.stderr.write("Distance threshold is too strict, less than 3 pairs passed!\n")
         sys.exit(1)
     
-    distMatrix = csr_matrix((distances[:,2], (distances[:,0], distances[:,1]/aln_len)), 
+    distMatrix = coo_matrix(((distances[:,2]+0.1)/aln_len, (distances[:,0], distances[:,1])), 
         shape=(len(seqNames), len(seqNames)))
 
     return distMatrix, seqNames

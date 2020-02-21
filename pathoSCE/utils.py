@@ -6,6 +6,9 @@
 import sys, os
 import numpy as np
 from numba import jit
+from scipy.sparse import coo_matrix, csr_matrix
+from sklearn.manifold import _utils as ut
+MACHINE_EPSILON = np.finfo(np.double).eps
 
 def readRfile(rFile):
     """Reads in files for sketching. Names and sequence, tab separated
@@ -43,37 +46,27 @@ def readRfile(rFile):
 
     return (names, sequences)
 
-@jit(nopython=True)
-def distVecCutoff(P, length, cutoff):
-    dist_length = int(0.5*length*(length-1))
-    I_vec = np.empty((dist_length), dtype=np.int64)
-    J_vec = np.empty((dist_length), dtype=np.int64)
-    P_vec = np.empty((dist_length), dtype=np.float64)
-    
-    counter = 0
-    included = 0
-    for i in range(length):
-        for j in range(i + 1, length):
-            if cutoff == None or P[counter] < cutoff:
-                I_vec[counter] = i
-                J_vec[counter] = j
-                P_vec[counter] = P[counter]
-                included +=1
-            counter += 1
+def sparse_joint_probabilities(D, perplexity):
+    D = csr_matrix(D)
+    nsamples = D.shape[0]
+    print(D.size)
+    # calculate probabilities row by row
+    conditional_P = np.empty(D.size, dtype=np.float32)
+    j=0
+    for i in range(nsamples):
+        temp = np.zeros((1, len(D[i,:].data)+1),  dtype=np.float32)
+        temp[0,1:] = D[i,:].data
+        temp = ut._binary_search_perplexity(temp, perplexity, False)[0][1:]
+        conditional_P[j:(j+temp.size)] = temp
+        j+=temp.size
 
-    return(I_vec[0:included], J_vec[0:included], P_vec[0:included])
+    P = csr_matrix((conditional_P, D.indices,
+                        D.indptr),
+                    shape=(nsamples, nsamples)).tocoo()
 
-@jit(nopython=True)
-def distVec(length):
-    dist_length = int(0.5*length*(length-1))
-    I_vec = np.empty((dist_length), dtype=np.int64)
-    J_vec = np.empty((dist_length), dtype=np.int64)
-    
-    counter = 0
-    for i in range(length):
-        for j in range(i + 1, length):
-            I_vec[counter] = i
-            J_vec[counter] = j
-            counter += 1
+    P = P + P.T 
+    # Normalize the joint probability distribution
+    sum_P = np.maximum(P.sum(), MACHINE_EPSILON)
+    P /= sum_P
 
-    return(I_vec, J_vec)
+    return(P.tocoo())

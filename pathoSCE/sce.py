@@ -9,7 +9,9 @@ from functools import partial
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import squareform
+from scipy.sparse import coo_matrix
 from sklearn.manifold.t_sne import _joint_probabilities
+from .utils import sparse_joint_probabilities
 
 # C++ extensions
 from SCE import wtsne
@@ -19,46 +21,40 @@ try:
 except ImportError:
     gpu_available = False
 
-from .utils import distVec, distVecCutoff
+# from .utils import distVec, distVecCutoff
 
 # Run exits if fewer samples than this
 MIN_SAMPLES = 100
 DEFAULT_THRESHOLD = 1.0
 
-def generateIJP(names, output_prefix, threshold, P, preprocessing, perplexity):
+MACHINE_EPSILON = np.finfo(np.double).eps
+
+def generateIJP(names, output_prefix, P, preprocessing, perplexity):
     if (len(names) < MIN_SAMPLES):
         sys.stderr.write("Less than minimum number of samples used (" + str(MIN_SAMPLES) + ")\n")
         sys.stderr.write("Distances calculated, but not running SCE\n")
         sys.exit(1)
         
-    pd.Series(names).to_csv(output_prefix + '.names.txt', sep='\n', header=False, index=False)
-    if threshold == DEFAULT_THRESHOLD:
-        I, J = distVec(len(names))
-    else:
-        I, J, P = distVecCutoff(P, len(names), threshold)
-        
+    pd.Series(names).to_csv(output_prefix + 'names.txt', sep='\n', header=False, index=False)
+
     # convert to similarity
     P = distancePreprocess(P, preprocessing, perplexity)
-
-    # SCE needs symmetric distances too
-    I_stack = np.concatenate((I, J), axis=None)
-    J_stack = np.concatenate((J, I), axis=None)
-    I = I_stack
-    J = J_stack
-    P = np.concatenate((P, P), axis=None)
-
-    _saveDists(output_prefix, I, J, P)
-    return(I, J, P)
+    print(P.row)
+    _saveDists(output_prefix, P.row, P.col, P.data)
+    return(P.row, P.col, P.data)
 
 def distancePreprocess(P, preprocessing, perplexity):
     if preprocessing:
-        # entropy preprocessing
-        P = _joint_probabilities(squareform(P, force='tomatrix', checks=False), 
-                                    desired_perplexity=perplexity, 
-                                    verbose=0)
+        # entropy preprocessing 
+        P = sparse_joint_probabilities(P, perplexity)
     else:
-        P = 1 - P/np.max(P)
-    return P
+        P.data = 1 - P.data/np.max(P.data)
+        P = P + P.T
+        # Normalize
+        sum_P = np.maximum(P.sum(), MACHINE_EPSILON)
+        P /= sum_P
+ 
+    return(P)
 
 def loadIJP(npzfilename):
     npzfile = np.load(npzfilename)

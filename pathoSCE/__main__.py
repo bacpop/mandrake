@@ -15,7 +15,6 @@ from .sce import DEFAULT_THRESHOLD
 from .clustering import runHDBSCAN
 from .plot import plotSCE
 
-
 def get_options():
     import argparse
 
@@ -53,6 +52,7 @@ def get_options():
                                help='Use sparse matrix calculations to speed up'
                                     'distance calculation from --accessory [default = False]')
     distanceGroup.add_argument('--threshold', default=DEFAULT_THRESHOLD, type=float, help='Maximum distance to consider [default = 0]')
+    distanceGroup.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
 
     sceGroup = parser.add_argument_group('SCE options')
     sceGroup.add_argument('--use-gpu', default=False, action='store_true',
@@ -97,9 +97,14 @@ def main():
     if args.distances is None:
         sys.stderr.write("Calculating distances\n")
         if (args.alignment is not None):
-            P, names = pairSnpDists(args.pairsnp_exe, args.alignment, args.output, args.threshold, args.cpus)
+            P, names = pairSnpDists(args.pairsnp_exe, 
+                                    args.alignment, 
+                                    args.output, 
+                                    args.threshold, 
+                                    args.kNN, 
+                                    args.cpus)
         elif (args.accessory is not None):
-            P, names = accessoryDists(args.accessory, args.sparse)
+            P, names = accessoryDists(args.accessory, args.sparse, args.kNN, args.threshold)
         elif (args.sequence is not None or args.sketches is not None):
             if args.min_k >= args.max_k or args.min_k < 9 or args.max_k > 31 or args.k_step < 2:
                 sys.stderr.write("Minimum kmer size " + str(args.min_k) + " must be smaller than maximum kmer size " +
@@ -122,7 +127,9 @@ def main():
                                           kmers, 
                                           args.sketch_size, 
                                           args.min_count, 
-                                          dist_col, 
+                                          dist_col,
+                                          args.kNN,
+                                          args.threshold,
                                           args.cpus)
 
             elif (args.sketches is not None):
@@ -130,7 +137,9 @@ def main():
                 P, names = sketchlibDbDists(args.sketches, 
                                             kmers, 
                                             args.sketch_size, 
-                                            dist_col, 
+                                            dist_col,
+                                            args.kNN,
+                                            args.threshold,
                                             args.cpus)
 
         #***********************#
@@ -139,7 +148,6 @@ def main():
         #***********************#
         I, J, P = generateIJP(names, 
                               args.output, 
-                              args.threshold, 
                               P, 
                               not args.no_preprocessing, 
                               args.perplexity)
