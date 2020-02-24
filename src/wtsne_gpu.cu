@@ -302,7 +302,7 @@ std::vector<float> wtsne_gpu(
 	bool bInit) 
 {
 	// Check input
-	std::vector<float> Y = wtsne_init(I, J, P, weights);
+	std::vector<float> Y = wtsne_init<float>(I, J, P, weights);
     long long nn = weights.size();
     long long ne = P.size();
 	
