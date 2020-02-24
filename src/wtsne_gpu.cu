@@ -13,6 +13,8 @@
 #include <curand_kernel.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
+#include <thrust/device_vector.h>
+#include <thrust/copy.h>
 
 #include "wtsne.hpp"
 
@@ -168,25 +170,12 @@ __global__ void updateEqKernel(float *d_Eq, float *d_qsum_total,
 ****************************/
 
 // Moves arrays onto GPU
-void allocateDataAndCopy2Device(float* d_Y, long long* d_I, long long* d_J, float* d_Eq,
-								std::vector<float>& Y,
-								std::vector<long long>& I,
-								std::vector<long long>& J,
+void allocateDataAndCopy2Device(float*& d_Eq,
 								long long nn, long long ne,
-								float* d_qsum, int* d_qcount, 
-								float* d_qsum_total, int* d_qcount_total,
-								int nWorker) {
-	CUDA_CHECK_RETURN(cudaMalloc((void**)&d_Y, sizeof(float)*nn*DIM));
-	CUDA_CHECK_RETURN(cudaMalloc((void** )&d_I, sizeof(long long) * ne));
-	CUDA_CHECK_RETURN(cudaMalloc((void** )&d_J, sizeof(long long) * ne));
-
-	CUDA_CHECK_RETURN(
-			cudaMemcpy(d_Y, Y.data(), sizeof(float)*nn*DIM, cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-			cudaMemcpy(d_I, I.data(), sizeof(long long) * ne, cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-			cudaMemcpy(d_J, J.data(), sizeof(long long) * ne, cudaMemcpyHostToDevice));
-
+								float*& d_qsum, int*& d_qcount, 
+								float*& d_qsum_total, int*& d_qcount_total,
+								int nWorker) 
+{
 	float Eq = 1;
 	CUDA_CHECK_RETURN(cudaMalloc((void** )&d_Eq, sizeof(float)));
 	CUDA_CHECK_RETURN(
@@ -199,11 +188,11 @@ void allocateDataAndCopy2Device(float* d_Y, long long* d_I, long long* d_J, floa
 	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_qcount_total, sizeof(long long)));
 }
 
-void setupDiscreteDistribution(curandState *d_nnStates1, curandState *d_nnStates2, curandState *d_neStates,
+void setupDiscreteDistribution(curandState *&d_nnStates1, curandState *&d_nnStates2, curandState *&d_neStates,
 	std::vector<double>& P, std::vector<double>& weights,
-	gsl_ran_discrete_t *d_gsl_de, gsl_ran_discrete_t *d_gsl_dn,
-	double *d_gsl_de_F, double *d_gsl_dn_F,
-	size_t *d_gsl_de_A, size_t *d_gsl_dn_A,
+	gsl_ran_discrete_t *&d_gsl_de, gsl_ran_discrete_t *&d_gsl_dn,
+	double *&d_gsl_de_F, double *&d_gsl_dn_F,
+	size_t *&d_gsl_de_A, size_t *&d_gsl_dn_A,
 	int blockCount, int blockSize, long long nn, long long ne)
 {
 	CUDA_CHECK_RETURN(
@@ -256,18 +245,15 @@ void setupDiscreteDistribution(curandState *d_nnStates1, curandState *d_nnStates
 }
 
 // Frees memory on GPU
-void freeDataInDevice(float* d_Y, long long* d_I, long long* d_J,
-	float* d_qsum, int* d_qcount, 
-	float* d_qsum_total, int* d_qcount_total,
-	curandState *d_nnStates1, curandState *d_nnStates2, curandState *d_neStates,
-	gsl_ran_discrete_t *d_gsl_de, gsl_ran_discrete_t *d_gsl_dn,
-	double *d_gsl_de_F, double *d_gsl_dn_F,
-	size_t *d_gsl_de_A, size_t *d_gsl_dn_A)
+void freeDataInDevice(
+	float*& d_qsum, int*& d_qcount, 
+	float*& d_qsum_total, int*& d_qcount_total,
+	curandState *&d_nnStates1, curandState *&d_nnStates2, curandState *&d_neStates,
+	gsl_ran_discrete_t *&d_gsl_de, gsl_ran_discrete_t *&d_gsl_dn,
+	double *&d_gsl_de_F, double *&d_gsl_dn_F,
+	size_t *&d_gsl_de_A, size_t *&d_gsl_dn_A)
 {
 	// data
-	CUDA_CHECK_RETURN(cudaFree(d_Y));
-	CUDA_CHECK_RETURN(cudaFree(d_I));
-	CUDA_CHECK_RETURN(cudaFree(d_J));
 	CUDA_CHECK_RETURN(cudaFree(d_qsum));
 	CUDA_CHECK_RETURN(cudaFree(d_qcount));
 	CUDA_CHECK_RETURN(cudaFree(d_qsum_total));
@@ -313,41 +299,46 @@ std::vector<float> wtsne_gpu(
 	float nsq = (float) nn * (nn - 1);
 
 	// Create pointers for mallocs
-	long long *d_I, *d_J;
-	float *d_Y;
 	float *d_Eq;
 	float *d_qsum, *d_qsum_total;
 	int *d_qcount, *d_qcount_total;
 
 	// malloc on device
-	allocateDataAndCopy2Device(d_Y, d_I, d_J, d_Eq,
-							   Y, I, J, nn, ne,
+	allocateDataAndCopy2Device(d_Eq,
+							   nn, ne,
 							   d_qsum, d_qcount,
 							   d_qsum_total, d_qcount_total,
 							   nWorker);
+	thrust::device_vector<float> d_Y = Y;
+	thrust::device_vector<long long> d_I = I;
+	thrust::device_vector<long long> d_J = J;
 
 	// Set up random number generation
 	curandState *d_nnStates1, *d_nnStates2;
 	curandState *d_neStates;
-	gsl_ran_discrete_t d_gsl_de, d_gsl_dn;
+	gsl_ran_discrete_t *d_gsl_de = nullptr;
+	gsl_ran_discrete_t *d_gsl_dn = nullptr;
 	double *d_gsl_de_F, *d_gsl_dn_F;
 	size_t *d_gsl_de_A, *d_gsl_dn_A;
 	setupDiscreteDistribution(d_nnStates1, d_nnStates2, d_neStates,
 							  P, weights,
-		                      &d_gsl_de, &d_gsl_dn,
+		                      d_gsl_de, d_gsl_dn,
 		                      d_gsl_de_F, d_gsl_dn_F,
 							  d_gsl_de_A, d_gsl_dn_A,
 							  blockCount, blockSize, 
 							  nn, ne);
 
 	// Main SCE loop
+	float* d_Y_array = thrust::raw_pointer_cast( &d_Y[0] );
+	long long* d_I_array = thrust::raw_pointer_cast( &d_I[0] );
+	long long* d_J_array = thrust::raw_pointer_cast( &d_J[0] );
 	for (long long iter = 0; iter < maxIter; iter++) {
 		float eta = eta0 * (1 - (float) iter / (maxIter - 1));
 		eta = MAX(eta, eta0 * 1e-4);
 
 		float attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
 		wtsneUpdateYKernel<<<blockCount, blockSize>>>(d_nnStates1, d_nnStates2,
-				d_neStates, &d_gsl_dn, &d_gsl_de, d_Y, d_I, d_J, d_Eq, d_qsum,
+				d_neStates, d_gsl_dn, d_gsl_de, d_Y_array, d_I_array, d_J_array, d_Eq, d_qsum,
 				d_qcount, nn, ne, eta, nRepuSamp, nsq, attrCoef);
 
 		resetQsumQCountTotalKernel<<<1, 1>>>(d_qsum_total, d_qcount_total);
@@ -363,19 +354,27 @@ std::vector<float> wtsne_gpu(
             fflush(stderr);
         }
 	}
-
-	// Get the result
-	CUDA_CHECK_RETURN(
-			cudaMemcpy(Y.data(), d_Y, sizeof(float)*nn*DIM, cudaMemcpyDeviceToHost));
+	std::cerr << std::endl << "Optimizing done" << std::endl;
 
 	// Free memory on GPU
-	freeDataInDevice(d_Y, d_I, d_J,
-					 d_qsum, d_qcount, 
-					 d_qsum_total, d_qcount_total,
-					 d_nnStates1, d_nnStates2, d_neStates,
-					 &d_gsl_de, &d_gsl_dn,
-					 d_gsl_de_F, d_gsl_dn_F,
-					 d_gsl_de_A, d_gsl_dn_A);
+	freeDataInDevice(d_qsum, d_qcount, 
+		d_qsum_total, d_qcount_total,
+		d_nnStates1, d_nnStates2, d_neStates,
+		d_gsl_de, d_gsl_dn,
+		d_gsl_de_F, d_gsl_dn_F,
+		d_gsl_de_A, d_gsl_dn_A);
+
+	// Get the result from device
+	try
+	{
+		thrust::copy(d_Y.begin(), d_Y.end(), Y.begin());
+	}
+	catch(thrust::system_error &e)
+	{
+	  // output an error message and exit
+	  std::cerr << "Error getting result: " << e.what() << std::endl;
+	  //exit(1);
+	}
 
     return Y;
 }

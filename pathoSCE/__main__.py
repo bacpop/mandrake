@@ -81,6 +81,16 @@ def get_options():
                         default=1,
                         help='Number of CPUs to use '
                              '[default = 1]')
+    other.add_argument('--blockSize',
+                        type=int,
+                        default=128,
+                        help='CUDA blockSize '
+                             '[default = 128]')
+    other.add_argument('--blockCount',
+                        type=int,
+                        default=128,
+                        help='CUDA blockCount '
+                             '[default = 128]')
     other.add_argument('--version', action='version',
                        version='%(prog)s '+__version__)
 
@@ -162,6 +172,8 @@ def main():
     sys.stderr.write("Running SCE\n")
     SCE_opts = {'maxIter': args.maxIter,
                'cpus': args.cpus,
+               'blockSize': args.blockSize,
+               'blockCount': args.blockCount,
                'nRepuSamp': args.nRepuSamp,
                'eta0': args.eta0,
                'bInit': args.bInit}
