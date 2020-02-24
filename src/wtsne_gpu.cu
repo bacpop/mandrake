@@ -169,7 +169,7 @@ __global__ void updateEqKernel(float *d_Eq, float *d_qsum_total,
 
 // Moves arrays onto GPU
 void allocateDataAndCopy2Device(float* d_Y, long long* d_I, long long* d_J, float* d_Eq,
-								std::vector<double>& Y,
+								std::vector<float>& Y,
 								std::vector<long long>& I,
 								std::vector<long long>& J,
 								long long nn, long long ne,
@@ -289,7 +289,7 @@ void freeDataInDevice(float* d_Y, long long* d_I, long long* d_J,
 /****************************
 * Main control function     *
 ****************************/
-std::vector<double> wtsne_gpu(
+std::vector<float> wtsne_gpu(
 	std::vector<long long>& I,
 	std::vector<long long>& J,
 	std::vector<double>& P,
@@ -302,7 +302,7 @@ std::vector<double> wtsne_gpu(
 	bool bInit) 
 {
 	// Check input
-	std::vector<double> Y = wtsne_init(I, J, P, weights);
+	std::vector<float> Y = wtsne_init(I, J, P, weights);
     long long nn = weights.size();
     long long ne = P.size();
 	
@@ -358,7 +358,7 @@ std::vector<double> wtsne_gpu(
         // Print progress
 		if (iter % MAX(1,maxIter/1000)==0 || iter==maxIter-1)
         {
-			fprintf(stderr, "%cOptimizingp progress: %.1lf%%", 13, 
+			fprintf(stderr, "%cOptimizing progress (GPU): %.1lf%%", 13, 
 							(float)iter / maxIter * 100);
             fflush(stderr);
         }

@@ -21,7 +21,8 @@
 #define MAX(a,b) ( (a) > (b) ? (a) : (b) )
 #define MIN(a,b) ( (a) < (b) ? (a) : (b) )
 
-std::vector<double> wtsne_init(const std::vector<long long>& I,
+template <class T>
+std::vector<T> wtsne_init(const std::vector<long long>& I,
            const std::vector<long long>& J,
            std::vector<double>& P,
            std::vector<double>& weights);

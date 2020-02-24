@@ -13,7 +13,8 @@
 
 #include "wtsne.hpp"
 
-std::vector<double> wtsne_init(const std::vector<long long>& I,
+template <class T>
+std::vector<T> wtsne_init(const std::vector<long long>& I,
            const std::vector<long long>& J,
            std::vector<double>& P,
            std::vector<double>& weights)
@@ -41,7 +42,7 @@ std::vector<double> wtsne_init(const std::vector<long long>& I,
 
     // Set starting Y0
     srand(0);
-    std::vector<double> Y(nn*DIM);
+    std::vector<T> Y(nn*DIM);
     for (long long i = 0; i < nn; i++)
         for (long long d = 0; d < DIM; d++)
             Y[d + i*DIM] = rand() * 1e-4 / RAND_MAX;
@@ -146,7 +147,7 @@ std::vector<double> wtsne(std::vector<long long>& I,
 
         if (iter % MAX(1,maxIter/1000)==0 || iter==maxIter-1)
         {
-            fprintf(stderr, "%cOptimizing\t eta=%f Progress: %.1lf%%, Eq=%.20f", 13, eta, (double)iter / maxIter * 100, 1.0/(c*nsq));
+            fprintf(stderr, "%cOptimizing (CPU)\t eta=%f Progress: %.1lf%%, Eq=%.20f", 13, eta, (double)iter / maxIter * 100, 1.0/(c*nsq));
             fflush(stderr);
         }
     }
