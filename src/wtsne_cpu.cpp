@@ -23,6 +23,10 @@ std::vector<double> wtsne_init(const std::vector<long long>& I,
     {
         throw std::runtime_error("Mismatching sizes in input vectors");
     }
+    if (I.size() < 2)
+    {
+        throw std::runtime_error("Input size too small");
+    }
     long long nn = weights.size();
     long long ne = P.size();
     

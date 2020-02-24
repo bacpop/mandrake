@@ -11,7 +11,6 @@ from .__init__ import __version__
 
 from .dists import pairSnpDists, accessoryDists, sketchlibDists, sketchlibDbDists
 from .sce import generateIJP, loadIJP, runSCE, saveEmbedding
-from .sce import DEFAULT_THRESHOLD
 from .clustering import runHDBSCAN
 from .plot import plotSCE
 
@@ -51,7 +50,7 @@ def get_options():
     distanceGroup.add_argument('--sparse', default=False, action='store_true', 
                                help='Use sparse matrix calculations to speed up'
                                     'distance calculation from --accessory [default = False]')
-    distanceGroup.add_argument('--threshold', default=DEFAULT_THRESHOLD, type=float, help='Maximum distance to consider [default = 0]')
+    distanceGroup.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
     distanceGroup.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
 
     sceGroup = parser.add_argument_group('SCE options')

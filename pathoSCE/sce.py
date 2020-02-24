@@ -25,8 +25,6 @@ except ImportError:
 
 # Run exits if fewer samples than this
 MIN_SAMPLES = 100
-DEFAULT_THRESHOLD = 1.0
-
 MACHINE_EPSILON = np.finfo(np.double).eps
 
 def generateIJP(names, output_prefix, P, preprocessing, perplexity):
@@ -39,7 +37,7 @@ def generateIJP(names, output_prefix, P, preprocessing, perplexity):
 
     # convert to similarity
     P = distancePreprocess(P, preprocessing, perplexity)
-    print(P.row)
+    # print(P.row)
     _saveDists(output_prefix, P.row, P.col, P.data)
     return(P.row, P.col, P.data)
 

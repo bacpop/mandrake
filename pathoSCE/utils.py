@@ -48,7 +48,7 @@ def readRfile(rFile):
 def sparse_joint_probabilities(D, perplexity):
     D = csr_matrix(D)
     nsamples = D.shape[0]
-    print(D.size)
+    # print(D.size)
     # calculate probabilities row by row
     conditional_P = np.empty(D.size, dtype=np.float32)
     j=0
