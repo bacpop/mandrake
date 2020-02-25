@@ -4,7 +4,7 @@
 '''Methods for setting up and running SCE, saving
 and loading results'''
 
-import sys
+import sys, os
 from functools import partial
 import numpy as np
 import pandas as pd
@@ -83,9 +83,10 @@ def runSCE(I, J, P, weight_file, names, SCE_opts, use_gpu=False):
                              bInit = SCE_opts['bInit'])
     else:
         sys.stderr.write("Running on CPU\n")
+        os.environ['OMP_NUM_THREADS'] = SCE_opts['cpus']
         wtsne_call = partial(wtsne,
                              maxIter = SCE_opts['maxIter'], 
-                             workerCount = SCE_opts['cpus'],
+                             workerCount = 1,
                              nRepuSamp = SCE_opts['nRepuSamp'],
                              eta0 = SCE_opts['eta0'],
                              bInit = SCE_opts['bInit'])
