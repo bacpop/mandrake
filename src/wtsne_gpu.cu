@@ -44,6 +44,7 @@ public:
 
   }
 
+  // TODO: this may not be needed
   ~SCEDeviceMemory();
 
   gsl_table_device<real_t> get_node_table {
