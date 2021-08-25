@@ -78,6 +78,11 @@ public:
                         cudaMemcpyDefault));
   }
 
+  void set_array(const T* src) {
+    CUDA_CALL(cudaMemcpy(data_, src, size_ * sizeof(T),
+                        cudaMemcpyDefault));
+  }
+
   T* data() {
     return data_;
   }
