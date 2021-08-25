@@ -13,12 +13,14 @@
 
 #include "wtsne.hpp"
 
-std::vector<double> wtsne(std::vector<long long> &I, std::vector<long long> &J,
+std::vector<double> wtsne(const std::vector<uint64_t> &I,
+                          const std::vector<uint64_t> &J,
                           std::vector<double> &P, std::vector<double> &weights,
-                          long long maxIter, long long workerCount,
-                          long long nRepuSamp, double eta0, bool bInit) {
+                          const uint64_t maxIter, const uint64_t nRepuSamp,
+                          const double eta0, const bool bInit,
+                          const int n_threads, const int seed) {
   // Check input
-  std::vector<double> Y = wtsne_init<double>(I, J, P, weights);
+  std::vector<double> Y = wtsne_init<double>(I, J, P, weights, n_threads, seed);
   long long nn = weights.size();
   long long ne = P.size();
 
@@ -48,7 +50,7 @@ std::vector<double> wtsne(std::vector<long long> &I, std::vector<long long> &J,
     double attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
     double repuCoef = 2 * c / nRepuSamp * nsq;
 #pragma omp parallel for reduction(+ : qsum, qcount)
-    for (long long worker = 0; worker < workerCount; worker++) {
+    for (long long worker = 0; worker < n_threads; worker++) {
       std::vector<double> dY(DIM);
 
       long long e = gsl_ran_discrete(gsl_r_ne, gsl_de) % ne;
