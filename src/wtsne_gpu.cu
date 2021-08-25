@@ -125,8 +125,7 @@ public:
                            qcount_total_, qcount_.size());
     CUDA_CALL(cudaDeviceSynchronize());
 
-    real_t Eq =
-        ((*Eq_) * nsq_ + (*qsum_total_)) / (nsq_ + (*qcount_total_));
+    real_t Eq = ((*Eq_) * nsq_ + (*qsum_total_)) / (nsq_ + (*qcount_total_));
     *Eq_ = Eq;
     return Eq;
   }
@@ -317,7 +316,8 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   const int n_workers = block_size * block_count;
   const size_t rng_block_count = (n_workers + block_size - 1) / block_size;
   curandState *device_rng;
-  setup_rng_kernel<<<rng_block_count, block_size>>>(device_rng, n_workers);
+  setup_rng_kernel<<<rng_block_count, block_size>>>(device_rng, n_workers,
+                                                    seed);
   CUDA_CALL(cudaDeviceSynchronize());
 
   // Main SCE loop
