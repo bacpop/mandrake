@@ -9,13 +9,13 @@
 // Modified by John Lees 2021
 
 #include <cfloat>
+#include <cub/cub.cuh>
 #include <curand_kernel.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_rng.h>
 #include <numeric>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cub/cub.cuh>
 
 #include "containers.cuh"
 #include "wtsne.hpp"
@@ -46,45 +46,36 @@ template <typedef real_t> struct kernel_ptrs {
   real_t nsq;
 };
 
-template <typename real_t>
-class SCEDeviceMemory {
+template <typename real_t> class SCEDeviceMemory {
 public:
-  SCEDeviceMemory(const std::vector<real_t>& Y,
-                  const std::vector<uint64_t>& I,
-                  const std::vector<uint64_t>& J,
-                  const std::vector<real_t>& P,
-                  const std::vector<real_t>& weights,
-                  int block_size,
-                  int block_count) :
-    n_workers_(block_size * block_count),
-    nn_(weights.size()),
-    ne_(P.size()),
-    nsq_(static_cast<real_t>(nn) * (nn - 1)),
-    Y_(Y),
-    I_(I),
-    J_(J),
-    qsum_(n_workers_),
-    qcount_(n_workers_) {
-      // Initialise Eq, which is managed memory between host and device
-      CUDA_CALL(cudaMallocManaged((void**)&Eq_, sizeof(real_t)));
-      CUDA_CALL(cudaMallocManaged((void**)&qsum_total_, sizeof(real_t)));
-      CUDA_CALL(cudaMallocManaged((void**)&qcount_total_, sizeof(uint64_t)));
-      *Eq_ = 1;
-      *qsum_total_ = 0;
-      *qcount_total_ = 0;
+  SCEDeviceMemory(const std::vector<real_t> &Y, const std::vector<uint64_t> &I,
+                  const std::vector<uint64_t> &J, const std::vector<real_t> &P,
+                  const std::vector<real_t> &weights, int block_size,
+                  int block_count)
+      : n_workers_(block_size * block_count), nn_(weights.size()),
+        ne_(P.size()), nsq_(static_cast<real_t>(nn) * (nn - 1)), Y_(Y), I_(I),
+        J_(J), qsum_(n_workers_), qcount_(n_workers_) {
+    // Initialise Eq, which is managed memory between host and device
+    CUDA_CALL(cudaMallocManaged((void **)&Eq_, sizeof(real_t)));
+    CUDA_CALL(cudaMallocManaged((void **)&qsum_total_, sizeof(real_t)));
+    CUDA_CALL(cudaMallocManaged((void **)&qcount_total_, sizeof(uint64_t)));
+    *Eq_ = 1;
+    *qsum_total_ = 0;
+    *qcount_total_ = 0;
 
-      // Initialise tmp space for reductions on qsum and qcount
-      cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
-                             qsum_.data(), qsum_total_.data(), qsum_.size());
-      qsum_tmp_storage_.set_size(qsum_tmp_storage_bytes_);
-      cub::DeviceReduce::Sum(qcount_tmp_storage_.data(), qcount_tmp_storage_bytes_,
-                             qcount_.data(), qcount_total_.data(), qcount_.size());
-      qcount_tmp_storage_.set_size(qcount_tmp_storage_bytes_);
+    // Initialise tmp space for reductions on qsum and qcount
+    cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
+                           qsum_.data(), qsum_total_.data(), qsum_.size());
+    qsum_tmp_storage_.set_size(qsum_tmp_storage_bytes_);
+    cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
+                           qcount_tmp_storage_bytes_, qcount_.data(),
+                           qcount_total_.data(), qcount_.size());
+    qcount_tmp_storage_.set_size(qcount_tmp_storage_bytes_);
 
-      // Set up discrete RNG tables
-      gsl_rng_env_setup();
-      node_table_ = set_device_table(weights);
-      edge_table_ = set_device_table(P);
+    // Set up discrete RNG tables
+    gsl_rng_env_setup();
+    node_table_ = set_device_table(weights);
+    edge_table_ = set_device_table(P);
   }
 
   ~SCEDeviceMemory() {
@@ -94,32 +85,29 @@ public:
   }
 
   gsl_table_device<real_t> get_node_table() {
-    gsl_table_device<real_t> device_node_table =
-                     { .K = node_table_.F.size(),
-                       .F = node_table_.F.data(),
-                       .A = node_table_.A.data() };
+    gsl_table_device<real_t> device_node_table = {.K = node_table_.F.size(),
+                                                  .F = node_table_.F.data(),
+                                                  .A = node_table_.A.data()};
     return device_node_table;
   }
 
   gsl_table_device<real_t> get_edge_table() {
-    gsl_table_device<real_t> device_edge_table =
-                     { .K = edge_table_.F.size(),
-                       .F = edge_table_.F.data(),
-                       .A = edge_table_.A.data() };
+    gsl_table_device<real_t> device_edge_table = {.K = edge_table_.F.size(),
+                                                  .F = edge_table_.F.data(),
+                                                  .A = edge_table_.A.data()};
     return device_edge_table;
   }
 
   kernel_ptrs<real_t> get_device_ptrs() {
-    kernel_ptrs<real_T> device_ptrs =
-      { .Y = Y_.data(),
-        .I = I_.data(),
-        .J = J_.data(),
-        .Eq = Eq_,
-        .qsum = qsum_.data(),
-        .qcount = qcount_.data(),
-        .nn = nn_,
-        .ne = ne_,
-        .nsq = nsq_ };
+    kernel_ptrs<real_T> device_ptrs = {.Y = Y_.data(),
+                                       .I = I_.data(),
+                                       .J = J_.data(),
+                                       .Eq = Eq_,
+                                       .qsum = qsum_.data(),
+                                       .qcount = qcount_.data(),
+                                       .nn = nn_,
+                                       .ne = ne_,
+                                       .nsq = nsq_};
     return device_ptrs;
   }
 
@@ -131,22 +119,24 @@ public:
 
   real_t update_Eq() {
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
-      qsum_.data(), qsum_total_, qsum_.size());
-    cub::DeviceReduce::Sum(qcount_tmp_storage_.data(), qcount_tmp_storage_bytes_,
-      qcount_.data(), qcount_total_, qcount_.size());
+                           qsum_.data(), qsum_total_, qsum_.size());
+    cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
+                           qcount_tmp_storage_bytes_, qcount_.data(),
+                           qcount_total_, qcount_.size());
     CUDA_CALL(cudaDeviceSynchronize());
 
-    real_t Eq = ((*Eq_) * nsq_ + (*d_qsum_total_)) / (nsq_ + (*d_qcount_total_));
+    real_t Eq =
+        ((*Eq_) * nsq_ + (*d_qsum_total_)) / (nsq_ + (*d_qcount_total_));
     *Eq_ = Eq;
     return Eq;
   }
 
 private:
   template <typename real_t, typename T>
-  gsl_table_host<real_t> set_device_table(const std::vector<T>& weights) {
+  gsl_table_host<real_t> set_device_table(const std::vector<T> &weights) {
     uint64_t table_size = weights.size();
-    gsl_ran_discrete_t *gsl_table = gsl_ran_discrete_preproc(table_size,
-                                                             weights.data());
+    gsl_ran_discrete_t *gsl_table =
+        gsl_ran_discrete_preproc(table_size, weights.data());
     gsl_table_host<real_t> device_table;
     device_table.F = device_array<real_t>(table_size);
     device_table.F.set_array(gsl_table->F);
@@ -158,8 +148,8 @@ private:
   }
 
   // delete move and copy to avoid accidentally using them
-  SCEDeviceMemory ( const SCEDeviceMemory & ) = delete;
-  SCEDeviceMemory ( SCEDeviceMemory && ) = delete;
+  SCEDeviceMemory(const SCEDeviceMemory &) = delete;
+  SCEDeviceMemory(SCEDeviceMemory &&) = delete;
 
   int n_workers_;
   real_t nsq_;
@@ -216,7 +206,8 @@ __device__ size_t discrete_draw(curandState *state,
  * Kernels                  *
  ****************************/
 
-__global__ void setup_rng_kernel(curandState *state, const long n_draws, int seed) {
+__global__ void setup_rng_kernel(curandState *state, const long n_draws,
+                                 int seed) {
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n_draws;
        i += blockDim.x * gridDim.x) {
     curand_init(seed, i, 0, &state[i]);
@@ -225,22 +216,11 @@ __global__ void setup_rng_kernel(curandState *state, const long n_draws, int see
 
 // Updates the embedding
 template <typedef real_t>
-__global__ void
-wtsneUpdateYKernel(curandState *rng_state,
-                   const gsl_table_device<real_t> node_table,
-                   const gsl_table_device<real_t> edge_table,
-                   real_t *Y,
-                   uint64_t *I,
-                   uint64_t *J,
-                   real_t *Eq,
-                   real_t *qsum,
-                   int *qcount,
-                   uint64_t nn,
-                   uint64_t ne,
-                   real_t eta,
-                   uint64_t nRepuSamp,
-                   real_t nsq,
-                   real_t attrCoef) {
+__global__ void wtsneUpdateYKernel(
+    curandState *rng_state, const gsl_table_device<real_t> node_table,
+    const gsl_table_device<real_t> edge_table, real_t *Y, uint64_t *I,
+    uint64_t *J, real_t *Eq, real_t *qsum, int *qcount, uint64_t nn,
+    uint64_t ne, real_t eta, uint64_t nRepuSamp, real_t nsq, real_t attrCoef) {
   // Bring RNG state into local registers
   int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
   curandState localState = rng_state[workerIdx];
@@ -295,8 +275,10 @@ wtsneUpdateYKernel(curandState *rng_state,
         // Y[d + lk] += gain;
         // Y[d + ll] -= gain;
         // But try again if another worker has written to the same location
-        if (atomicCAS(Y + d + lk, Yk_read[d], Yk_read[d] + gain) != Yk_read[d] ||
-            atomicCAS(Y + d + ll, Yl_read[d], Yl_read[d] - gain) != Yl_read[d]) {
+        if (atomicCAS(Y + d + lk, Yk_read[d], Yk_read[d] + gain) !=
+                Yk_read[d] ||
+            atomicCAS(Y + d + ll, Yl_read[d], Yl_read[d] - gain) !=
+                Yl_read[d]) {
           overwrite = true;
         }
       }
@@ -316,15 +298,10 @@ wtsneUpdateYKernel(curandState *rng_state,
  ****************************/
 template <typename real_t>
 std::vector<real_t> wtsne_gpu(std::vector<uint64_t> &I,
-                             std::vector<uint64_t> &J,
-                             std::vector<real_t> &P,
-                             std::vector<real_t> &weights,
-                             uint64_t maxIter,
-                             int block_size,
-                             int block_count,
-                             uint64_t nRepuSamp,
-                             real_t eta0,
-                             bool bInit) {
+                              std::vector<uint64_t> &J, std::vector<real_t> &P,
+                              std::vector<real_t> &weights, uint64_t maxIter,
+                              int block_size, int block_count,
+                              uint64_t nRepuSamp, real_t eta0, bool bInit) {
   // Check input
   std::vector<real_t> Y = wtsne_init<real_t>(I, J, P, weights);
 
@@ -332,7 +309,8 @@ std::vector<real_t> wtsne_gpu(std::vector<uint64_t> &I,
   CUDA_CALL(cudaSetDevice(0));
 
   // This class sets up and manages all of the memory
-  SCEDeviceMemory embedding<real_t>(Y, I, J, P, weights, block_size, block_count);
+  SCEDeviceMemory embedding<real_t>(Y, I, J, P, weights, block_size,
+                                    block_count);
   kernel_ptrs device_ptrs<real_t> = embedding.get_device_ptrs();
 
   // Set up random number generation for device
@@ -349,27 +327,17 @@ std::vector<real_t> wtsne_gpu(std::vector<uint64_t> &I,
 
     real_t attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
     wtsneUpdateYKernel<real_t><<<block_count, block_size>>>(
-      device_rng,
-      embedding.get_node_table(),
-      embedding.get_edge_table(),
-      device_ptrs.Y,
-      device_ptrs.I,
-      device_ptrs.J,
-      device_ptrs.Eq,
-      device_ptrs.qsum,
-      device_ptrs.qcount,
-      device_ptrs.nn,
-      device_ptrs.ne,
-      eta,
-      nRepuSamp,
-      device_ptrs.nsq,
-      attrCoef);
+        device_rng, embedding.get_node_table(), embedding.get_edge_table(),
+        device_ptrs.Y, device_ptrs.I, device_ptrs.J, device_ptrs.Eq,
+        device_ptrs.qsum, device_ptrs.qcount, device_ptrs.nn, device_ptrs.ne,
+        eta, nRepuSamp, device_ptrs.nsq, attrCoef);
     CUDA_CALL(cudaDeviceSynchronize());
     real_t Eq = embedding.update_Eq();
 
     // Print progress
     if (iter % MAX(1, maxIter / 1000) == 0 || iter == maxIter - 1) {
-      fprintf(stderr, "%cOptimizing (GPU)\t eta=%f Progress: %.1lf%%, Eq=%.20f", 13, eta, (real_t)iter / maxIter * 100, Eq);
+      fprintf(stderr, "%cOptimizing (GPU)\t eta=%f Progress: %.1lf%%, Eq=%.20f",
+              13, eta, (real_t)iter / maxIter * 100, Eq);
       fflush(stderr);
     }
   }

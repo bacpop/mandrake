@@ -16,9 +16,9 @@ def plotSCE(embedding, names, labels, output_prefix):
                             'y': embedding[not_noise, 1],
                             'names': [names[i] for i in not_noise_list],
                             'cluster': [str(labels[x]) for x in not_noise_list]})
-    
+
     # Plot clustered points
-    fig = px.scatter(plot_df, x="x", y="y", 
+    fig = px.scatter(plot_df, x="x", y="y",
                      hover_name='names',
                      color='cluster',
                      render_mode='webgl')

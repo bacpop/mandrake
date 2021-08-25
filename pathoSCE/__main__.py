@@ -38,7 +38,7 @@ def get_options():
     mode.add_argument('--distances',
                         default=None,
                         help='Work from pre-calculated distances')
-    
+
     ioGroup = parser.add_argument_group('I/O options')
     ioGroup.add_argument('--output', default="pathoSCE", type=str, help='Prefix for output files [default = "pathoSCE"]')
 
@@ -47,7 +47,7 @@ def get_options():
                                                      help="Turn of entropy pre-processing of distances")
     distanceGroup.add_argument('--perplexity', default=15, type=float, help="Perplexity for distance to similarity "
                                                                             "conversion [default = 15]")
-    distanceGroup.add_argument('--sparse', default=False, action='store_true', 
+    distanceGroup.add_argument('--sparse', default=False, action='store_true',
                                help='Use sparse matrix calculations to speed up'
                                     'distance calculation from --accessory [default = False]')
     distanceGroup.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
@@ -106,11 +106,11 @@ def main():
     if args.distances is None:
         sys.stderr.write("Calculating distances\n")
         if (args.alignment is not None):
-            P, names = pairSnpDists(args.pairsnp_exe, 
-                                    args.alignment, 
-                                    args.output, 
-                                    args.threshold, 
-                                    args.kNN, 
+            P, names = pairSnpDists(args.pairsnp_exe,
+                                    args.alignment,
+                                    args.output,
+                                    args.threshold,
+                                    args.kNN,
                                     args.cpus)
         elif (args.accessory is not None):
             P, names = accessoryDists(args.accessory, args.sparse, args.kNN, args.threshold)
@@ -128,14 +128,14 @@ def main():
                 dist_col = 0
             elif (args.use_accessory):
                 dist_col = 1
-            
+
             if (args.sequence is not None):
                 # sequence
-                P, names = sketchlibDists(args.sequence, 
-                                          args.output, 
-                                          kmers, 
-                                          args.sketch_size, 
-                                          args.min_count, 
+                P, names = sketchlibDists(args.sequence,
+                                          args.output,
+                                          kmers,
+                                          args.sketch_size,
+                                          args.min_count,
                                           dist_col,
                                           args.kNN,
                                           args.threshold,
@@ -143,9 +143,9 @@ def main():
 
             elif (args.sketches is not None):
                 # sketches
-                P, names = sketchlibDbDists(args.sketches, 
-                                            kmers, 
-                                            args.sketch_size, 
+                P, names = sketchlibDbDists(args.sketches,
+                                            kmers,
+                                            args.sketch_size,
                                             dist_col,
                                             args.kNN,
                                             args.threshold,
@@ -155,10 +155,10 @@ def main():
         #* Set up for SCE and  *#
         #* save distances      *#
         #***********************#
-        I, J, P = generateIJP(names, 
-                              args.output, 
-                              P, 
-                              not args.no_preprocessing, 
+        I, J, P = generateIJP(names,
+                              args.output,
+                              P,
+                              not args.no_preprocessing,
                               args.perplexity)
 
     # Load existing distances
@@ -184,7 +184,7 @@ def main():
     #* run HDBSCAN         *#
     #***********************#
     hdb_clusters = runHDBSCAN(embedding)
-    
+
     #***********************#
     #* plot embedding      *#
     #***********************#

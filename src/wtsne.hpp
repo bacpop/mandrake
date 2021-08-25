@@ -38,7 +38,7 @@ std::vector<T> wtsne_init(const std::vector<long long>& I,
     }
     long long nn = weights.size();
     long long ne = P.size();
-    
+
     // Normalise distances and weights
     double Psum = 0.0;
     for (long long e=0; e<ne; e++) Psum += P[e];
@@ -62,8 +62,8 @@ std::vector<double> wtsne(std::vector<long long>& I,
            std::vector<long long>& J,
            std::vector<double>& P,
            std::vector<double>& weights,
-           long long maxIter, 
-           long long workerCount, 
+           long long maxIter,
+           long long workerCount,
            long long nRepuSamp,
            double eta0,
            bool bInit);
@@ -73,8 +73,8 @@ std::vector<float> wtsne_gpu(
 	std::vector<long long>& J,
 	std::vector<double>& P,
 	std::vector<double>& weights,
-	long long maxIter, 
-	int blockSize, 
+	long long maxIter,
+	int blockSize,
 	int blockCount,
 	long long nRepuSamp,
 	double eta0,

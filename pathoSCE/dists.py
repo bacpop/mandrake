@@ -31,9 +31,9 @@ def accessoryDists(accessory_file, sparse, kNN, threshold):
 def pairSnpDists(pairsnp_exe, alignment, output, threshold, kNN, cpus):
     # alignment
     P, names = runPairsnp(pairsnp_exe,
-                          alignment, 
-                          output, 
-                          threshold=threshold, 
+                          alignment,
+                          output,
+                          threshold=threshold,
                           kNN=kNN,
                           threads=cpus)
 
@@ -41,12 +41,12 @@ def pairSnpDists(pairsnp_exe, alignment, output, threshold, kNN, cpus):
 
 def sketchlibDists(sequence_file, output, kmers, sketch_size, min_count, dist_col, kNN, threshold, cpus):
     names, sequences = readRfile(sequence_file)
-    P = pp_sketchlib.constructAndQuery(output, 
-                                        names, 
-                                        sequences, 
-                                        kmers, 
-                                        int(round(sketch_size/64)), 
-                                        min_count, 
+    P = pp_sketchlib.constructAndQuery(output,
+                                        names,
+                                        sequences,
+                                        kmers,
+                                        int(round(sketch_size/64)),
+                                        min_count,
                                         cpus)[:,dist_col]
     # TODO: replace with sparse version
     if kNN is not None:
@@ -62,7 +62,7 @@ def sketchlibDbDists(sketch_db, default_kmers, default_sketchsize, dist_col, kNN
     names = getSeqsInDb(sketch_db + ".h5")
     kmers, sketch_size = readDBParams(sketch_db + ".h5", default_kmers, int(round(default_sketchsize/64)))
     P = pp_sketchlib.queryDatabase(sketch_db, sketch_db, names, names, kmers, cpus)[:,dist_col]
-    
+
     # TODO: replace with sparse version
     if kNN is not None:
         P = _KNN_conv(P, k=kNN)
@@ -97,8 +97,8 @@ def _kNNJaccard(m, k):
     neigh.fit(m)
     d = neigh.kneighbors(m)
 
-    d = coo_matrix((d[0].flatten(), 
-            (np.repeat(np.arange(m.shape[0]),2), d[1].flatten())), 
+    d = coo_matrix((d[0].flatten(),
+            (np.repeat(np.arange(m.shape[0]),2), d[1].flatten())),
             shape=(m.shape[0], m.shape[0]))
 
     return(d)
