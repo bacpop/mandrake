@@ -23,12 +23,13 @@ if(DEFINED ENV{CONDA_PREFIX})
     include_directories($ENV{CONDA_PREFIX}/include)
     link_directories($ENV{CONDA_PREFIX}/lib)
     link_directories($ENV{CONDA_PREFIX}/lib/intel64)
+else()
+  find_package(GSL REQUIRED)
+  find_package(OpenMP)
 endif()
 
 # Add libraries
 find_package(pybind11 REQUIRED)
-find_package(GSL REQUIRED)
-#find_package(OpenMP) # This links system openmp if present - conda sorts out rpath but take care
 
 # Check for CUDA and compiles GPU library
 include(CheckLanguage)
@@ -76,7 +77,12 @@ if(CMAKE_CUDA_COMPILER)
     set_property(TARGET "${TARGET_NAME}" PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 
-target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module GSL::gsl GSL::gslcblas gomp gfortran m rt)
-#if(OpenMP_CXX_FOUND)
-#    target_link_libraries("${TARGET_NAME}" PRIVATE OpenMP::OpenMP_CXX)
-#endif()
+target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module gfortran m rt)
+if(DEFINED ENV{CONDA_PREFIX})
+  target_link_libraries("${TARGET_NAME}" PRIVATE gsl gslcblas gomp)
+else()
+  target_link_libraries("${TARGET_NAME}" PRIVATE GSL::gsl GSL::gslcblas)
+  if(OpenMP_CXX_FOUND)
+      target_link_libraries("${TARGET_NAME}" PRIVATE OpenMP::OpenMP_CXX)
+  endif()
+endif()
