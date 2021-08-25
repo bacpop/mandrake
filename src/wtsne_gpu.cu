@@ -315,9 +315,9 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   // Set up random number generation for device
   const int n_workers = block_size * block_count;
   const size_t rng_block_count = (n_workers + block_size - 1) / block_size;
-  curandState *device_rng;
-  setup_rng_kernel<<<rng_block_count, block_size>>>(device_rng, n_workers,
-                                                    seed);
+  device_array<curandState> device_rng(n_workers);
+  setup_rng_kernel<<<rng_block_count, block_size>>>(device_rng.data(),
+                                                    n_workers, seed);
   CUDA_CALL(cudaDeviceSynchronize());
 
   // Main SCE loop
@@ -327,10 +327,10 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
 
     real_t attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
     wtsneUpdateYKernel<real_t><<<block_count, block_size>>>(
-        device_rng, embedding.get_node_table(), embedding.get_edge_table(),
-        device_ptrs.Y, device_ptrs.I, device_ptrs.J, device_ptrs.Eq,
-        device_ptrs.qsum, device_ptrs.qcount, device_ptrs.nn, device_ptrs.ne,
-        eta, nRepuSamp, device_ptrs.nsq, attrCoef);
+        device_rng.data(), embedding.get_node_table(),
+        embedding.get_edge_table(), device_ptrs.Y, device_ptrs.I, device_ptrs.J,
+        device_ptrs.Eq, device_ptrs.qsum, device_ptrs.qcount, device_ptrs.nn,
+        device_ptrs.ne, eta, nRepuSamp, device_ptrs.nsq, attrCoef);
     CUDA_CALL(cudaDeviceSynchronize());
     real_t Eq = embedding.update_Eq();
 
