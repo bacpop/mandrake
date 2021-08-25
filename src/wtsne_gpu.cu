@@ -132,7 +132,7 @@ public:
   }
 
 private:
-  template <typename real_t, typename T>
+  template <typename T>
   gsl_table_host<real_t> set_device_table(const std::vector<T> &weights) {
     uint64_t table_size = weights.size();
     gsl_ran_discrete_t *gsl_table =
@@ -157,8 +157,8 @@ private:
   uint64_t ne_;
 
   // Uniform draw tables
-  gsl_table_host node_table_;
-  gsl_table_host edge_table_;
+  gsl_table_host<real_t> node_table_;
+  gsl_table_host<real_t> edge_table_;
 
   // Embedding
   device_array<real_t> Y_;
@@ -184,7 +184,7 @@ private:
  * Device functions         *
  ****************************/
 
-template <typedef real_t>
+template <typename real_t>
 __device__ size_t discrete_draw(curandState *state,
                                 const gsl_table_device<real_t> &unif_table) {
   size_t c = 0;
@@ -215,7 +215,7 @@ __global__ void setup_rng_kernel(curandState *state, const long n_draws,
 }
 
 // Updates the embedding
-template <typedef real_t>
+template <typename real_t>
 __global__ void wtsneUpdateYKernel(
     curandState *rng_state, const gsl_table_device<real_t> node_table,
     const gsl_table_device<real_t> edge_table, real_t *Y, uint64_t *I,
