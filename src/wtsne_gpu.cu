@@ -53,7 +53,7 @@ public:
                   const std::vector<real_t> &weights, int block_size,
                   int block_count)
       : n_workers_(block_size * block_count), nn_(weights.size()),
-        ne_(P.size()), nsq_(static_cast<real_t>(nn) * (nn - 1)), Y_(Y), I_(I),
+        ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)), Y_(Y), I_(I),
         J_(J), qsum_(n_workers_), qcount_(n_workers_) {
     // Initialise Eq, which is managed memory between host and device
     CUDA_CALL(cudaMallocManaged((void **)&Eq_, sizeof(real_t)));
@@ -65,11 +65,11 @@ public:
 
     // Initialise tmp space for reductions on qsum and qcount
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
-                           qsum_.data(), qsum_total_.data(), qsum_.size());
+                           qsum_.data(), qsum_total_, qsum_.size());
     qsum_tmp_storage_.set_size(qsum_tmp_storage_bytes_);
     cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
                            qcount_tmp_storage_bytes_, qcount_.data(),
-                           qcount_total_.data(), qcount_.size());
+                           qcount_total_, qcount_.size());
     qcount_tmp_storage_.set_size(qcount_tmp_storage_bytes_);
 
     // Set up discrete RNG tables
@@ -99,7 +99,7 @@ public:
   }
 
   kernel_ptrs<real_t> get_device_ptrs() {
-    kernel_ptrs<real_T> device_ptrs = {.Y = Y_.data(),
+    kernel_ptrs<real_t> device_ptrs = {.Y = Y_.data(),
                                        .I = I_.data(),
                                        .J = J_.data(),
                                        .Eq = Eq_,
@@ -126,7 +126,7 @@ public:
     CUDA_CALL(cudaDeviceSynchronize());
 
     real_t Eq =
-        ((*Eq_) * nsq_ + (*d_qsum_total_)) / (nsq_ + (*d_qcount_total_));
+        ((*Eq_) * nsq_ + (*qsum_total_)) / (nsq_ + (*qcount_total_));
     *Eq_ = Eq;
     return Eq;
   }
@@ -187,7 +187,6 @@ private:
 template <typename real_t>
 __device__ size_t discrete_draw(curandState *state,
                                 const gsl_table_device<real_t> &unif_table) {
-  size_t c = 0;
   real_t u = curand_uniform(state);
   size_t c = u * unif_table.K;
   real_t f = unif_table.F[c];
@@ -290,7 +289,7 @@ __global__ void wtsneUpdateYKernel(
     __syncwarp();
   }
   // Store RNG state back to global
-  state[i] = localState;
+  rng_state[workerIdx] = localState;
 }
 
 /****************************
@@ -310,9 +309,9 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   CUDA_CALL(cudaSetDevice(0));
 
   // This class sets up and manages all of the memory
-  SCEDeviceMemory embedding<real_t>(Y, I, J, P, weights, block_size,
+  SCEDeviceMemory<real_t> embedding(Y, I, J, P, weights, block_size,
                                     block_count);
-  kernel_ptrs device_ptrs<real_t> = embedding.get_device_ptrs();
+  kernel_ptrs<real_t> device_ptrs = embedding.get_device_ptrs();
 
   // Set up random number generation for device
   const int n_workers = block_size * block_count;

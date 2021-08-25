@@ -63,7 +63,7 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   // Not parallelised, but could be
   std::mt19937 mersenne_engine{seed};
   std::uniform_real_distribution<real_t> distribution(0.0, 1e-4);
-  auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
+  auto gen = [&dist, &mersenne_engine]() { return distribution(mersenne_engine); };
 
   std::vector<real_t> Y(nn * DIM);
   std::generate(Y.begin(), Y.end(), gen);
