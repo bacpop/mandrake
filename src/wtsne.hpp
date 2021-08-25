@@ -40,7 +40,7 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
 
   // Normalise distances and weights
   real_t Psum = 0.0;
-#pragma omp parallel for schedule(static) shared(Psum, P) reduction(+: Psum) num_threads(n_threads)
+#pragma omp parallel for schedule(static) reduction(+: Psum) num_threads(n_threads)
   for (uint64_t e = 0; e < ne; e++) {
     Psum += P[e];
   }
@@ -50,7 +50,7 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   }
 
   real_t weights_sum = 0.0;
-#pragma omp parallel for schedule(static) shared(weights_sum, weights) reduction(+: weights_sum) num_threads(n_threads)
+#pragma omp parallel for schedule(static) reduction(+: weights_sum) num_threads(n_threads)
   for (long long i = 0; i < nn; i++) {
     weights_sum += weights[i];
   }
