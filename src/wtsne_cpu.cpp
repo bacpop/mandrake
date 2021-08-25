@@ -49,7 +49,7 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
 
     double attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
     double repuCoef = 2 * c / nRepuSamp * nsq;
-#pragma omp parallel for reduction(+ : qsum, qcount)
+#pragma omp parallel for reduction(+ : qsum, qcount) num_threads(n_threads)
     for (long long worker = 0; worker < n_threads; worker++) {
       std::vector<double> dY(DIM);
 

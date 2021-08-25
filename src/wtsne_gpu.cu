@@ -23,18 +23,18 @@
 /****************************
  * Classes                  *
  ****************************/
-template <typedef real_t> struct gsl_table_device {
+template <typename real_t> struct gsl_table_device {
   real_t K;
   real_t *F;
   size_t *A;
 };
 
-template <typedef real_t> struct gsl_table_host {
+template <typename real_t> struct gsl_table_host {
   device_array<real_t> F;
   device_array<size_t> A;
 };
 
-template <typedef real_t> struct kernel_ptrs {
+template <typename real_t> struct kernel_ptrs {
   real_t *Y;
   uint64_t *I;
   uint64_t *J;
