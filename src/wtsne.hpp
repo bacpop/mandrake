@@ -30,7 +30,7 @@
 // See https://github.com/johnlees/PopPUNK/blob/master/src/extend.cpp
 
 // Get indices where each row starts in the sparse matrix
-std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
+inline std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
                                         const size_t n_samples) {
   std::vector<uint64_t> row_start_idx(n_samples + 1);
   size_t i_idx = 0;
