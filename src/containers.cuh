@@ -5,6 +5,79 @@
 #include "cuda_call.cuh"
 
 template <typename T>
+class device_value {
+public:
+  // Default constructor
+  device_value() {
+    CUDA_CALL(cudaMalloc((void**)&data_, sizeof(T)));
+    CUDA_CALL(cudaMemset(data_, 0, sizeof(T)));
+  }
+
+  // Constructor from value
+  device_value(const T value) {
+    CUDA_CALL(cudaMalloc((void**)&data_, sizeof(T)));
+    CUDA_CALL(cudaMemset(data_, value, sizeof(T)));
+  }
+
+  // Copy
+  device_value(const device_value& other) {
+    CUDA_CALL(cudaMalloc((void**)&data_, sizeof(T)));
+    CUDA_CALL(cudaMemcpy(data_, other.data_, sizeof(T),
+                         cudaMemcpyDefault));
+  }
+
+  // Copy assign
+  device_value& operator=(const device_value& other) {
+    if (this != &other) {
+      CUDA_CALL(cudaFree(data_));
+      CUDA_CALL(cudaMalloc((void**)&data_, sizeof(T)));
+      CUDA_CALL(cudaMemcpy(data_, other.data_, sizeof(T),
+                           cudaMemcpyDefault));
+    }
+    return *this;
+  }
+
+  // Move
+  device_value(device_value&& other) : data_(nullptr) {
+    data_ = other.data_;
+    other.data_ = nullptr;
+  }
+
+  // Move assign
+  device_value& operator=(device_value&& other) {
+    if (this != &other) {
+      CUDA_CALL(cudaFree(data_));
+      data_ = other.data_;
+      other.data_ = nullptr;
+    }
+    return *this;
+  }
+
+  ~device_value() {
+    CUDA_CALL_NOTHROW(cudaFree(data_));
+  }
+
+  T get_value() const {
+    T host_value;
+    CUDA_CALL(cudaMemcpy(&T, data_, sizeof(T),
+                        cudaMemcpyDefault));
+    return T;
+  }
+
+  void set_array(const T value) {
+    CUDA_CALL(cudaMemcpy(data_, &value, sizeof(T),
+                        cudaMemcpyDefault));
+  }
+
+  T* data() {
+    return data_;
+  }
+
+private:
+  T* data_;
+};
+
+template <typename T>
 class device_array {
 public:
   // Default constructor

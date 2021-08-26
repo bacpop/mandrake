@@ -54,34 +54,21 @@ public:
                   int block_count)
       : n_workers_(block_size * block_count), nn_(weights.size()),
         ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)), Y_(Y), I_(I),
-        J_(J), qsum_(n_workers_), qcount_(n_workers_) {
-    // Initialise Eq, which is managed memory between host and device
-    CUDA_CALL(cudaMallocManaged((void **)&Eq_, sizeof(real_t)));
-    CUDA_CALL(cudaMallocManaged((void **)&qsum_total_, sizeof(real_t)));
-    CUDA_CALL(cudaMallocManaged((void **)&qcount_total_, sizeof(uint64_t)));
-    *Eq_ = 1;
-    *qsum_total_ = 0;
-    *qcount_total_ = 0;
-
+        J_(J), Eq_(1.0), qsum_(n_workers_), qsum_total_(0.0),
+        qcount_(n_workers_), qcount_total_(0) {
     // Initialise tmp space for reductions on qsum and qcount
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
-                           qsum_.data(), qsum_total_, qsum_.size());
+                           qsum_.data(), qsum_total_.data(), qsum_.size());
     qsum_tmp_storage_.set_size(qsum_tmp_storage_bytes_);
     cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
                            qcount_tmp_storage_bytes_, qcount_.data(),
-                           qcount_total_, qcount_.size());
+                           qcount_total_.data(), qcount_.size());
     qcount_tmp_storage_.set_size(qcount_tmp_storage_bytes_);
 
     // Set up discrete RNG tables
     gsl_rng_env_setup();
     node_table_ = set_device_table(weights);
     edge_table_ = set_device_table(P);
-  }
-
-  ~SCEDeviceMemory() {
-    CUDA_CALL(cudaFree((void *)Eq_));
-    CUDA_CALL(cudaFree((void *)qsum_total_));
-    CUDA_CALL(cudaFree((void *)qcount_total_));
   }
 
   gsl_table_device<real_t> get_node_table() {
@@ -125,8 +112,11 @@ public:
                            qcount_total_, qcount_.size());
     CUDA_CALL(cudaDeviceSynchronize());
 
-    real_t Eq = ((*Eq_) * nsq_ + (*qsum_total_)) / (nsq_ + (*qcount_total_));
-    *Eq_ = Eq;
+    real_t Eq = Eq_.get_value();
+    real_t qsum_total = qsum_total_.get_value();
+    uint64_t qcount_total = qcount_total_.get_value();
+    real_t Eq = (Eq * nsq_ + qsum_total) / (nsq_ + qcount_total);
+    Eq_.set_value(Eq);
     return Eq;
   }
 
@@ -166,11 +156,11 @@ private:
   device_array<uint64_t> J_;
 
   // Algorithm progress
-  volatile real_t *Eq_;
+  device_value<real_t> Eq_;
   device_array<real_t> qsum_;
-  volatile real_t *qsum_total_;
+  device_value<real_t> *qsum_total_;
   device_array<uint64_t> qcount_;
-  volatile uint64_t *qcount_total_;
+  device_value<uint64_t> *qcount_total_;
 
   // cub space
   size_t qsum_tmp_storage_bytes_;
@@ -219,16 +209,18 @@ __global__ void wtsneUpdateYKernel(
     const gsl_table_device<real_t> edge_table, real_t *Y, uint64_t *I,
     uint64_t *J, real_t *Eq, real_t *qsum, int *qcount, uint64_t nn,
     uint64_t ne, real_t eta, uint64_t nRepuSamp, real_t nsq, real_t attrCoef) {
-  // Bring RNG state into local registers
+  // Worker index based on CUDA launch parameters
   int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
+  // Bring RNG state into local registers
   curandState localState = rng_state[workerIdx];
 
   real_t dY[DIM];
   real_t Yk_read[DIM];
   real_t Yl_read[DIM];
   real_t c = static_cast<real_t>(1.0) / ((*Eq) * nsq);
-  qsum[workerIdx] = static_cast<real_t>(0.0);
-  qcount[workerIdx] = 0;
+
+  real_t qsum_thread = 0.0;
+  uint64_t qcount_thread = 0;
 
   real_t repuCoef = 2 * c / nRepuSamp * nsq;
   for (int r = 0; r < nRepuSamp + 1; r++) {
@@ -281,14 +273,16 @@ __global__ void wtsneUpdateYKernel(
         }
       }
       if (!overwrite) {
-        qsum[workerIdx] += q;
-        qcount[workerIdx]++;
+        qsum_local += q;
+        qcount_local++;
       }
     }
     __syncwarp();
   }
-  // Store RNG state back to global
+  // Store local state (RNG & counts) back to global
   rng_state[workerIdx] = localState;
+  qsum[workerIdx] = qsum_local;
+  qcount[workerIdx] = qcount_local;
 }
 
 /****************************

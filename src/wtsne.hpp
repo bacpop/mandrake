@@ -57,7 +57,7 @@ std::vector<real_t> conditional_probabilities(const std::vector<uint64_t> &I,
                                               const int n_threads) {
   std::vector<real_t> P(dists.size());
   // Simple
-  if (perplexity == 0) {
+  if (perplexity <= 0) {
 #pragma omp parallel for schedule(static) num_threads(n_threads)
     for (uint64_t idx = 0; idx < dists.size(); ++idx) {
       P[idx] = 1 - dists[idx];
