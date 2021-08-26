@@ -297,12 +297,14 @@ __global__ void wtsneUpdateYKernel(
 template <typename real_t>
 std::vector<real_t>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
-          std::vector<real_t> &P, std::vector<real_t> &weights,
-          const uint64_t maxIter, const int block_size, const int block_count,
-          const uint64_t nRepuSamp, const real_t eta0, const bool bInit,
-          const int n_threads, const int seed) {
+          std::vector<real_t> &dists, std::vector<real_t> &weights,
+          const real_t perplexity, const uint64_t maxIter, const int block_size,
+          const int block_count, const uint64_t nRepuSamp, const real_t eta0,
+          const bool bInit, const int n_threads, const int seed) {
   // Check input
-  std::vector<real_t> Y = wtsne_init<real_t>(I, J, P, weights, n_threads, seed);
+  std::vector<real_t> Y, P;
+  std::tie(Y, P) =
+      wtsne_init<real_t>(I, J, P, perplexity, weights, n_threads, seed);
 
   // Initialise CUDA
   CUDA_CALL(cudaSetDevice(0));

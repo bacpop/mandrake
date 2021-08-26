@@ -15,12 +15,15 @@
 
 std::vector<double> wtsne(const std::vector<uint64_t> &I,
                           const std::vector<uint64_t> &J,
-                          std::vector<double> &P, std::vector<double> &weights,
+                          std::vector<double> &dists,
+                          std::vector<double> &weights, const double perplexity,
                           const uint64_t maxIter, const uint64_t nRepuSamp,
                           const double eta0, const bool bInit,
                           const int n_threads, const int seed) {
   // Check input
-  std::vector<double> Y = wtsne_init<double>(I, J, P, weights, n_threads, seed);
+  std::vector<double> Y, P;
+  std::tie(Y, P) =
+      wtsne_init<double>(I, J, dists, weights, perplexity, n_threads, seed);
   long long nn = weights.size();
   long long ne = P.size();
 
