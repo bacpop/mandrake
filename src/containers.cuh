@@ -58,10 +58,10 @@ public:
   }
 
   T get_value() const {
-    T host_value;
-    CUDA_CALL(cudaMemcpy(&T, data_, sizeof(T),
+    T* host_value;
+    CUDA_CALL(cudaMemcpy(T, data_, sizeof(T),
                         cudaMemcpyDefault));
-    return T;
+    return *T;
   }
 
   void set_array(const T value) {

@@ -115,7 +115,7 @@ public:
     real_t Eq = Eq_.get_value();
     real_t qsum_total = qsum_total_.get_value();
     uint64_t qcount_total = qcount_total_.get_value();
-    real_t Eq = (Eq * nsq_ + qsum_total) / (nsq_ + qcount_total);
+    Eq = (Eq * nsq_ + qsum_total) / (nsq_ + qcount_total);
     Eq_.set_value(Eq);
     return Eq;
   }
@@ -158,9 +158,9 @@ private:
   // Algorithm progress
   device_value<real_t> Eq_;
   device_array<real_t> qsum_;
-  device_value<real_t> *qsum_total_;
+  device_value<real_t> qsum_total_;
   device_array<uint64_t> qcount_;
-  device_value<uint64_t> *qcount_total_;
+  device_value<uint64_t> qcount_total_;
 
   // cub space
   size_t qsum_tmp_storage_bytes_;
@@ -219,8 +219,8 @@ __global__ void wtsneUpdateYKernel(
   real_t Yl_read[DIM];
   real_t c = static_cast<real_t>(1.0) / ((*Eq) * nsq);
 
-  real_t qsum_thread = 0.0;
-  uint64_t qcount_thread = 0;
+  real_t qsum_local = 0.0;
+  uint64_t qcount_local = 0;
 
   real_t repuCoef = 2 * c / nRepuSamp * nsq;
   for (int r = 0; r < nRepuSamp + 1; r++) {
