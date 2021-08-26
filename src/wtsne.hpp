@@ -55,7 +55,7 @@ std::vector<real_t> conditional_probabilities(const std::vector<uint64_t> &I,
                                               const uint64_t n_samples,
                                               const real_t perplexity,
                                               const int n_threads) {
-  std::vector<real_t> P(dists.size());
+  std::vector<double> P(dists.size());
   // Simple
   if (perplexity <= 0) {
 #pragma omp parallel for schedule(static) num_threads(n_threads)
@@ -139,7 +139,7 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
 
   // Preprocess distances
   std::vector<real_t> P =
-      conditional_probabilities(I, J, dists, nn, perplexity, n_threads);
+      conditional_probabilities<real_t>(I, J, dists, nn, perplexity, n_threads);
 
   // Normalise distances and weights
   real_t Psum = 0.0;
