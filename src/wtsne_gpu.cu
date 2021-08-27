@@ -106,10 +106,10 @@ public:
 
   real_t update_Eq() {
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
-                           qsum_.data(), qsum_total_, qsum_.size());
+                           qsum_.data(), qsum_total_.data(), qsum_.size());
     cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
                            qcount_tmp_storage_bytes_, qcount_.data(),
-                           qcount_total_, qcount_.size());
+                           qcount_total_.data(), qcount_.size());
     CUDA_CALL(cudaDeviceSynchronize());
 
     real_t Eq = Eq_.get_value();

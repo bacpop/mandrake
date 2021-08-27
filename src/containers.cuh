@@ -64,7 +64,7 @@ public:
     return host_value;
   }
 
-  void set_array(const T value) {
+  void set_value(const T value) {
     CUDA_CALL(cudaMemcpy(data_, &value, sizeof(T),
                         cudaMemcpyDefault));
   }
