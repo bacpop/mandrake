@@ -299,7 +299,7 @@ __global__ void wtsneUpdateYKernel(
 template
 std::vector<float>
 wtsne_gpu<float>(const std::vector<uint64_t>&, const std::vector<uint64_t>&,
-          std::vector<float>, std::vector<float>,
+          std::vector<float>&, std::vector<float>&,
           const float, const uint64_t, const int,
           const int, const uint64_t, const float,
           const bool, const int, const int,
