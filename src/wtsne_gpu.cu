@@ -121,6 +121,7 @@ public:
   }
 
 private:
+  // TODO need to specialise this for floats (gsl returns double*)
   template <typename T>
   gsl_table_host<real_t> set_device_table(const std::vector<T> &weights) {
     uint64_t table_size = weights.size();

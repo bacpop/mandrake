@@ -132,7 +132,7 @@ std::vector<real_t> conditional_probabilities(const std::vector<uint64_t> &I,
       }
     }
   }
-  return convert_vector(P);
+  return convert_vector<real_t>(P);
 }
 
 template <typename T>
