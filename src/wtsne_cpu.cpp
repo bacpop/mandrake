@@ -81,10 +81,9 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
         double dist2 = 0.0;
         for (long long d = 0; d < DIM; d++) {
 #pragma omp atomic read
-          {
             Yk_read[d] = Y[d + lk];
+#pragma omp atomic read
             Yl_read[d] = Y[d + ll];
-          }
           dY[d] = Yk_read[d] - Yl_read[d];
           dist2 += dY[d] * dY[d];
         }
