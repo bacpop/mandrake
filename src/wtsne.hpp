@@ -53,7 +53,8 @@ std::vector<real_t> conditional_probabilities(const std::vector<uint64_t> &I,
                                               const uint64_t n_samples,
                                               const real_t perplexity,
                                               const int n_threads) {
-  std::vector<double> P(dists.size()); // note double (as in sklearn implementation)
+  std::vector<double> P(
+      dists.size()); // note double (as in sklearn implementation)
   // Simple
   if (perplexity <= 0) {
 #pragma omp parallel for schedule(static) num_threads(n_threads)
@@ -120,7 +121,7 @@ std::vector<real_t> conditional_probabilities(const std::vector<uint64_t> &I,
 }
 
 template <typename T>
-inline void normalise_vector(std::vector<T>& vec, const int n_threads) {
+inline void normalise_vector(std::vector<T> &vec, const int n_threads) {
   T sum = static_cast<T>(0.0);
 #pragma omp parallel for schedule(static) reduction(+: sum) num_threads(n_threads)
   for (uint64_t it = 0; it < vec.size(); ++it) {
@@ -182,4 +183,5 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           std::vector<real_t> &dists, std::vector<real_t> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
           const int block_count, const uint64_t nRepuSamp, const real_t eta0,
-          const bool bInit, const int n_threads, const int seed);
+          const bool bInit, const int n_threads, const int device_id,
+          const int seed);

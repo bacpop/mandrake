@@ -1,7 +1,7 @@
 # vim: set fileencoding=<utf-8> :
 # Copyright 2020 Gerry Tonkin-Hill
 
-'''pairsnp functions for determining pairwise SNP distances 
+'''pairsnp functions for determining pairwise SNP distances
 from a multiple sequence file'''
 
 import sys
@@ -72,7 +72,7 @@ def runPairsnp(pairsnp_exe, msaFile, output, kNN=None, threshold=None, threads=1
         distance = int(np.floor(threshold*aln_len))
         cmd += ' -d ' + str(distance)
     if kNN is not None:
-        cmd += ' -k ' + str(kNN)    
+        cmd += ' -k ' + str(kNN)
     cmd += ' -t ' + str(threads)
     cmd += ' ' + msaFile
 
@@ -87,8 +87,8 @@ def runPairsnp(pairsnp_exe, msaFile, output, kNN=None, threshold=None, threads=1
     if len(distances)<=2:
         sys.stderr.write("Distance threshold is too strict, less than 3 pairs passed!\n")
         sys.exit(1)
-    
-    distMatrix = coo_matrix(((distances[:,2]+0.1)/aln_len, (distances[:,0], distances[:,1])), 
+
+    distMatrix = coo_matrix(((distances[:,2]+0.1)/aln_len, (distances[:,0], distances[:,1])),
         shape=(len(seqNames), len(seqNames)))
 
     return distMatrix, seqNames

@@ -8,27 +8,7 @@ import sys
 import subprocess
 import numpy as np
 
-import pp_sketchlib
 import h5py
-
-sketchlib_exe = "poppunk_sketch"
-
-def checkSketchlibVersion():
-    """Checks that sketchlib can be run, and returns version
-
-    Returns:
-        version (str)
-            Version string
-    """
-    p = subprocess.Popen([sketchlib_exe + ' --version'], shell=True, stdout=subprocess.PIPE)
-    version = 0
-    for line in iter(p.stdout.readline, ''):
-        if line != '':
-            version = line.rstrip().decode().split(" ")[1]
-            break
-
-    return version
-
 
 def getSketchSize(dbPrefix):
     """Determine sketch size, and ensures consistent in whole database
@@ -82,7 +62,7 @@ def getKmersFromReferenceDatabase(dbPrefix):
     kmers = np.asarray(prev_kmer_sizes)
     return kmers
 
-def readDBParams(dbPrefix, kmers, sketch_sizes):
+def readDBParams(dbPrefix):
     """Get kmers lengths and sketch sizes from existing database
 
     Calls :func:`~getKmersFromReferenceDatabase` and :func:`~getSketchSize`
@@ -91,10 +71,6 @@ def readDBParams(dbPrefix, kmers, sketch_sizes):
     Args:
         dbPrefix (str)
             Prefix for sketch DB files
-        kmers (list)
-            Kmers to use if db not found
-        sketch_sizes (list)
-            Sketch size to use if db not found
 
     Returns:
         kmers (list)
@@ -105,8 +81,8 @@ def readDBParams(dbPrefix, kmers, sketch_sizes):
 
     db_kmers = getKmersFromReferenceDatabase(dbPrefix)
     if len(db_kmers) == 0:
-        sys.stderr.write("Couldn't find mash sketches in " + dbPrefix + "\n"
-                         "Using command line input parameters for k-mer and sketch sizes\n")
+        sys.stderr.write("Couldn't find  sketches in " + dbPrefix + "\n")
+        sys.exit(1)
     else:
         kmers = db_kmers
         sketch_sizes = getSketchSize(dbPrefix)
