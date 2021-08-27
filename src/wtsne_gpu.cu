@@ -207,7 +207,7 @@ template <typename real_t>
 __global__ void wtsneUpdateYKernel(
     curandState *rng_state, const gsl_table_device<real_t> node_table,
     const gsl_table_device<real_t> edge_table, real_t *Y, uint64_t *I,
-    uint64_t *J, real_t *Eq, real_t *qsum, int *qcount, uint64_t nn,
+    uint64_t *J, real_t *Eq, real_t *qsum, uint64_t *qcount, uint64_t nn,
     uint64_t ne, real_t eta, uint64_t nRepuSamp, real_t nsq, real_t attrCoef) {
   // Worker index based on CUDA launch parameters
   int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
