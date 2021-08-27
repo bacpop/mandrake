@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 #ifndef DIM
@@ -26,6 +27,20 @@
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+
+template <typename real_t>
+typename std::enable_if<!std::is_same<real_t, float>::value, std::vector<float>>::type
+convert_vector(const std::vector<real_t>& d_vec) {
+  std::vector<float> f_vec(d_vec.begin(), d_vec.end());
+  return f_vec;
+}
+
+// No conversion needed
+template <typename real_t>
+typename std::enable_if<std::is_same<real_t, double>::value, std::vector<float>>::type
+convert_vector(const std::vector<real_t>& d_vec) {
+  return d_vec;
+}
 
 // Get indices where each row starts in the sparse matrix
 inline std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
@@ -117,7 +132,7 @@ std::vector<real_t> conditional_probabilities(const std::vector<uint64_t> &I,
       }
     }
   }
-  return P;
+  return convert_vector(P);
 }
 
 template <typename T>
