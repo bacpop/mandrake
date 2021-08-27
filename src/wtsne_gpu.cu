@@ -293,8 +293,10 @@ __global__ void wtsneUpdateYKernel(
 /****************************
  * Main control function     *
  ****************************/
-/*
- template
+// These two templates are explicitly instantiated here as the instantiation
+// in python_bindings.cpp is not seen by nvcc, leading to a unlinked function
+// when imported
+template
 std::vector<float>
 wtsne_gpu<float>(const std::vector<uint64_t>&, const std::vector<uint64_t>,
           std::vector<float>, std::vector<float>,
@@ -302,7 +304,6 @@ wtsne_gpu<float>(const std::vector<uint64_t>&, const std::vector<uint64_t>,
           const int, const uint64_t, const float,
           const bool, const int, const int,
           const int);
-          */
 template
 std::vector<double>
 wtsne_gpu<double>(const std::vector<uint64_t>&, const std::vector<uint64_t>&,
