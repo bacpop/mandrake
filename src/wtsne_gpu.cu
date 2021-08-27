@@ -24,7 +24,7 @@
  * Classes                  *
  ****************************/
 template <typename real_t> struct gsl_table_device {
-  real_t K;
+  size_t K;
   real_t *F;
   size_t *A;
 };
@@ -40,7 +40,7 @@ template <typename real_t> struct kernel_ptrs {
   uint64_t *J;
   real_t *Eq;
   real_t *qsum;
-  int *qcount;
+  uint64_t *qcount;
   uint64_t nn;
   uint64_t ne;
   real_t nsq;
@@ -89,7 +89,7 @@ public:
     kernel_ptrs<real_t> device_ptrs = {.Y = Y_.data(),
                                        .I = I_.data(),
                                        .J = J_.data(),
-                                       .Eq = Eq_,
+                                       .Eq = Eq_.data(),
                                        .qsum = qsum_.data(),
                                        .qcount = qcount_.data(),
                                        .nn = nn_,
@@ -227,12 +227,12 @@ __global__ void wtsneUpdateYKernel(
     uint64_t k, l;
     if (r == 0) {
       uint64_t e =
-          static_cast<uint64_t>(discrete_draw(localState, edge_table) % ne);
+          static_cast<uint64_t>(discrete_draw(&localState, edge_table) % ne);
       k = I[e];
       l = J[e];
     } else {
-      k = static_cast<uint64_t>(discrete_draw(localState, node_table) % nn);
-      l = static_cast<uint64_t>(discrete_draw(localState, node_table) % nn);
+      k = static_cast<uint64_t>(discrete_draw(&localState, node_table) % nn);
+      l = static_cast<uint64_t>(discrete_draw(&localState, node_table) % nn);
     }
 
     if (k != l) {
@@ -265,10 +265,8 @@ __global__ void wtsneUpdateYKernel(
         // Y[d + lk] += gain;
         // Y[d + ll] -= gain;
         // But try again if another worker has written to the same location
-        if (atomicCAS(Y + d + lk, Yk_read[d], Yk_read[d] + gain) !=
-                Yk_read[d] ||
-            atomicCAS(Y + d + ll, Yl_read[d], Yl_read[d] - gain) !=
-                Yl_read[d]) {
+        if (atomicAdd(Y + d + lk, gain) != Yk_read[d] ||
+            atomicAdd(Y + d + ll, -gain) != Yl_read[d]) {
           overwrite = true;
         }
       }
@@ -295,7 +293,8 @@ __global__ void wtsneUpdateYKernel(
 /****************************
  * Main control function     *
  ****************************/
-template
+/*
+ template
 std::vector<float>
 wtsne_gpu<float>(const std::vector<uint64_t>&, const std::vector<uint64_t>,
           std::vector<float>, std::vector<float>,
@@ -303,6 +302,7 @@ wtsne_gpu<float>(const std::vector<uint64_t>&, const std::vector<uint64_t>,
           const int, const uint64_t, const float,
           const bool, const int, const int,
           const int);
+          */
 template
 std::vector<double>
 wtsne_gpu<double>(const std::vector<uint64_t>&, const std::vector<uint64_t>&,
