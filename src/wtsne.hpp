@@ -130,7 +130,7 @@ inline void normalise_vector(std::vector<T> &vec, const int n_threads) {
   sum = MAX(sum, std::numeric_limits<T>::epsilon());
 #pragma omp parallel for schedule(static) num_threads(n_threads)
   for (uint64_t it = 0; it < vec.size(); ++it) {
-    vec[e] /= sum;
+    vec[it] /= sum;
   }
 }
 
