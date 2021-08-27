@@ -297,7 +297,7 @@ __global__ void wtsneUpdateYKernel(
  ****************************/
 template
 std::vector<float>
-wtsne_gpu(const std::vector<uint64_t>, const std::vector<uint64_t>,
+wtsne_gpu(const std::vector<uint64_t>&, const std::vector<uint64_t>,
           std::vector<float>, std::vector<float>,
           const float, const uint64_t, const int,
           const int, const uint64_t, const float,
@@ -305,8 +305,8 @@ wtsne_gpu(const std::vector<uint64_t>, const std::vector<uint64_t>,
           const int);
 template
 std::vector<double>
-wtsne_gpu(const std::vector<uint64_t>, const std::vector<uint64_t>,
-          std::vector<double>, std::vector<double>,
+wtsne_gpu(const std::vector<uint64_t>&, const std::vector<uint64_t>&,
+          std::vector<double>&, std::vector<double>&,
           const double, const uint64_t, const int,
           const int, const uint64_t, const double,
           const bool, const int, const int,
@@ -323,7 +323,7 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   // Check input
   std::vector<real_t> Y, P;
   std::tie(Y, P) =
-      wtsne_init<real_t>(I, J, P, perplexity, weights, n_threads, seed);
+      wtsne_init<real_t>(I, J, dists, weights, perplexity, n_threads, seed);
 
   // Initialise CUDA
   CUDA_CALL(cudaSetDevice(device_id));
