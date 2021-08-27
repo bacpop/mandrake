@@ -55,6 +55,8 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
 #pragma omp parallel for reduction(+ : qsum, qcount) num_threads(n_threads)
     for (long long worker = 0; worker < n_threads; worker++) {
       std::vector<double> dY(DIM);
+      std::vector<double> Yk_read(DIM);
+      std::vector<double> Yl_read(DIM);
 
       long long e = gsl_ran_discrete(gsl_r_ne, gsl_de) % ne;
       long long i = I[e];
@@ -78,7 +80,12 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
         long long ll = l * DIM;
         double dist2 = 0.0;
         for (long long d = 0; d < DIM; d++) {
-          dY[d] = Y[d + lk] - Y[d + ll];
+#pragma omp atomic read
+          {
+            Yk_read[d] = Y[d + lk];
+            Yl_read[d] = Y[d + ll];
+          }
+          dY[d] = Yk_read[d] - Yl_read[d];
           dist2 += dY[d] * dY[d];
         }
         double q = 1.0 / (1 + dist2);
@@ -89,13 +96,37 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
         else
           g = repuCoef * q * q;
 
+        bool overwrite = false;
         for (long long d = 0; d < DIM; d++) {
           double gain = eta * g * dY[d];
-          Y[d + lk] += gain;
-          Y[d + ll] -= gain;
+          double Yk_read_end, Yl_read_end;
+#pragma omp atomic capture
+          {
+            Yk_read_end = Y[d + lk];
+            Y[d + lk] =
+                Yk_read_end == Yk_read[d] ? Yk_read[d] + gain : Yk_read[d];
+          }
+#pragma omp atomic capture
+          {
+            Yl_read_end = Y[d + ll];
+            Y[d + ll] =
+                Yl_read_end == Yl_read[d] ? Yl_read[d] - gain : Yl_read[d];
+          }
+          if (Yl_read_end != Yl_read[d] || Yk_read_end != Yk_read[d]) {
+            overwrite = true;
+          }
         }
-        qsum += q;
-        qcount++;
+        if (!overwrite) {
+          qsum += q;
+          qcount++;
+        } else {
+          for (int d = 0; d < DIM; d++) {
+#pragma atomic write
+            Y[d + lk] = Yk_read[d];
+#pragma atomic write
+            Y[d + ll] = Yl_read[d];
+          }
+        }
       }
     }
     Eq = (Eq * nsq + qsum) / (nsq + qcount);

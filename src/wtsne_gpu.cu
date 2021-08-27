@@ -275,6 +275,13 @@ __global__ void wtsneUpdateYKernel(
       if (!overwrite) {
         qsum_local += q;
         qcount_local++;
+      } else {
+        // Reset values
+#pragma unroll
+        for (int d = 0; d < DIM; d++) {
+          Y[d + lk] = Yk_read[d];
+          Y[d + ll] = Yl_read[d];
+        }
       }
     }
     __syncwarp();
