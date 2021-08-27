@@ -10,6 +10,8 @@ from scipy.spatial.distance import squareform, pdist
 from sklearn.neighbors import NearestNeighbors
 
 # C++ extensions
+import sys, os
+sys.path.insert(0, '/home/jlees/installs/pp-sketchlib/build/lib.linux-x86_64-3.8')
 import pp_sketchlib
 
 from .pairsnp import runPairsnp
