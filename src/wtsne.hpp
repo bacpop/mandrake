@@ -27,11 +27,9 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-// See https://github.com/johnlees/PopPUNK/blob/master/src/extend.cpp
-
 // Get indices where each row starts in the sparse matrix
 inline std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
-                                        const size_t n_samples) {
+                                               const size_t n_samples) {
   std::vector<uint64_t> row_start_idx(n_samples + 1);
   size_t i_idx = 0;
   row_start_idx[0] = 0;
@@ -55,7 +53,7 @@ std::vector<real_t> conditional_probabilities(const std::vector<uint64_t> &I,
                                               const uint64_t n_samples,
                                               const real_t perplexity,
                                               const int n_threads) {
-  std::vector<double> P(dists.size());
+  std::vector<double> P(dists.size()); // note double (as in sklearn implementation)
   // Simple
   if (perplexity <= 0) {
 #pragma omp parallel for schedule(static) num_threads(n_threads)
@@ -121,6 +119,20 @@ std::vector<real_t> conditional_probabilities(const std::vector<uint64_t> &I,
   return P;
 }
 
+template <typename T>
+inline void normalise_vector(std::vector<T>& vec, const int n_threads) {
+  T sum = static_cast<T>(0.0);
+#pragma omp parallel for schedule(static) reduction(+: sum) num_threads(n_threads)
+  for (uint64_t it = 0; it < vec.size(); ++it) {
+    sum += vec[it];
+  }
+  sum = MAX(sum, std::numeric_limits<T>::epsilon());
+#pragma omp parallel for schedule(static) num_threads(n_threads)
+  for (uint64_t it = 0; it < vec.size(); ++it) {
+    vec[e] /= sum;
+  }
+}
+
 template <class real_t>
 std::tuple<std::vector<real_t>, std::vector<real_t>>
 wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
@@ -142,30 +154,11 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       conditional_probabilities<real_t>(I, J, dists, nn, perplexity, n_threads);
 
   // Normalise distances and weights
-  real_t Psum = 0.0;
-#pragma omp parallel for schedule(static) reduction(+: Psum) num_threads(n_threads)
-  for (uint64_t e = 0; e < ne; e++) {
-    Psum += P[e];
-  }
-  Psum = MAX(Psum, std::numeric_limits<real_t>::epsilon());
-#pragma omp parallel for schedule(static) num_threads(n_threads)
-  for (uint64_t e = 0; e < ne; e++) {
-    P[e] /= Psum;
-  }
-
-  real_t weights_sum = 0.0;
-#pragma omp parallel for schedule(static) reduction(+: weights_sum) num_threads(n_threads)
-  for (long long i = 0; i < nn; i++) {
-    weights_sum += weights[i];
-  }
-  weights_sum = MAX(weights_sum, std::numeric_limits<real_t>::epsilon());
-#pragma omp parallel for schedule(static) num_threads(n_threads)
-  for (long long i = 0; i < nn; i++) {
-    weights[i] /= weights_sum;
-  }
+  normalise_vector(P, n_threads);
+  normalise_vector(weights, n_threads);
 
   // Set starting Y0
-  // Not parallelised, but could be
+  // Not parallelised, but could be (or easy to do in CUDA too)
   std::mt19937 mersenne_engine{seed};
   std::uniform_real_distribution<real_t> distribution(0.0, 1e-4);
   auto gen = [&distribution, &mersenne_engine]() {

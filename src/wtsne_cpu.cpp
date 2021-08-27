@@ -33,8 +33,8 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
   gsl_T = gsl_rng_default;
   gsl_rng *gsl_r_nn = gsl_rng_alloc(gsl_T);
   gsl_rng *gsl_r_ne = gsl_rng_alloc(gsl_T);
-  gsl_rng_set(gsl_r_nn, 314159);
-  gsl_rng_set(gsl_r_ne, 271828);
+  gsl_rng_set(gsl_r_nn, seed);
+  gsl_rng_set(gsl_r_ne, seed << 1); // not ideal seeding
 
   gsl_ran_discrete_t *gsl_de = gsl_ran_discrete_preproc(ne, P.data());
   gsl_ran_discrete_t *gsl_dn = gsl_ran_discrete_preproc(nn, weights.data());
