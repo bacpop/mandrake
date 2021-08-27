@@ -295,6 +295,23 @@ __global__ void wtsneUpdateYKernel(
 /****************************
  * Main control function     *
  ****************************/
+template
+std::vector<float>
+wtsne_gpu(const std::vector<uint64_t>, const std::vector<uint64_t>,
+          std::vector<float>, std::vector<float>,
+          const float, const uint64_t, const int,
+          const int, const uint64_t, const float,
+          const bool, const int, const int,
+          const int);
+template
+std::vector<double>
+wtsne_gpu(const std::vector<uint64_t>, const std::vector<uint64_t>,
+          std::vector<double>, std::vector<double>,
+          const double, const uint64_t, const int,
+          const int, const uint64_t, const double,
+          const bool, const int, const int,
+          const int);
+
 template <typename real_t>
 std::vector<real_t>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
