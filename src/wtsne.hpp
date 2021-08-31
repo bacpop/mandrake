@@ -28,15 +28,17 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-template <typename real_t>
-std::vector<float> convert_vector(const std::vector<real_t>& d_vec) {
-  std::vector<float> f_vec(d_vec.begin(), d_vec.end());
+template <typename T, typename U>
+typename std::enable_if<!std::is_same<U, T>::value, std::vector<T>>::type
+convert_vector(const std::vector<U>& d_vec) {
+  std::vector<T> f_vec(d_vec.begin(), d_vec.end());
   return f_vec;
 }
 
 // No conversion needed
-template <>
-std::vector<float> convert_vector(const std::vector<float>& d_vec) {
+template <typename T, typename U>
+typename std::enable_if<std::is_same<U, T>::value, std::vector<T>>::type
+convert_vector(const std::vector<U>& d_vec) {
   return d_vec;
 }
 
