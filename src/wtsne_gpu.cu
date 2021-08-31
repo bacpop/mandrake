@@ -122,7 +122,9 @@ public:
 
 private:
   template <typename T>
-  gsl_table_host<real_t> set_device_table(const std::vector<T> &weights) {
+      typename std::enable_if < !std::is_same<real_t, double>::value,
+      gsl_table_host<real_t>::type
+      set_device_table(const std::vector<T> &weights) {
     uint64_t table_size = weights.size();
     gsl_ran_discrete_t *gsl_table =
         gsl_ran_discrete_preproc(table_size, weights.data());
@@ -145,53 +147,55 @@ private:
   }
 
   // Double specialisation doesn't need type conversion of GSL table
-  template <>
-  gsl_table_host<double> set_device_table(const std::vector<T> &weights) {
-    uint64_t table_size = weights.size();
-    gsl_ran_discrete_t *gsl_table =
-        gsl_ran_discrete_preproc(table_size, weights.data());
-    gsl_table_host<double> device_table;
-    device_table.F = device_array<double>(table_size);
-    device_table.F.set_array(gsl_table->F);
-    device_table.A = device_array<size_t>(table_size);
-    device_table.A.set_array(gsl_table->A);
+  template <typename T>
+      typename std::enable_if < std::is_same<real_t, double>::value,
+      gsl_table_host<real_t>::type set_device_table(
+          const std::vector<T> &weights) uint64_t table_size = weights.size();
+  gsl_ran_discrete_t *gsl_table =
+      gsl_ran_discrete_preproc(table_size, weights.data());
+  gsl_table_host<double> device_table;
+  device_table.F = device_array<double>(table_size);
+  device_table.F.set_array(gsl_table->F);
+  device_table.A = device_array<size_t>(table_size);
+  device_table.A.set_array(gsl_table->A);
 
-    gsl_ran_discrete_free(gsl_table);
-    return device_table;
-  }
+  gsl_ran_discrete_free(gsl_table);
+  return device_table;
+}
 
-  // delete move and copy to avoid accidentally using them
-  SCEDeviceMemory(const SCEDeviceMemory &) = delete;
-  SCEDeviceMemory(SCEDeviceMemory &&) = delete;
+// delete move and copy to avoid accidentally using them
+SCEDeviceMemory(const SCEDeviceMemory &) = delete;
+SCEDeviceMemory(SCEDeviceMemory &&) = delete;
 
-  int n_workers_;
-  real_t nsq_;
-  uint64_t nn_;
-  uint64_t ne_;
+int n_workers_;
+real_t nsq_;
+uint64_t nn_;
+uint64_t ne_;
 
-  // Uniform draw tables
-  gsl_table_host<real_t> node_table_;
-  gsl_table_host<real_t> edge_table_;
+// Uniform draw tables
+gsl_table_host<real_t> node_table_;
+gsl_table_host<real_t> edge_table_;
 
-  // Embedding
-  device_array<real_t> Y_;
-  // Sparse distance indexes
-  device_array<uint64_t> I_;
-  device_array<uint64_t> J_;
+// Embedding
+device_array<real_t> Y_;
+// Sparse distance indexes
+device_array<uint64_t> I_;
+device_array<uint64_t> J_;
 
-  // Algorithm progress
-  device_value<real_t> Eq_;
-  device_array<real_t> qsum_;
-  device_value<real_t> qsum_total_;
-  device_array<uint64_t> qcount_;
-  device_value<uint64_t> qcount_total_;
+// Algorithm progress
+device_value<real_t> Eq_;
+device_array<real_t> qsum_;
+device_value<real_t> qsum_total_;
+device_array<uint64_t> qcount_;
+device_value<uint64_t> qcount_total_;
 
-  // cub space
-  size_t qsum_tmp_storage_bytes_;
-  size_t qcount_tmp_storage_bytes_;
-  device_array<void> qsum_tmp_storage_;
-  device_array<void> qcount_tmp_storage_;
-};
+// cub space
+size_t qsum_tmp_storage_bytes_;
+size_t qcount_tmp_storage_bytes_;
+device_array<void> qsum_tmp_storage_;
+device_array<void> qcount_tmp_storage_;
+}
+;
 
 /****************************
  * Device functions         *
