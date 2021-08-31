@@ -122,9 +122,9 @@ public:
 
 private:
   template <typename T>
-      typename std::enable_if < !std::is_same<real_t, double>::value,
-      gsl_table_host<real_t>::type
-      set_device_table(const std::vector<T> &weights) {
+  typename std::enable_if<!std::is_same<real_t, double>::value,
+                          gsl_table_host<real_t>>::type
+  set_device_table(const std::vector<T> &weights) {
     uint64_t table_size = weights.size();
     gsl_ran_discrete_t *gsl_table =
         gsl_ran_discrete_preproc(table_size, weights.data());
@@ -133,7 +133,7 @@ private:
     std::vector<real_t> F_tab_flt(table_size);
     double *gsl_ptr = gsl_table->F;
     for (size_t i = 0; i < table_size; ++i) {
-      F_tab_tlf[i] = static_cast<real_t>(*(gsl_ptr + i));
+      F_tab_flt[i] = static_cast<real_t>(*(gsl_ptr + i));
     }
 
     gsl_table_host<real_t> device_table;
@@ -148,9 +148,10 @@ private:
 
   // Double specialisation doesn't need type conversion of GSL table
   template <typename T>
-      typename std::enable_if < std::is_same<real_t, double>::value,
-      gsl_table_host<real_t>::type set_device_table(
-          const std::vector<T> &weights) uint64_t table_size = weights.size();
+  typename std::enable_if<std::is_same<real_t, double>::value,
+                          gsl_table_host<real_t>>::type
+  set_device_table(const std::vector<T> &weights) uint64_t table_size =
+      weights.size();
   gsl_ran_discrete_t *gsl_table =
       gsl_ran_discrete_preproc(table_size, weights.data());
   gsl_table_host<double> device_table;
