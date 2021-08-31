@@ -121,14 +121,37 @@ public:
   }
 
 private:
-  // TODO need to specialise this for floats (gsl returns double*)
   template <typename T>
   gsl_table_host<real_t> set_device_table(const std::vector<T> &weights) {
     uint64_t table_size = weights.size();
     gsl_ran_discrete_t *gsl_table =
         gsl_ran_discrete_preproc(table_size, weights.data());
+
+    // Convert type from double to real_t in F table
+    std::vector<real_t> F_tab_flt(table_size);
+    double *gsl_ptr = gsl_table->F;
+    for (size_t i = 0; i < table_size; ++i) {
+      F_tab_tlf[i] = static_cast<real_t>(*(gsl_ptr + i));
+    }
+
     gsl_table_host<real_t> device_table;
     device_table.F = device_array<real_t>(table_size);
+    device_table.F.set_array(F_tab_flt.data());
+    device_table.A = device_array<size_t>(table_size);
+    device_table.A.set_array(gsl_table->A);
+
+    gsl_ran_discrete_free(gsl_table);
+    return device_table;
+  }
+
+  // Double specialisation doesn't need type conversion of GSL table
+  template <>
+  gsl_table_host<double> set_device_table(const std::vector<T> &weights) {
+    uint64_t table_size = weights.size();
+    gsl_ran_discrete_t *gsl_table =
+        gsl_ran_discrete_preproc(table_size, weights.data());
+    gsl_table_host<double> device_table;
+    device_table.F = device_array<double>(table_size);
     device_table.F.set_array(gsl_table->F);
     device_table.A = device_array<size_t>(table_size);
     device_table.A.set_array(gsl_table->A);
@@ -297,22 +320,16 @@ __global__ void wtsneUpdateYKernel(
 // These two templates are explicitly instantiated here as the instantiation
 // in python_bindings.cpp is not seen by nvcc, leading to a unlinked function
 // when imported
-template
-std::vector<float>
-wtsne_gpu<float>(const std::vector<uint64_t>&, const std::vector<uint64_t>&,
-          std::vector<float>&, std::vector<float>&,
-          const float, const uint64_t, const int,
-          const int, const uint64_t, const float,
-          const bool, const int, const int,
-          const int);
-template
-std::vector<double>
-wtsne_gpu<double>(const std::vector<uint64_t>&, const std::vector<uint64_t>&,
-          std::vector<double>&, std::vector<double>&,
-          const double, const uint64_t, const int,
-          const int, const uint64_t, const double,
-          const bool, const int, const int,
-          const int);
+template std::vector<float>
+wtsne_gpu<float>(const std::vector<uint64_t> &, const std::vector<uint64_t> &,
+                 std::vector<float> &, std::vector<float> &, const float,
+                 const uint64_t, const int, const int, const uint64_t,
+                 const float, const bool, const int, const int, const int);
+template std::vector<double>
+wtsne_gpu<double>(const std::vector<uint64_t> &, const std::vector<uint64_t> &,
+                  std::vector<double> &, std::vector<double> &, const double,
+                  const uint64_t, const int, const int, const uint64_t,
+                  const double, const bool, const int, const int, const int);
 
 template <typename real_t>
 std::vector<real_t>
