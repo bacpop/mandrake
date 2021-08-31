@@ -147,7 +147,7 @@ private:
   }
 
   // Double specialisation doesn't need type conversion of GSL table
-  template <typename T, template U = real_t>
+  template <typename T, typename U = real_t>
   typename std::enable_if<std::is_same<U, double>::value,
                           gsl_table_host<U>>::type
   set_device_table(const std::vector<T> &weights) {
