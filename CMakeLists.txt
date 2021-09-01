@@ -77,7 +77,7 @@ if(CMAKE_CUDA_COMPILER)
     set_property(TARGET "${TARGET_NAME}" PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 
-target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module gfortran m rt)
+target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module gfortran m)
 if(DEFINED ENV{CONDA_PREFIX})
   target_link_libraries("${TARGET_NAME}" PRIVATE gsl gslcblas gomp)
 else()

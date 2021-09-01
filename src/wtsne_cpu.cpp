@@ -19,7 +19,7 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
                           std::vector<double> &weights, const double perplexity,
                           const uint64_t maxIter, const uint64_t nRepuSamp,
                           const double eta0, const bool bInit,
-                          const int n_threads, const int seed) {
+                          const int n_threads, const unsigned int seed) {
   // Check input
   std::vector<double> Y, P;
   std::tie(Y, P) =

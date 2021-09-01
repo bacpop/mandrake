@@ -328,12 +328,12 @@ template std::vector<float>
 wtsne_gpu<float>(const std::vector<uint64_t> &, const std::vector<uint64_t> &,
                  std::vector<float> &, std::vector<double> &, const float,
                  const uint64_t, const int, const int, const uint64_t,
-                 const float, const bool, const int, const int, const int);
+                 const float, const bool, const int, const int, const unsigned int);
 template std::vector<double>
 wtsne_gpu<double>(const std::vector<uint64_t> &, const std::vector<uint64_t> &,
                   std::vector<double> &, std::vector<double> &, const double,
                   const uint64_t, const int, const int, const uint64_t,
-                  const double, const bool, const int, const int, const int);
+                  const double, const bool, const int, const int, const unsigned int);
 
 template <typename real_t>
 std::vector<real_t>
@@ -342,7 +342,7 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
           const int block_count, const uint64_t nRepuSamp, const real_t eta0,
           const bool bInit, const int n_threads, const int device_id,
-          const int seed) {
+          const unsigned int seed) {
   // Check input
   std::vector<real_t> Y;
   std::vector<double> P;

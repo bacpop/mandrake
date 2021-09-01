@@ -69,5 +69,5 @@ def plotSCE(embedding, names, labels, output_prefix):
         fig.write_image(output_prefix + ".embedding.png", engine="auto")
     except ValueError as e:
         sys.stderr.write("Need to install orca ('plotly-orca') or kaleido "
-        "('python-kaleido') to draw png image output")
+        "('python-kaleido') to draw png image output\n")
 
