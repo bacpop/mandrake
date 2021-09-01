@@ -71,7 +71,7 @@ def plotSCE(embedding, names, labels, output_prefix, dbscan=True):
             )
         )
 
-    fig.write_html(output_prefix + '_SCE_result.html')
+    fig.write_html(output_prefix + '.embedding.html')
     # needs separate library for static image
     try:
         fig.write_image(output_prefix + ".embedding.png", engine="auto")

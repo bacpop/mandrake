@@ -42,17 +42,17 @@ def sketchlibDists(sketch_db, dist_col, kNN, threshold, cpus, use_gpu, device_id
     names = get_seqs_in_db(sketch_db + ".h5")
     kmers = get_kmer_sizes(sketch_db + ".h5")
     I, J, dists = pp_sketchlib.queryDatabaseSparse(sketch_db,
-                                                sketch_db,
-                                                names,
-                                                names,
-                                                kmers,
-                                                True,
-                                                threshold,
-                                                kNN,
-                                                dist_col == 0,
-                                                cpus,
-                                                use_gpu,
-                                                device_id)
+                                                   sketch_db,
+                                                   names,
+                                                   names,
+                                                   kmers,
+                                                   True,
+                                                   threshold,
+                                                   kNN,
+                                                   dist_col == 0,
+                                                   cpus,
+                                                   use_gpu,
+                                                   device_id)
 
     return I, J, dists, names
 

@@ -103,7 +103,7 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3.7',
     ],
-    python_requires='>=3.6.0',
+    python_requires='>=3.7.0',
     keywords='bacteria genomics population-genetics k-mer visualisation',
     packages=['pathoSCE'],
     entry_points={
