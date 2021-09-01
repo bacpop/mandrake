@@ -28,6 +28,8 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+// fp64 -> fp32 converstions no longer needed
+/*
 template <typename T, typename U>
 typename std::enable_if<!std::is_same<U, T>::value, std::vector<T>>::type
 convert_vector(const std::vector<U>& d_vec) {
@@ -41,6 +43,7 @@ typename std::enable_if<std::is_same<U, T>::value, std::vector<T>>::type
 convert_vector(const std::vector<U>& d_vec) {
   return d_vec;
 }
+*/
 
 // Get indices where each row starts in the sparse matrix
 inline std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
@@ -62,7 +65,7 @@ const int n_steps = 100;
 const double PERPLEXITY_TOLERANCE = 1e-5;
 
 template <typename real_t>
-std::vector<real_t> conditional_probabilities(const std::vector<uint64_t> &I,
+std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
                                               const std::vector<uint64_t> &J,
                                               const std::vector<real_t> &dists,
                                               const uint64_t n_samples,
@@ -132,7 +135,7 @@ std::vector<real_t> conditional_probabilities(const std::vector<uint64_t> &I,
       }
     }
   }
-  return convert_vector<real_t>(P);
+  return P;
 }
 
 template <typename T>
