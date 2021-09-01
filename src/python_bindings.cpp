@@ -5,6 +5,7 @@
 namespace py = pybind11;
 
 #include "wtsne.hpp"
+#include "pairsnp.hpp"
 
 PYBIND11_MODULE(SCE, m) {
   m.doc() = "Stochastic cluster embedding";
@@ -16,6 +17,10 @@ PYBIND11_MODULE(SCE, m) {
         py::arg("dist_vec"), py::arg("weights"), py::arg("perplexity"),
         py::arg("maxIter"), py::arg("nRepuSamp") = 5, py::arg("eta0") = 1,
         py::arg("bInit") = 0, py::arg("n_threads") = 1, py::arg("seed") = 1);
+
+  m.def("pairsnp", &pairsnp, py::return_value_policy::take_ownership,
+        "Run pairsnp", py::arg("fasta"), py::arg("n_threads"),
+        py::arg("dist"), py::arg("knn"));
 
 #ifdef GPU_AVAILABLE
   m.def("wtsne_gpu", &wtsne_gpu<double>,

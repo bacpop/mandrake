@@ -29,6 +29,7 @@ else()
 endif()
 
 # Add libraries
+find_package(ZLIB)
 find_package(pybind11 REQUIRED)
 
 # Check for CUDA and compiles GPU library
@@ -77,7 +78,7 @@ if(CMAKE_CUDA_COMPILER)
     set_property(TARGET "${TARGET_NAME}" PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 
-target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module gfortran m rt)
+target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module gfortran m rt ZLIB::ZLIB)
 if(DEFINED ENV{CONDA_PREFIX})
   target_link_libraries("${TARGET_NAME}" PRIVATE gsl gslcblas gomp)
 else()

@@ -1,28 +1,15 @@
 # vim: set fileencoding=<utf-8> :
 # Copyright 2020 Gerry Tonkin-Hill
 
-'''pairsnp functions for determining pairwise SNP distances
-from a multiple sequence file'''
+"""pairsnp functions for determining pairwise SNP distances
+from a multiple sequence file"""
 
-import sys
-import subprocess
+import sys, os
 import numpy as np
 
-def checkPairsnpVersion():
-    """Checks that pairsnp can be run, and returns version
-
-    Returns:
-        version (str)
-            Version string
-    """
-    p = subprocess.Popen([pairsnp_exe + ' --version'], shell=True, stdout=subprocess.PIPE)
-    version = 0
-    for line in iter(p.stdout.readline, ''):
-        if line != '':
-            version = line.rstrip().decode().split(" ")[1]
-            break
-
-    return version
+# C++ extensions
+sys.path.insert(0, os.path.dirname(__file__) + "/../build/lib.linux-x86_64-3.8")
+from SCE import pairsnp
 
 # from BioPython
 def read_fasta(fp):
@@ -30,62 +17,62 @@ def read_fasta(fp):
     for line in fp:
         line = line.rstrip()
         if line.startswith(">"):
-            if name: yield (name, ''.join(seq))
+            if name:
+                yield (name, "".join(seq))
             name, seq = line, []
         else:
             seq.append(line)
-    if name: yield (name, ''.join(seq))
+    if name:
+        yield (name, "".join(seq))
 
-def runPairsnp(pairsnp_exe, msaFile, output, kNN=None, threshold=None, threads=1):
-    """Runs pairsnp in sparse output mode with the option of supplying a distance or kNN cutoff
+
+def runPairsnp(msaFile, kNN=None, threshold=None, threads=1):
+    """Runs pairsnp with the option of supplying a distance or kNN cutoff
 
     Args:
         msaFile (str)
             Multiple sequence alignment
-        output (str)
-            Prefix for output files
+        kNN (int)
+            Number of nearest neighbours to return for each sample
         threshold (float)
             Proportion of alignment allowed to differ. Converted to a SNP distance threshold (optional)
         threads (int)
             Number of threads to use when running pairsnp (default=1)
 
     Returns:
-        distMatrix (csr_matrix)
-            Sparse pairwise snp distance matrix
-        seqNames (list)
-            A list of sequence names in the same order as the distance matrix
+        I (np.array)
+            integer array of row indices
+        J (np.array)
+            integer array of column indices
+        dist (np.array)
+            array of SNP distances
+        names (list)
+            list of sample names taken from the fasta headers
     """
 
-    if (kNN is None) and (threshold is None):
-        sys.stderr.write("Can not specify both kNN and threshold with pairsnp!\n")
-        sys.exit(1)
-
-    # get alignment length
-    with open(msaFile, 'r') as msa:
-        aln_len = len(next(read_fasta(msa))[1])
-
-    # run pairsnp command
-    cmd = pairsnp_exe + ' -s'
-    if threshold is not None:
-        distance = int(np.floor(threshold*aln_len))
-        cmd += ' -d ' + str(distance)
+    # run some checks on the parameters
+    if not os.path.isfile(msaFile):
+        raise ValueError("MSA file does not exist!")
     if kNN is not None:
-        cmd += ' -k ' + str(kNN)
-    cmd += ' -t ' + str(threads)
-    cmd += ' -i'
-    cmd += ' ' + msaFile
+        if not (isinstance(kNN, int) and (kNN > 0)):
+            raise ValueError("invalid value for kNN!")
+    if threshold is not None:
+        if not (isinstance(threshold, float) and (threshold > 0) and (threshold <= 1)):
+            raise ValueError("invalid value for threshold!")
+    if not (isinstance(threads, int) and (threads > 0)):
+        raise ValueError("invalid value for threads!")
 
-    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-    line_iter = iter(p.stdout)
+    # determine the max snp distance and alignment length
+    with open(msaFile, "r") as infile:
+        name, seq = next(read_fasta(infile))
+        seq_len = len(seq)
 
-    # process result
-    seqNames = next(line_iter).decode("utf-8").strip().split("\t")[1:]
+    if threshold is not None:
+        dist = int(threshold * seq_len) + 1
+    else:
+        dist = -1
 
-    distances = np.genfromtxt(line_iter, dtype=np.int32, delimiter="\t")
+    # run pairsnp
+    I, J, dist, names = pairsnp(fasta=msaFile, n_threads=threads, dist=dist, knn=kNN)
 
-    if len(distances)<=2:
-        sys.stderr.write("Distance threshold is too strict, less than 3 pairs passed!\n")
-        sys.exit(1)
-
-
-    return distances[:,0], distances[:,1], (distances[:,2]+0.1)/aln_len, seqNames
+    return (np.array(I), np.array(J), np.array(dist) / seq_len, names)

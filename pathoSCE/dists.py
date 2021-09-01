@@ -29,13 +29,11 @@ def accessoryDists(accessory_file, sparse, kNN, threshold):
     
     return P.row, P.col, P.data, names
 
-def pairSnpDists(pairsnp_exe, alignment, output, threshold, kNN, cpus):
+def pairSnpDists(alignment, threshold, kNN, cpus):
     # alignment
-    I, J, dists, names = runPairsnp(pairsnp_exe,
-                          alignment,
-                          output,
-                          threshold=threshold,
+    I, J, dists, names = runPairsnp(alignment,
                           kNN=kNN,
+                          threshold=threshold,
                           threads=cpus)
 
     return I, J, dists, names 
