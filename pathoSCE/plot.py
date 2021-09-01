@@ -3,6 +3,7 @@
 
 '''Methods for making plots of embeddings'''
 
+import sys
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -62,7 +63,11 @@ def plotSCE(embedding, names, labels, output_prefix):
         )
     )
 
-    # needs separate library for static image
-    # fig.write_image(output_prefix + ".embedding.png")
     fig.write_html(output_prefix + '_SCE_result.html')
+    # needs separate library for static image
+    try:
+        fig.write_image(output_prefix + ".embedding.png", engine="auto")
+    except ValueError as e:
+        sys.stderr.write("Need to install orca ('plotly-orca') or kaleido "
+        "('python-kaleido') to draw png image output")
 
