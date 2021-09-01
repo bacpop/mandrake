@@ -19,8 +19,7 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
                           std::vector<double> &weights, const double perplexity,
                           const uint64_t maxIter, const uint64_t nRepuSamp,
                           const double eta0, const bool bInit,
-                          const int n_threads, const int seed)
-{
+                          const int n_threads, const unsigned int seed) {
   // Check input
   std::vector<double> Y, P;
   std::tie(Y, P) =
@@ -54,10 +53,8 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
 
     double attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
     double repuCoef = 2 * c / nRepuSamp * nsq;
-#pragma omp parallel for reduction(+ \
-                                   : qsum, qcount) num_threads(n_threads)
-    for (long long worker = 0; worker < n_threads; worker++)
-    {
+#pragma omp parallel for reduction(+ : qsum, qcount) num_threads(n_threads)
+    for (int worker = 0; worker < n_threads; worker++) {
       std::vector<double> dY(DIM);
       std::vector<double> Yk_read(DIM);
       std::vector<double> Yl_read(DIM);
@@ -127,16 +124,15 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
         {
           qsum += q;
           qcount++;
-        }
-        else
-        {
-          for (int d = 0; d < DIM; d++)
-          {
+        } else {
+          // Find another neighbour
+          for (int d = 0; d < DIM; d++) {
 #pragma atomic write
             Y[d + lk] = Yk_read[d];
 #pragma atomic write
             Y[d + ll] = Yl_read[d];
           }
+          r--;
         }
       }
     }
@@ -158,5 +154,5 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
   gsl_rng_free(gsl_r_nn);
   gsl_rng_free(gsl_r_ne);
 
-  return (Y);
+  return Y;
 }

@@ -1,10 +1,6 @@
 #include <stdio.h>
-#include <getopt.h>
 #include <zlib.h>
 #include <iostream>
-#include <fcntl.h>
-#include <vector>
-#include <iterator>
 #include <string>
 
 #include "kseq.h"

@@ -2,7 +2,9 @@
 
 '''Main control function for pathoSCE'''
 
-import os, sys
+import sys
+import re
+import pandas as pd
 
 from .__init__ import __version__
 
@@ -34,6 +36,7 @@ def get_options():
                         help='Work from pre-calculated distances')
 
     ioGroup = parser.add_argument_group('I/O options')
+    ioGroup.add_argument('--labels', default=None, help='Sample labels for plotting (overrides DBSCAN clusters)')
     ioGroup.add_argument('--output', default="pathoSCE", type=str, help='Prefix for output files [default = "pathoSCE"]')
 
     sceGroup = parser.add_argument_group('SCE options')
@@ -98,14 +101,16 @@ def main():
                                     args.kNN,
                                     args.cpus)
         elif (args.accessory is not None):
-            I, J, dists, names = accessoryDists(args.accessory, args.sparse, args.kNN, args.threshold)
-
+            I, J, dists, names = accessoryDists(args.accessory,
+                                                args.sparse,
+                                                args.kNN,
+                                                args.threshold)
         elif (args.sketches is not None):
             # sketches
-            if args.use_core:
-                dist_col = 0
-            elif args.use_accessory:
+            dist_col = 0
+            if args.use_accessory:
                 dist_col = 1
+            args.sketches = re.sub(r"\.h5$", "", args.sketches)
             I, J, dists, names = sketchlibDists(args.sketches,
                                         dist_col,
                                         args.kNN,
@@ -123,7 +128,7 @@ def main():
     # Load existing distances
     else:
         sys.stderr.write("Loading distances\n")
-        I, J, dists = loadIJdist(args.distances)
+        I, J, dists, names = loadIJdist(args.distances)
 
     #***********************#
     #* run SCE             *#
@@ -149,12 +154,18 @@ def main():
     #***********************#
     #* run HDBSCAN         *#
     #***********************#
-    hdb_clusters = runHDBSCAN(embedding)
+    if args.labels == None:
+        sys.stderr.write("Running clustering\n")
+        cluster_labels = runHDBSCAN(embedding)
+    else:
+        label_file = pd.read_csv(args.labels, sep="\t", header=None, index_col=0)
+        cluster_labels = list(label_file.loc[names][1].values)
 
     #***********************#
     #* plot embedding      *#
     #***********************#
-    plotSCE(embedding, names, hdb_clusters, args.output)
+    sys.stderr.write("Drawing plots\n")
+    plotSCE(embedding, names, cluster_labels, args.output, not args.labels)
 
     sys.exit(0)
 

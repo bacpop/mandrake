@@ -10,10 +10,12 @@ import numpy as np
 import pandas as pd
 
 # C++ extensions
-sys.path.insert(0, os.path.dirname(__file__) + '/../build/lib.linux-x86_64-3.8')
+sys.path.insert(0, os.path.dirname(__file__) + '/../build/lib.linux-x86_64-3.9')
+sys.path.insert(0, os.path.dirname(__file__) + '/../build/lib.macosx-10.9-x86_64-3.9')
 from SCE import wtsne
 try:
-    from SCE import wtsne_gpu
+    # Using doubles for now
+    from SCE import wtsne_gpu_fp64 as wtsne_gpu
     gpu_fn_available = True
 except ImportError:
     gpu_fn_available = False
@@ -30,16 +32,17 @@ def save_input(I, J, dists, names, output_prefix):
         sys.stderr.write("Distances calculated, but not running SCE\n")
         sys.exit(1)
 
-    pd.Series(names).to_csv(output_prefix + 'names.txt', sep='\n', header=False, index=False)
+    pd.Series(names).to_csv(output_prefix + '.names.txt', sep='\n', header=False, index=False)
 
-    _saveDists(output_prefix, I, J, dists)
+    _saveDists(output_prefix, I, J, dists, names)
 
 def loadIJdist(npzfilename):
     npzfile = np.load(npzfilename)
     I = npzfile['I']
     J = npzfile['J']
     dists = npzfile['dists']
-    return I, J, dists
+    names = npzfile['names']
+    return I, J, dists, names
 
 def runSCE(I, J, dists, weight_file, names, SCE_opts):
     weights = np.ones((len(names)))
@@ -86,5 +89,5 @@ def saveEmbedding(embedding, output_prefix):
 
 # Internal functions
 
-def _saveDists(output_prefix, I, J, dists):
-    np.savez(output_prefix, I=I, J=J, dists=dists)
+def _saveDists(output_prefix, I, J, dists, names):
+    np.savez(output_prefix, I=I, J=J, dists=dists, names=np.array(names))

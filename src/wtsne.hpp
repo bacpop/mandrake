@@ -28,6 +28,8 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+// fp64 -> fp32 converstions no longer needed
+/*
 template <typename T, typename U>
 typename std::enable_if<!std::is_same<U, T>::value, std::vector<T>>::type
 convert_vector(const std::vector<U>& d_vec) {
@@ -41,6 +43,7 @@ typename std::enable_if<std::is_same<U, T>::value, std::vector<T>>::type
 convert_vector(const std::vector<U>& d_vec) {
   return d_vec;
 }
+*/
 
 // Get indices where each row starts in the sparse matrix
 inline std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
@@ -62,7 +65,7 @@ const int n_steps = 100;
 const double PERPLEXITY_TOLERANCE = 1e-5;
 
 template <typename real_t>
-std::vector<real_t> conditional_probabilities(const std::vector<uint64_t> &I,
+std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
                                               const std::vector<uint64_t> &J,
                                               const std::vector<real_t> &dists,
                                               const uint64_t n_samples,
@@ -132,7 +135,7 @@ std::vector<real_t> conditional_probabilities(const std::vector<uint64_t> &I,
       }
     }
   }
-  return convert_vector<real_t>(P);
+  return P;
 }
 
 template <typename T>
@@ -150,10 +153,11 @@ inline void normalise_vector(std::vector<T> &vec, const int n_threads) {
 }
 
 template <class real_t>
-std::tuple<std::vector<real_t>, std::vector<real_t>>
+std::tuple<std::vector<real_t>, std::vector<double>>
 wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
-           std::vector<real_t> &dists, std::vector<real_t> &weights,
-           const real_t perplexity, const int n_threads, const int seed) {
+           std::vector<real_t> &dists, std::vector<double> &weights,
+           const real_t perplexity, const int n_threads,
+           const unsigned int seed) {
   // Check input
   if (I.size() != J.size() || I.size() != dists.size() ||
       J.size() != dists.size()) {
@@ -166,7 +170,7 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   const uint64_t ne = dists.size();
 
   // Preprocess distances
-  std::vector<real_t> P =
+  std::vector<double> P =
       conditional_probabilities<real_t>(I, J, dists, nn, perplexity, n_threads);
 
   // Normalise distances and weights
@@ -186,17 +190,19 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   return std::make_tuple(Y, P);
 }
 
-std::vector<double>
-wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
-      std::vector<double> &dists, std::vector<double> &weights,
-      const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
-      const double eta0, const bool bInit, const int n_threads, const int seed);
+std::vector<double> wtsne(const std::vector<uint64_t> &I,
+                          const std::vector<uint64_t> &J,
+                          std::vector<double> &dists,
+                          std::vector<double> &weights, const double perplexity,
+                          const uint64_t maxIter, const uint64_t nRepuSamp,
+                          const double eta0, const bool bInit,
+                          const int n_threads, const unsigned int seed);
 
 template <typename real_t>
 std::vector<real_t>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
-          std::vector<real_t> &dists, std::vector<real_t> &weights,
+          std::vector<real_t> &dists, std::vector<double> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
           const int block_count, const uint64_t nRepuSamp, const real_t eta0,
           const bool bInit, const int n_threads, const int device_id,
-          const int seed);
+          const unsigned int seed);

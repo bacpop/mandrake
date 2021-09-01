@@ -49,8 +49,8 @@ template <typename real_t> struct kernel_ptrs {
 template <typename real_t> class SCEDeviceMemory {
 public:
   SCEDeviceMemory(const std::vector<real_t> &Y, const std::vector<uint64_t> &I,
-                  const std::vector<uint64_t> &J, const std::vector<real_t> &P,
-                  const std::vector<real_t> &weights, int block_size,
+                  const std::vector<uint64_t> &J, const std::vector<double> &P,
+                  const std::vector<double> &weights, int block_size,
                   int block_count)
       : n_workers_(block_size * block_count), nn_(weights.size()),
         ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)), Y_(Y), I_(I),
@@ -308,6 +308,7 @@ __global__ void wtsneUpdateYKernel(
           Y[d + lk] = Yk_read[d];
           Y[d + ll] = Yl_read[d];
         }
+        r--;
       }
     }
     __syncwarp();
@@ -326,25 +327,26 @@ __global__ void wtsneUpdateYKernel(
 // when imported
 template std::vector<float>
 wtsne_gpu<float>(const std::vector<uint64_t> &, const std::vector<uint64_t> &,
-                 std::vector<float> &, std::vector<float> &, const float,
+                 std::vector<float> &, std::vector<double> &, const float,
                  const uint64_t, const int, const int, const uint64_t,
-                 const float, const bool, const int, const int, const int);
+                 const float, const bool, const int, const int, const unsigned int);
 template std::vector<double>
 wtsne_gpu<double>(const std::vector<uint64_t> &, const std::vector<uint64_t> &,
                   std::vector<double> &, std::vector<double> &, const double,
                   const uint64_t, const int, const int, const uint64_t,
-                  const double, const bool, const int, const int, const int);
+                  const double, const bool, const int, const int, const unsigned int);
 
 template <typename real_t>
 std::vector<real_t>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
-          std::vector<real_t> &dists, std::vector<real_t> &weights,
+          std::vector<real_t> &dists, std::vector<double> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
           const int block_count, const uint64_t nRepuSamp, const real_t eta0,
           const bool bInit, const int n_threads, const int device_id,
-          const int seed) {
+          const unsigned int seed) {
   // Check input
-  std::vector<real_t> Y, P;
+  std::vector<real_t> Y;
+  std::vector<double> P;
   std::tie(Y, P) =
       wtsne_init<real_t>(I, J, dists, weights, perplexity, n_threads, seed);
 
@@ -387,6 +389,5 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   }
   std::cerr << std::endl << "Optimizing done" << std::endl;
 
-  std::vector<real_t> embedding_result = embedding.get_embedding_result();
-  return embedding_result;
+  return embedding.get_embedding_result();
 }

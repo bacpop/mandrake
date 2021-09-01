@@ -50,7 +50,7 @@ if(CMAKE_CUDA_COMPILER)
 
 
     add_compile_definitions(GPU_AVAILABLE)
-    add_library("${TARGET_NAME}_CUDA" STATIC src/wtsne_gpu.cu)
+    add_library("${TARGET_NAME}_CUDA" OBJECT src/wtsne_gpu.cu)
     set_property(TARGET "${TARGET_NAME}_CUDA"
                  PROPERTY POSITION_INDEPENDENT_CODE ON
                  CUDA_SEPARABLE_COMPILATION ON
@@ -78,7 +78,7 @@ if(CMAKE_CUDA_COMPILER)
     set_property(TARGET "${TARGET_NAME}" PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 
-target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module gfortran m rt ZLIB::ZLIB)
+target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module gfortran m ZLIB::ZLIB)
 if(DEFINED ENV{CONDA_PREFIX})
   target_link_libraries("${TARGET_NAME}" PRIVATE gsl gslcblas gomp)
 else()
