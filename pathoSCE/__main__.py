@@ -3,6 +3,7 @@
 '''Main control function for pathoSCE'''
 
 import os, sys
+import re
 
 from .__init__ import __version__
 
@@ -110,6 +111,7 @@ def main():
             dist_col = 0
             if args.use_accessory:
                 dist_col = 1
+            args.sketches = re.sub(r"\.h5$", "", args.sketches)
             I, J, dists, names = sketchlibDists(args.sketches,
                                         dist_col,
                                         args.kNN,

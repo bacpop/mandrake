@@ -41,7 +41,7 @@ def pairSnpDists(pairsnp_exe, alignment, output, threshold, kNN, cpus):
 
 def sketchlibDists(sketch_db, dist_col, kNN, threshold, cpus, use_gpu, device_id):
     names = getSeqsInDb(sketch_db + ".h5")
-    kmers, sketch_size = readDBParams(sketch_db + ".h5")
+    kmers = readDBParams(sketch_db + ".h5")[0]
     I, J, dists = pp_sketchlib.queryDatabaseSparse(sketch_db,
                                                 sketch_db,
                                                 names,
