@@ -50,8 +50,8 @@ def get_options():
 
     sketchGroup = parser.add_argument_group('Sketch options')
     sketchGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances instead of core")
-    sketchGroup.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
-    sketchGroup.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
+    sketchGroup.add_argument('--threshold', default=0, type=float, help='Maximum distance to consider [default = None]')
+    sketchGroup.add_argument('--kNN', default=0, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
 
     alnGroup = parser.add_argument_group('Alignment options')
     alnGroup.add_argument('--pairsnp-exe', default="pairsnp", type=str, help="Location of pairsnp executable (default='pairsnp')")

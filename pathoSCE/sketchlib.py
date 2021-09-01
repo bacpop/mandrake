@@ -48,18 +48,18 @@ def getKmersFromReferenceDatabase(dbPrefix):
             List of k-mer lengths used in database
     """
     ref_db = h5py.File(dbPrefix, 'r')
-    prev_kmer_sizes = []
+    db_kmer_sizes = []
     for sample_name in list(ref_db['sketches'].keys()):
         kmer_size = ref_db['sketches/' + sample_name].attrs['kmers']
-        if len(prev_kmer_sizes) == 0:
-            prev_kmer_sizes = kmer_size
-        elif np.any(kmer_size != prev_kmer_sizes):
+        if len(db_kmer_sizes) == 0:
+            db_kmer_sizes = kmer_size
+        elif np.any(kmer_size != db_kmer_sizes):
             sys.stderr.write("Problem with database; kmer lengths inconsistent: " +
-                             str(kmer_size) + " vs " + str(prev_kmer_sizes) + "\n")
+                             str(kmer_size) + " vs " + str(db_kmer_sizes) + "\n")
             sys.exit(1)
 
-    prev_kmer_sizes.sort()
-    return kmers
+    db_kmer_sizes.sort()
+    return list(db_kmer_sizes)
 
 def readDBParams(dbPrefix):
     """Get kmers lengths and sketch sizes from existing database
