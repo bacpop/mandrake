@@ -49,7 +49,7 @@ if(CMAKE_CUDA_COMPILER)
 
 
     add_compile_definitions(GPU_AVAILABLE)
-    add_library("${TARGET_NAME}_CUDA" STATIC src/wtsne_gpu.cu)
+    add_library("${TARGET_NAME}_CUDA" PRIVATE src/wtsne_gpu.cu)
     set_property(TARGET "${TARGET_NAME}_CUDA"
                  PROPERTY POSITION_INDEPENDENT_CODE ON
                  CUDA_SEPARABLE_COMPILATION ON
