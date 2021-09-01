@@ -59,7 +59,6 @@ def getKmersFromReferenceDatabase(dbPrefix):
             sys.exit(1)
 
     prev_kmer_sizes.sort()
-    kmers = np.asarray(prev_kmer_sizes)
     return kmers
 
 def readDBParams(dbPrefix):
