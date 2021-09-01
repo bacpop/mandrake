@@ -4,6 +4,7 @@
 
 import os, sys
 import re
+import pandas as pd
 
 from .__init__ import __version__
 
@@ -35,6 +36,7 @@ def get_options():
                         help='Work from pre-calculated distances')
 
     ioGroup = parser.add_argument_group('I/O options')
+    ioGroup.add_argument('--labels', default=None, help='Sample labels for plotting (overrides DBSCAN clusters)')
     ioGroup.add_argument('--output', default="pathoSCE", type=str, help='Prefix for output files [default = "pathoSCE"]')
 
     sceGroup = parser.add_argument_group('SCE options')
@@ -155,12 +157,18 @@ def main():
     #***********************#
     #* run HDBSCAN         *#
     #***********************#
-    hdb_clusters = runHDBSCAN(embedding)
+    if args.labels == None:
+        sys.stderr.write("Running clustering\n")
+        cluster_labels = runHDBSCAN(embedding)
+    else:
+        label_file = pd.read_csv(args.labels, sep="\t", header=None, index_col=0)
+        cluster_labels = list(label_file.loc[names][1].values)
 
     #***********************#
     #* plot embedding      *#
     #***********************#
-    plotSCE(embedding, names, hdb_clusters, args.output)
+    sys.stderr.write("Drawing plots\n")
+    plotSCE(embedding, names, cluster_labels, args.output, not args.labels)
 
     sys.exit(0)
 
