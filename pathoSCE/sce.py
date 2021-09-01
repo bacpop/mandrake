@@ -34,14 +34,15 @@ def save_input(I, J, dists, names, output_prefix):
 
     pd.Series(names).to_csv(output_prefix + '.names.txt', sep='\n', header=False, index=False)
 
-    _saveDists(output_prefix, I, J, dists)
+    _saveDists(output_prefix, I, J, dists, names)
 
 def loadIJdist(npzfilename):
     npzfile = np.load(npzfilename)
     I = npzfile['I']
     J = npzfile['J']
     dists = npzfile['dists']
-    return I, J, dists
+    names = npzfile['names']
+    return I, J, dists, names
 
 def runSCE(I, J, dists, weight_file, names, SCE_opts):
     weights = np.ones((len(names)))
@@ -88,5 +89,5 @@ def saveEmbedding(embedding, output_prefix):
 
 # Internal functions
 
-def _saveDists(output_prefix, I, J, dists):
-    np.savez(output_prefix, I=I, J=J, dists=dists)
+def _saveDists(output_prefix, I, J, dists, names):
+    np.savez(output_prefix, I=I, J=J, dists=dists, names=np.array(names))

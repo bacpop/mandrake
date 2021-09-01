@@ -308,6 +308,7 @@ __global__ void wtsneUpdateYKernel(
           Y[d + lk] = Yk_read[d];
           Y[d + ll] = Yl_read[d];
         }
+        r--;
       }
     }
     __syncwarp();
@@ -388,6 +389,5 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   }
   std::cerr << std::endl << "Optimizing done" << std::endl;
 
-  std::vector<real_t> embedding_result = embedding.get_embedding_result();
-  return embedding_result;
+  return embedding.get_embedding_result();
 }

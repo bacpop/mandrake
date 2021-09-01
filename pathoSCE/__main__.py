@@ -2,7 +2,7 @@
 
 '''Main control function for pathoSCE'''
 
-import os, sys
+import sys
 import re
 import pandas as pd
 
@@ -104,9 +104,12 @@ def main():
                                     args.threshold,
                                     args.kNN,
                                     args.cpus)
-        # TODO I, J, dist, name return
+
         elif (args.accessory is not None):
-            P, names = accessoryDists(args.accessory, args.sparse, args.kNN, args.threshold)
+            I, J, dists, names = accessoryDists(args.accessory,
+                                                args.sparse,
+                                                args.kNN,
+                                                args.threshold)
 
         elif (args.sketches is not None):
             # sketches
@@ -131,7 +134,7 @@ def main():
     # Load existing distances
     else:
         sys.stderr.write("Loading distances\n")
-        I, J, dists = loadIJdist(args.distances)
+        I, J, dists, names = loadIJdist(args.distances)
 
     #***********************#
     #* run SCE             *#
