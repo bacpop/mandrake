@@ -26,18 +26,19 @@ def accessoryDists(accessory_file, sparse, kNN, threshold):
         P = _sparseJaccard(acc_mat.values)
     else:
         P = _denseJaccard(acc_mat.values)
-    return P, names
+    
+    return P.row, P.col, P.data, names
 
 def pairSnpDists(pairsnp_exe, alignment, output, threshold, kNN, cpus):
     # alignment
-    P, names = runPairsnp(pairsnp_exe,
+    I, J, dists, names = runPairsnp(pairsnp_exe,
                           alignment,
                           output,
                           threshold=threshold,
                           kNN=kNN,
                           threads=cpus)
 
-    return P, names
+    return I, J, dists, names 
 
 def sketchlibDists(sketch_db, dist_col, kNN, threshold, cpus, use_gpu, device_id):
     names = getSeqsInDb(sketch_db + ".h5")

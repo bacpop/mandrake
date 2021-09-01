@@ -93,18 +93,15 @@ def main():
     if args.distances is None:
         sys.stderr.write("Calculating distances\n")
 
-        # TODO update with new pairsnp
-        # TODO I, J, dist, name return
         if (args.alignment is not None):
-            P, names = pairSnpDists(args.pairsnp_exe,
+            I, J, dists, names = pairSnpDists(args.pairsnp_exe,
                                     args.alignment,
                                     args.output,
                                     args.threshold,
                                     args.kNN,
                                     args.cpus)
-        # TODO I, J, dist, name return
         elif (args.accessory is not None):
-            P, names = accessoryDists(args.accessory, args.sparse, args.kNN, args.threshold)
+            I, J, dists, names = accessoryDists(args.accessory, args.sparse, args.kNN, args.threshold)
 
         elif (args.sketches is not None):
             # sketches

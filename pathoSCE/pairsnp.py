@@ -7,8 +7,6 @@ from a multiple sequence file'''
 import sys
 import subprocess
 import numpy as np
-from scipy.sparse import coo_matrix
-
 
 def checkPairsnpVersion():
     """Checks that pairsnp can be run, and returns version
@@ -74,6 +72,7 @@ def runPairsnp(pairsnp_exe, msaFile, output, kNN=None, threshold=None, threads=1
     if kNN is not None:
         cmd += ' -k ' + str(kNN)
     cmd += ' -t ' + str(threads)
+    cmd += ' -i'
     cmd += ' ' + msaFile
 
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
@@ -88,7 +87,5 @@ def runPairsnp(pairsnp_exe, msaFile, output, kNN=None, threshold=None, threads=1
         sys.stderr.write("Distance threshold is too strict, less than 3 pairs passed!\n")
         sys.exit(1)
 
-    distMatrix = coo_matrix(((distances[:,2]+0.1)/aln_len, (distances[:,0], distances[:,1])),
-        shape=(len(seqNames), len(seqNames)))
 
-    return distMatrix, seqNames
+    return distances[:,0], distances[:,1], (distances[:,2]+0.1)/aln_len, seqNames
