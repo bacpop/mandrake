@@ -48,8 +48,7 @@ def get_options():
     sceGroup.add_argument('--bInit', default=0, type=bool, help="1 for over-exaggeration in early stage [default = 0]")
 
     sketchGroup = parser.add_argument_group('Sketch options')
-    sketchGroup.add_argument('--use-core', action='store_true', default=False, help="Use core distances")
-    sketchGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances")
+    sketchGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances instead of core")
     sketchGroup.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
     sketchGroup.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
 
@@ -108,9 +107,8 @@ def main():
 
         elif (args.sketches is not None):
             # sketches
-            if args.use_core:
-                dist_col = 0
-            elif args.use_accessory:
+            dist_col = 0
+            if args.use_accessory:
                 dist_col = 1
             I, J, dists, names = sketchlibDists(args.sketches,
                                         dist_col,
