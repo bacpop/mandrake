@@ -21,12 +21,15 @@
 #include <type_traits>
 #include <vector>
 
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 #ifndef DIM
 #define DIM 2
 #endif
 
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
+const int n_steps = 100;
+const double PERPLEXITY_TOLERANCE = 1e-5;
 
 // fp64 -> fp32 converstions no longer needed
 /*
@@ -46,6 +49,7 @@ convert_vector(const std::vector<U>& d_vec) {
 */
 
 // Get indices where each row starts in the sparse matrix
+// NB this won't work if any rows are missing
 inline std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
                                                const size_t n_samples) {
   std::vector<uint64_t> row_start_idx(n_samples + 1);
@@ -60,9 +64,6 @@ inline std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
   }
   return row_start_idx;
 }
-
-const int n_steps = 100;
-const double PERPLEXITY_TOLERANCE = 1e-5;
 
 template <typename real_t>
 std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
@@ -190,6 +191,8 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   return std::make_tuple(Y, P);
 }
 
+// Function prototypes
+// in wtsne_cpu.cpp
 std::vector<double> wtsne(const std::vector<uint64_t> &I,
                           const std::vector<uint64_t> &J,
                           std::vector<double> &dists,
@@ -197,7 +200,7 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
                           const uint64_t maxIter, const uint64_t nRepuSamp,
                           const double eta0, const bool bInit,
                           const int n_threads, const unsigned int seed);
-
+// in wtsne_gpu.cu
 template <typename real_t>
 std::vector<real_t>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,

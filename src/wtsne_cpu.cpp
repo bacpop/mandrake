@@ -100,19 +100,12 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
           double gain = eta * g * dY[d];
           double Yk_read_end, Yl_read_end;
 #pragma omp atomic capture
-          {
-            Yk_read_end = Y[d + lk];
-            Y[d + lk] =
-                Yk_read_end == Yk_read[d] ? Yk_read[d] + gain : Yk_read[d];
-          }
+          Yk_read_end = Y[d + lk] += gain;
 #pragma omp atomic capture
-          {
-            Yl_read_end = Y[d + ll];
-            Y[d + ll] =
-                Yl_read_end == Yl_read[d] ? Yl_read[d] - gain : Yl_read[d];
-          }
-          if (Yl_read_end != Yl_read[d] || Yk_read_end != Yk_read[d]) {
+          Yl_read_end = Y[d + ll] -= gain;
+          if (Yk_read_end != Yk_read[d] + gain || Yl_read_end != Yl_read[d] - gain) {
             overwrite = true;
+            break;
           }
         }
         if (!overwrite) {
