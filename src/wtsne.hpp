@@ -21,6 +21,10 @@
 #include <type_traits>
 #include <vector>
 
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+namespace py = pybind11;
+
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
@@ -189,6 +193,20 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   std::vector<real_t> Y(nn * DIM);
   std::generate(Y.begin(), Y.end(), gen);
   return std::make_tuple(Y, P);
+}
+
+template <typename real_t>
+inline void update_progress(const long long iter, const uint64_t maxIter,
+                            const real_t eta, const real_t Eq) {
+  if (iter % MAX(1, maxIter / 1000) == 0 || iter == maxIter - 1) {
+    // Check for keyboard interrupt from python
+    if (PyErr_CheckSignals() != 0) {
+      throw py::error_already_set();
+    }
+    fprintf(stderr, "%cOptimizing (GPU)\t eta=%f Progress: %.1lf%%, Eq=%.20f",
+            13, eta, (real_t)iter / maxIter * 100, Eq);
+    fflush(stderr);
+  }
 }
 
 // Function prototypes

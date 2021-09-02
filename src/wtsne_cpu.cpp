@@ -124,12 +124,7 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
       }
     }
     Eq = (Eq * nsq + qsum) / (nsq + qcount);
-
-    if (iter % MAX(1, maxIter / 1000) == 0 || iter == maxIter - 1) {
-      fprintf(stderr, "%cOptimizing (CPU)\t eta=%f Progress: %.1lf%%, Eq=%.20f",
-              13, eta, (double)iter / maxIter * 100, 1.0 / (c * nsq));
-      fflush(stderr);
-    }
+    update_progress(iter, maxIter, eta, Eq);
   }
   std::cerr << std::endl << "Optimizing done" << std::endl;
 
