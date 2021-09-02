@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef> // size_t
 #include <cstdint>
 #include <iostream>
@@ -76,6 +77,8 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
                                               const uint64_t n_samples,
                                               const real_t perplexity,
                                               const int n_threads) {
+  using namespace std::literals;
+  const auto start = std::chrono::steady_clock::now();
   std::vector<double> P(
       dists.size()); // note double (as in sklearn implementation)
   // Simple
@@ -87,6 +90,7 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
   } else {
     const std::vector<uint64_t> row_start_idx = row_start_indices(I, n_samples);
     const real_t desired_entropy = std::log(perplexity);
+
 // Conditional Gaussians
 // see _binary_search_perplexity in
 // https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/manifold/_utils.pyx
@@ -140,6 +144,10 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
       }
     }
   }
+  const auto end = std::chrono::steady_clock::now();
+  std::cout << "Preprocessing " << n_samples
+            << " samples with perplexity = " << perplexity << " took "
+            << (end - start) / 1ms << "ms" << std::endl;
   return P;
 }
 
@@ -203,8 +211,8 @@ inline void update_progress(const long long iter, const uint64_t maxIter,
     if (PyErr_CheckSignals() != 0) {
       throw py::error_already_set();
     }
-    fprintf(stderr, "%cOptimizing (GPU)\t eta=%f Progress: %.1lf%%, Eq=%.20f",
-            13, eta, (real_t)iter / maxIter * 100, Eq);
+    fprintf(stderr, "%cOptimizing\t eta=%f Progress: %.1lf%%, Eq=%.20f", 13,
+            eta, (real_t)iter / maxIter * 100, Eq);
     fflush(stderr);
   }
 }
