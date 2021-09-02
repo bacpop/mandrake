@@ -50,6 +50,7 @@ if(CMAKE_CUDA_COMPILER)
 
     add_compile_definitions(GPU_AVAILABLE)
     add_library("${TARGET_NAME}_CUDA" OBJECT src/wtsne_gpu.cu)
+    target_include_directories("${TARGET_NAME}_CUDA" PRIVATE "${pybind11_INCLUDE_DIRS}")
     set_property(TARGET "${TARGET_NAME}_CUDA"
                  PROPERTY POSITION_INDEPENDENT_CODE ON
                  CUDA_SEPARABLE_COMPILATION ON
