@@ -1,9 +1,5 @@
 // 2020 John Lees and Gerry Tonkin-Hill
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
-
 #include "wtsne.hpp"
 #include "pairsnp.hpp"
 

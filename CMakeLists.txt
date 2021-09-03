@@ -24,11 +24,11 @@ if(DEFINED ENV{CONDA_PREFIX})
     link_directories($ENV{CONDA_PREFIX}/lib)
     link_directories($ENV{CONDA_PREFIX}/lib/intel64)
 else()
-  find_package(GSL REQUIRED)
   find_package(OpenMP)
 endif()
 
 # Add libraries
+find_package(Boost)
 find_package(ZLIB)
 find_package(pybind11 REQUIRED)
 
@@ -51,6 +51,7 @@ if(CMAKE_CUDA_COMPILER)
 
     add_compile_definitions(GPU_AVAILABLE)
     add_library("${TARGET_NAME}_CUDA" OBJECT src/wtsne_gpu.cu)
+    target_include_directories("${TARGET_NAME}_CUDA" PRIVATE "${pybind11_INCLUDE_DIRS}")
     set_property(TARGET "${TARGET_NAME}_CUDA"
                  PROPERTY POSITION_INDEPENDENT_CODE ON
                  CUDA_SEPARABLE_COMPILATION ON
@@ -79,10 +80,10 @@ if(CMAKE_CUDA_COMPILER)
 endif()
 
 target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module gfortran m ZLIB::ZLIB)
+include_directories(${Boost_INCLUDE_DIRS})
 if(DEFINED ENV{CONDA_PREFIX})
-  target_link_libraries("${TARGET_NAME}" PRIVATE gsl gslcblas gomp)
+  target_link_libraries("${TARGET_NAME}" PRIVATE gomp)
 else()
-  target_link_libraries("${TARGET_NAME}" PRIVATE GSL::gsl GSL::gslcblas)
   if(OpenMP_CXX_FOUND)
       target_link_libraries("${TARGET_NAME}" PRIVATE OpenMP::OpenMP_CXX)
   endif()

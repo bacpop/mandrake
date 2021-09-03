@@ -378,14 +378,10 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
         device_ptrs.Eq, device_ptrs.qsum, device_ptrs.qcount, device_ptrs.nn,
         device_ptrs.ne, eta, nRepuSamp, device_ptrs.nsq, attrCoef);
     CUDA_CALL(cudaDeviceSynchronize());
-    real_t Eq = embedding.update_Eq();
 
     // Print progress
-    if (iter % MAX(1, maxIter / 1000) == 0 || iter == maxIter - 1) {
-      fprintf(stderr, "%cOptimizing (GPU)\t eta=%f Progress: %.1lf%%, Eq=%.20f",
-              13, eta, (real_t)iter / maxIter * 100, Eq);
-      fflush(stderr);
-    }
+    real_t Eq = embedding.update_Eq();
+    update_progress(iter, maxIter, eta, Eq);
   }
   std::cerr << std::endl << "Optimizing done" << std::endl;
 

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef> // size_t
 #include <cstdint>
 #include <iostream>
@@ -21,12 +22,19 @@
 #include <type_traits>
 #include <vector>
 
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+namespace py = pybind11;
+
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 #ifndef DIM
 #define DIM 2
 #endif
 
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
+const int n_steps = 100;
+const double PERPLEXITY_TOLERANCE = 1e-5;
 
 // fp64 -> fp32 converstions no longer needed
 /*
@@ -46,6 +54,7 @@ convert_vector(const std::vector<U>& d_vec) {
 */
 
 // Get indices where each row starts in the sparse matrix
+// NB this won't work if any rows are missing
 inline std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
                                                const size_t n_samples) {
   std::vector<uint64_t> row_start_idx(n_samples + 1);
@@ -61,9 +70,6 @@ inline std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
   return row_start_idx;
 }
 
-const int n_steps = 100;
-const double PERPLEXITY_TOLERANCE = 1e-5;
-
 template <typename real_t>
 std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
                                               const std::vector<uint64_t> &J,
@@ -71,6 +77,8 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
                                               const uint64_t n_samples,
                                               const real_t perplexity,
                                               const int n_threads) {
+  using namespace std::literals;
+  const auto start = std::chrono::steady_clock::now();
   std::vector<double> P(
       dists.size()); // note double (as in sklearn implementation)
   // Simple
@@ -82,6 +90,7 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
   } else {
     const std::vector<uint64_t> row_start_idx = row_start_indices(I, n_samples);
     const real_t desired_entropy = std::log(perplexity);
+
 // Conditional Gaussians
 // see _binary_search_perplexity in
 // https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/manifold/_utils.pyx
@@ -135,6 +144,10 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
       }
     }
   }
+  const auto end = std::chrono::steady_clock::now();
+  std::cout << "Preprocessing " << n_samples
+            << " samples with perplexity = " << perplexity << " took "
+            << (end - start) / 1ms << "ms" << std::endl;
   return P;
 }
 
@@ -190,6 +203,22 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   return std::make_tuple(Y, P);
 }
 
+template <typename real_t>
+inline void update_progress(const long long iter, const uint64_t maxIter,
+                            const real_t eta, const real_t Eq) {
+  if (iter % MAX(1, maxIter / 1000) == 0 || iter == maxIter - 1) {
+    // Check for keyboard interrupt from python
+    if (PyErr_CheckSignals() != 0) {
+      throw py::error_already_set();
+    }
+    fprintf(stderr, "%cOptimizing\t eta=%f Progress: %.1lf%%, Eq=%.20f", 13,
+            eta, (real_t)iter / maxIter * 100, Eq);
+    fflush(stderr);
+  }
+}
+
+// Function prototypes
+// in wtsne_cpu.cpp
 std::vector<double> wtsne(const std::vector<uint64_t> &I,
                           const std::vector<uint64_t> &J,
                           std::vector<double> &dists,
@@ -197,7 +226,7 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
                           const uint64_t maxIter, const uint64_t nRepuSamp,
                           const double eta0, const bool bInit,
                           const int n_threads, const unsigned int seed);
-
+// in wtsne_gpu.cu
 template <typename real_t>
 std::vector<real_t>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,

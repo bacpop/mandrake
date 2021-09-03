@@ -5,7 +5,7 @@ Fast visualisation of the population structure of pathogens using Stochastic Clu
 
 You will need some dependencies, which you can install through `conda`:
 ```
-conda create -n pathosce python numpy pandas scipy scikit-learn hdbscan pp-sketchlib cmake pybind11 openmp blas gsl gfortran-ng cudatoolkit
+conda create -n pathosce python numpy pandas scipy scikit-learn hdbscan pp-sketchlib cmake pybind11 openmp blas gsl gfortran-ng cudatoolkit boost gfortran_linux-64 gxx_linux-64
 ```
 
 You can the clone this repository, and run:

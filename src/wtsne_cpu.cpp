@@ -7,9 +7,8 @@
  */
 
 // Modified by John Lees
+#include <iterator>
 
-#include <gsl/gsl_randist.h>
-#include <gsl/gsl_rng.h>
 
 #include "wtsne.hpp"
 
@@ -28,16 +27,10 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
   long long ne = P.size();
 
   // Set up random number generation
-  const gsl_rng_type *gsl_T;
-  gsl_rng_env_setup();
-  gsl_T = gsl_rng_default;
-  gsl_rng *gsl_r_nn = gsl_rng_alloc(gsl_T);
-  gsl_rng *gsl_r_ne = gsl_rng_alloc(gsl_T);
-  gsl_rng_set(gsl_r_nn, seed);
-  gsl_rng_set(gsl_r_ne, seed << 1); // not ideal seeding
-
-  gsl_ran_discrete_t *gsl_de = gsl_ran_discrete_preproc(ne, P.data());
-  gsl_ran_discrete_t *gsl_dn = gsl_ran_discrete_preproc(nn, weights.data());
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::discrete_distribution<> dist_de(P.begin(), P.end());
+  std::discrete_distribution<> dist_dn(weights.begin(), weights.end());
 
   // SNE algorithm
   const double nsq = nn * (nn - 1);
@@ -59,7 +52,9 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
       std::vector<double> Yk_read(DIM);
       std::vector<double> Yl_read(DIM);
 
-      long long e = gsl_ran_discrete(gsl_r_ne, gsl_de) % ne;
+      // long long e = gsl_ran_discrete(gsl_r_ne, gsl_de) % ne;
+      long long e = dist_de(gen) % ne;
+      // fprintf(stderr, "e: %d", e);
       long long i = I[e];
       long long j = J[e];
 
@@ -67,7 +62,7 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
       {
         // fprintf(stderr, "r: %d", r);
         // fflush(stderr);
-        long long k, l;
+        long long k, l, k2;
         if (r == 0)
         {
           k = i;
@@ -75,8 +70,8 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
         }
         else
         {
-          k = gsl_ran_discrete(gsl_r_nn, gsl_dn) % nn;
-          l = gsl_ran_discrete(gsl_r_nn, gsl_dn) % nn;
+          k = dist_dn(gen) % nn;
+          l = dist_dn(gen) % nn;
         }
         if (k == l)
           continue;
@@ -106,18 +101,13 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
         {
           double gain = eta * g * dY[d];
           double Yk_read_end, Yl_read_end;
-
-          Yk_read_end = Y[d + lk];
-          Y[d + lk] =
-              Yk_read_end == Yk_read[d] ? Yk_read[d] + gain : Yk_read[d];
-
-          Yl_read_end = Y[d + ll];
-          Y[d + ll] =
-              Yl_read_end == Yl_read[d] ? Yl_read[d] - gain : Yl_read[d];
-
-          if (Yl_read_end != Yl_read[d] || Yk_read_end != Yk_read[d])
-          {
+#pragma omp atomic capture
+          Yk_read_end = Y[d + lk] += gain;
+#pragma omp atomic capture
+          Yl_read_end = Y[d + ll] -= gain;
+          if (Yk_read_end != Yk_read[d] + gain || Yl_read_end != Yl_read[d] - gain) {
             overwrite = true;
+            break;
           }
         }
         if (!overwrite)
@@ -137,22 +127,10 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
       }
     }
     Eq = (Eq * nsq + qsum) / (nsq + qcount);
-
-    if (iter % MAX(1, maxIter / 1000) == 0 || iter == maxIter - 1)
-    {
-      fprintf(stderr, "%cOptimizing (CPU)\t eta=%f Progress: %.1lf%%, Eq=%.20f",
-              13, eta, (double)iter / maxIter * 100, 1.0 / (c * nsq));
-      fflush(stderr);
-    }
+    update_progress(iter, maxIter, eta, Eq);
   }
   std::cerr << std::endl
             << "Optimizing done" << std::endl;
-
-  // Free memory from GSL functions
-  gsl_ran_discrete_free(gsl_de);
-  gsl_ran_discrete_free(gsl_dn);
-  gsl_rng_free(gsl_r_nn);
-  gsl_rng_free(gsl_r_ne);
 
   return Y;
 }
