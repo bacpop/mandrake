@@ -23,17 +23,6 @@
 /****************************
  * Classes                  *
  ****************************/
-template <typename real_t> struct gsl_table_device {
-  size_t K;
-  real_t *F;
-  size_t *A;
-};
-
-template <typename real_t> struct gsl_table_host {
-  device_array<real_t> F;
-  device_array<size_t> A;
-};
-
 template <typename real_t> struct kernel_ptrs {
   real_t *Y;
   uint64_t *I;
@@ -209,7 +198,7 @@ __device__ size_t discrete_draw(curandState *state,
   real_t f = unif_table.F[c];
 
   real_t draw;
-  if (f == 1.0 || u < f) {
+  if (f == static_cast<real_t>(1.0) || u < f) {
     draw = c;
   } else {
     draw = unif_table.A[c];
