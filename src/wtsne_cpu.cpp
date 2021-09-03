@@ -8,9 +8,6 @@
 
 // Modified by John Lees
 
-#include <gsl/gsl_randist.h>
-#include <gsl/gsl_rng.h>
-
 #include "wtsne.hpp"
 
 std::vector<double> wtsne(const std::vector<uint64_t> &I,

@@ -11,8 +11,6 @@
 #include <cfloat>
 #include <cub/cub.cuh>
 #include <curand_kernel.h>
-#include <gsl/gsl_randist.h>
-#include <gsl/gsl_rng.h>
 #include <numeric>
 #include <stdio.h>
 #include <stdlib.h>
