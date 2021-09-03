@@ -80,6 +80,8 @@ def get_options():
                         default=128,
                         help='CUDA blockCount '
                              '[default = 128]')
+    other.add_argument('--fp', type=int, choices=[32, 64], default=64,
+                        help='Floating point precision when using a GPU')
     other.add_argument('--version', action='version',
                        version='%(prog)s '+__version__)
 
@@ -146,6 +148,7 @@ def main():
                'device_id': args.device_id,
                'blockSize': args.blockSize,
                'blockCount': args.blockCount,
+               'fp': args.fp,
                'nRepuSamp': args.nRepuSamp,
                'eta0': args.eta0,
                'bInit': args.bInit}

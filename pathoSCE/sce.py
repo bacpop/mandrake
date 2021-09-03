@@ -14,8 +14,7 @@ sys.path.insert(0, os.path.dirname(__file__) + '/../build/lib.linux-x86_64-3.9')
 sys.path.insert(0, os.path.dirname(__file__) + '/../build/lib.macosx-10.9-x86_64-3.9')
 from SCE import wtsne
 try:
-    # Using doubles for now
-    from SCE import wtsne_gpu_fp64 as wtsne_gpu
+    from SCE import wtsne_gpu_fp64, wtsne_gpu_fp32
     gpu_fn_available = True
 except ImportError:
     gpu_fn_available = False
@@ -57,6 +56,10 @@ def runSCE(I, J, dists, weight_file, names, SCE_opts):
     # Set up function call with either CPU or GPU
     if SCE_opts['use_gpu'] and gpu_fn_available:
         sys.stderr.write("Running on GPU\n")
+        if SCE_opts['fp'] == 64:
+            wtsne_gpu = wtsne_gpu_fp64
+        elif SCE_opts['fp'] == 32:
+            wtsne_gpu = wtsne_gpu_fp32
         wtsne_call = partial(wtsne_gpu,
                              perplexity = SCE_opts['perplexity'],
                              maxIter = SCE_opts['maxIter'],
