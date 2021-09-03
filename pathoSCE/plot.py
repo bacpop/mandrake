@@ -9,6 +9,11 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
+import matplotlib as mpl
+mpl.use('Agg')
+mpl.rcParams.update({'font.size': 18})
+import matplotlib.pyplot as plt
+
 def plotSCE(embedding, names, labels, output_prefix, dbscan=True):
     if dbscan:
         not_noise = labels != -1
@@ -78,4 +83,32 @@ def plotSCE(embedding, names, labels, output_prefix, dbscan=True):
     except ValueError as e:
         sys.stderr.write("Need to install orca ('plotly-orca') or kaleido "
         "('python-kaleido') to draw png image output\n")
+        sys.stderr.write("Falling back to matplotlib\n")
+        plotSCE_static(embedding, labels, output_prefix, dbscan=True)
 
+# Fallback function if kaledio or orca are missing
+# From PopPUNK
+def plotSCE_static(embedding, labels, output_prefix, dbscan=True):
+    # Black removed and is used for noise instead.
+    unique_labels = set(labels)
+    colours = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]  # changed to work with two clusters
+
+    plt.figure(figsize=(11, 8), dpi= 160, facecolor='w', edgecolor='k')
+    for k in unique_labels:
+        if k == -1 and dbscan:
+            ptsize = 1
+            col = 'k'
+        else:
+            ptsize = 2
+            col = tuple(colours.pop())
+        class_member_mask = (labels == k)
+        xy = embedding[class_member_mask]
+        plt.plot(xy[:, 0], xy[:, 1], '.', color=col, markersize=ptsize)
+
+    # plot output
+    if dbscan:
+        plt.title('HDBSCAN – estimated number of spatial clusters: %d' % len(unique_labels) - 1)
+    plt.xlabel('SCE dimension 1')
+    plt.ylabel('SCE dimension 2')
+    plt.savefig(output_prefix + ".png")
+    plt.close()
