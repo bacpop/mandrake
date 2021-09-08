@@ -45,10 +45,11 @@ def get_options():
     sceGroup.add_argument('--perplexity', default=15, type=float, help="Perplexity for distance to similarity "
                                                                             "conversion [default = 15]")
     sceGroup.add_argument('--weight-file', default=None, help="Weights for samples")
-    sceGroup.add_argument('--maxIter', default=100000, type=int, help="Maximum SCE iterations [default = 100000]")
+    sceGroup.add_argument('--maxIter', default=1000, type=int, help="Maximum SCE iterations [default = 1000]")
     sceGroup.add_argument('--nRepuSamp', default=5, type=int, help="Number of neighbours for calculating repulsion (1 or 5) [default = 5]")
     sceGroup.add_argument('--eta0', default=1, type=float, help="Learning rate [default = 1]")
     sceGroup.add_argument('--bInit', default=0, type=bool, help="1 for over-exaggeration in early stage [default = 0]")
+    sceGroup.add_argument('--n-workers', default=128, type=bool, help="Number of workers to use, sets max parallelism [default = 128]")
 
     sketchGroup = parser.add_argument_group('Sketch options')
     sketchGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances instead of core")
@@ -74,11 +75,6 @@ def get_options():
                         type=int,
                         default=128,
                         help='CUDA blockSize '
-                             '[default = 128]')
-    other.add_argument('--blockCount',
-                        type=int,
-                        default=128,
-                        help='CUDA blockCount '
                              '[default = 128]')
     other.add_argument('--fp', type=int, choices=[32, 64], default=64,
                         help='Floating point precision when using a GPU')
@@ -147,7 +143,7 @@ def main():
                'use_gpu': args.use_gpu,
                'device_id': args.device_id,
                'blockSize': args.blockSize,
-               'blockCount': args.blockCount,
+               'n_workers': args.n_workers,
                'fp': args.fp,
                'nRepuSamp': args.nRepuSamp,
                'eta0': args.eta0,

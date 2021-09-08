@@ -64,7 +64,7 @@ def runSCE(I, J, dists, weight_file, names, SCE_opts):
                              perplexity = SCE_opts['perplexity'],
                              maxIter = SCE_opts['maxIter'],
                              blockSize = SCE_opts['blockSize'],
-                             blockCount = SCE_opts['blockCount'],
+                             n_workers = SCE_opts['n_workers'],
                              nRepuSamp = SCE_opts['nRepuSamp'],
                              eta0 = SCE_opts['eta0'],
                              bInit = SCE_opts['bInit'],
@@ -79,6 +79,7 @@ def runSCE(I, J, dists, weight_file, names, SCE_opts):
                              nRepuSamp = SCE_opts['nRepuSamp'],
                              eta0 = SCE_opts['eta0'],
                              bInit = SCE_opts['bInit'],
+                             n_workers = SCE_opts['n_workers'],
                              n_threads = SCE_opts['cpus'],
                              seed = 1)
 
