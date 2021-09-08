@@ -8,6 +8,7 @@
 
 // Modified by John Lees
 
+#include "uniform_discrete.hpp"
 #include "wtsne.hpp"
 
 std::vector<double> wtsne(const std::vector<uint64_t> &I,
@@ -26,16 +27,9 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
   long long ne = P.size();
 
   // Set up random number generation
-  const gsl_rng_type *gsl_T;
-  gsl_rng_env_setup();
-  gsl_T = gsl_rng_default;
-  gsl_rng *gsl_r_nn = gsl_rng_alloc(gsl_T);
-  gsl_rng *gsl_r_ne = gsl_rng_alloc(gsl_T);
-  gsl_rng_set(gsl_r_nn, seed);
-  gsl_rng_set(gsl_r_ne, seed << 1); // not ideal seeding
-
-  gsl_ran_discrete_t *gsl_de = gsl_ran_discrete_preproc(ne, P.data());
-  gsl_ran_discrete_t *gsl_dn = gsl_ran_discrete_preproc(nn, weights.data());
+  gsl_table<real_t> node_table(weights);
+  gsl_table<real_t> edge_table(P);
+  pRNG<real_t> rng_state(n_workers, seed);
 
   // SNE algorithm
   const double nsq = nn * (nn - 1);
@@ -68,8 +62,8 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
           k = i;
           l = j;
         } else {
-          k = gsl_ran_discrete(gsl_r_nn, gsl_dn) % nn;
-          l = gsl_ran_discrete(gsl_r_nn, gsl_dn) % nn;
+          k = node_table.discrete_draw(rng_state[worker]) % nn;
+          l = node_table.discrete_draw(rng_state[worker]) % nn;
         }
         if (k == l)
           continue;
@@ -125,12 +119,6 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
     update_progress(iter, maxIter, eta, Eq);
   }
   std::cerr << std::endl << "Optimizing done" << std::endl;
-
-  // Free memory from GSL functions
-  gsl_ran_discrete_free(gsl_de);
-  gsl_ran_discrete_free(gsl_dn);
-  gsl_rng_free(gsl_r_nn);
-  gsl_rng_free(gsl_r_ne);
 
   return Y;
 }

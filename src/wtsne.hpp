@@ -36,23 +36,6 @@ namespace py = pybind11;
 const int n_steps = 100;
 const double PERPLEXITY_TOLERANCE = 1e-5;
 
-// fp64 -> fp32 converstions no longer needed
-/*
-template <typename T, typename U>
-typename std::enable_if<!std::is_same<U, T>::value, std::vector<T>>::type
-convert_vector(const std::vector<U>& d_vec) {
-  std::vector<T> f_vec(d_vec.begin(), d_vec.end());
-  return f_vec;
-}
-
-// No conversion needed
-template <typename T, typename U>
-typename std::enable_if<std::is_same<U, T>::value, std::vector<T>>::type
-convert_vector(const std::vector<U>& d_vec) {
-  return d_vec;
-}
-*/
-
 // Get indices where each row starts in the sparse matrix
 // NB this won't work if any rows are missing
 inline std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
@@ -198,14 +181,12 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   normalise_vector(weights, n_threads);
 
   // Set starting Y0
-  // Not parallelised, but could be (or easy to do in CUDA too)
   std::mt19937 mersenne_engine{seed};
   std::uniform_real_distribution<real_t> distribution(0.0, 1e-4);
   auto gen = [&distribution, &mersenne_engine]() {
     return distribution(mersenne_engine);
   };
 
-  std::vector<real_t> Y(nn * DIM);
   std::generate(Y.begin(), Y.end(), gen);
   return std::make_tuple(Y, P);
 }

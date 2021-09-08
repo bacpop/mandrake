@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rng.hpp"
+
 /* This code is based on randist/discrete.c from the GSL library
  *
  * Implements an O(N) version of Walker's algorithm to set lookup
@@ -12,20 +14,9 @@
  * edition, Addison-Wesley (1997), p120.
  */
 
-template <typename real_t> struct gsl_table_device {
-  size_t K;
-  real_t *F;
-  size_t *A;
-};
-
-template <typename real_t> struct gsl_table_host {
-  device_array<real_t> F;
-  device_array<size_t> A;
-};
-
 template <typename real_t> class gsl_table {
 public:
-  gsl_table(std::vector<real_t> probs, const int n_threads)
+  gsl_table(std::vector<real_t> probs)
       : K(probs.size()), F(K), A(K) {
     if (probs.size() < 1) {
       throw std::runtime_error("Probability table has too few values");
@@ -89,11 +80,13 @@ public:
     }
   }
 
-  // TODO: this needs to use xoshiro
-  // TODO: may be able to combine with fn below with a hostdevice fn and
-  // CUDA_ARCH ifdef
-  size_t discrete_draw() {
-    real_t u = curand_uniform(state);
+  size_t size() const { return K; }
+
+  std::vector<real_t> F_table() const {return F; }
+  std::vector<size_t> A_table() const {return A; }
+
+  size_t discrete_draw(rng_state_t<real_t>& rng_state) {
+    real_t u = unif_rand<real_t>(rng_state);
     size_t c = u * K;
     real_t f = F[c];
 
@@ -106,26 +99,27 @@ public:
     return draw;
   }
 
-  // TODO: this needs to use xoshiro
+private:
+  size_t K;
+  std::vector<real_t> F;
+  std::vector<size_t> A;
+};
+
 #ifdef __NVCC__
-  __device__ size_t discrete_draw(curandState *state,
-                                  const gsl_table_device<real_t> &unif_table) {
-    real_t u = curand_uniform(state);
-    size_t c = u * unif_table.K;
-    real_t f = unif_table.F[c];
+template <typename real_t>
+DEVICE size_t discrete_draw(rng_state_t<real_t>& rng_state,
+                            const gsl_table_device<real_t> &unif_table) {
+  real_t u = unif_rand<real_t>(rng_state);
+  size_t c = u * unif_table.K;
+  real_t f = unif_table.F[c];
 
-    real_t draw;
-    if (f == 1.0 || u < f) {
-      draw = c;
-    } else {
-      draw = unif_table.A[c];
-    }
-    __syncwarp();
-    return draw;
+  real_t draw;
+  if (f == 1.0 || u < f) {
+    draw = c;
+  } else {
+    draw = unif_table.A[c];
+  }
+  __syncwarp();
+  return draw;
+}
 #endif
-
-  private:
-    size_t K;
-    std::vector<real_t> F;
-    std::vector<real_t> A;
-  };
