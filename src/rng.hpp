@@ -41,26 +41,23 @@ inline HOSTDEVICE uint32_t xoshiro_next(rng_state_t<T>& state) {
 	return result;
 }
 
-inline uint64_t splitmix64(uint64_t seed) {
-  uint64_t z = (seed += 0x9e3779b97f4a7c15);
-  z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
-  z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
-  return z ^ (z >> 31);
+inline uint32_t splitmix32(uint32_t seed) {
+  uint32_t z ^= seed >> 16;
+  z *= 0x85ebca6b;
+  z ^= z >> 13;
+  z *= 0xc2b2ae35;
+  z ^= z >> 16;
+  return z;
 }
 
 template <typename T>
-inline std::vector<uint32_t> xoshiro_initial_seed(uint64_t seed) {
-  std::vector<uint64_t> state(rng_state_t<T>::size());
-  state[0] = splitmix64(seed);
-  state[1] = splitmix64(state[0]);
-  state[2] = splitmix64(state[1]);
-  state[3] = splitmix64(state[2]);
-  std::vector<uint32_t> state32(rng_state_t<T>::size());
-  state32[0] = static_cast<uint32_t>(state[0]);
-  state32[1] = static_cast<uint32_t>(state[1]);
-  state32[2] = static_cast<uint32_t>(state[2]);
-  state32[3] = static_cast<uint32_t>(state[3]);
-  return state32;
+inline std::vector<uint32_t> xoshiro_initial_seed(uint32_t seed) {
+  std::vector<uint32_t> state(rng_state_t<T>::size());
+  state[0] = splitmix32(seed);
+  state[1] = splitmix32(state[0]);
+  state[2] = splitmix32(state[1]);
+  state[3] = splitmix32(state[2]);
+  return state;
 }
 
 /* This is the jump function for the generator. It is equivalent
