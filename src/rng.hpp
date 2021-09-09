@@ -42,12 +42,10 @@ inline HOSTDEVICE uint32_t xoshiro_next(rng_state_t<T>& state) {
 }
 
 inline uint32_t splitmix32(uint32_t seed) {
-  uint32_t z ^= seed >> 16;
-  z *= 0x85ebca6b;
-  z ^= z >> 13;
-  z *= 0xc2b2ae35;
-  z ^= z >> 16;
-  return z;
+  uint32_t z = (seed += 0x9e3779b9);
+  z = (z ^ (z >> 16)) * 0x85ebca6b;
+  z = (z ^ (z >> 23)) * 0xc2b2ae35;
+  return z ^ (z >> 16);
 }
 
 template <typename T>
