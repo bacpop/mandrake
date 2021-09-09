@@ -106,9 +106,9 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
         } else {
           // Find another neighbour
           for (int d = 0; d < DIM; d++) {
-#pragma atomic write
+#pragma omp atomic write
             Y[d + lk] = Yk_read[d];
-#pragma atomic write
+#pragma omp atomic write
             Y[d + ll] = Yl_read[d];
           }
           r--;
