@@ -23,7 +23,6 @@ except ImportError:
 
 # Run exits if fewer samples than this
 MIN_SAMPLES = 100
-MACHINE_EPSILON = np.finfo(np.double).eps
 
 def save_input(I, J, dists, names, output_prefix):
     if (len(names) < MIN_SAMPLES):

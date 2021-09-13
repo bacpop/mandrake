@@ -28,7 +28,7 @@ PYBIND11_MODULE(SCE, m) {
         py::arg("perplexity"), py::arg("maxIter"), py::arg("blockSize") = 128,
         py::arg("n_workers") = 128, py::arg("nRepuSamp") = 5,
         py::arg("eta0") = 1, py::arg("bInit") = 0, py::arg("cpu_threads") = 1,
-        py::arg("deviceId") = 0, py::arg("seed") = 1);
+        py::arg("device_id") = 0, py::arg("seed") = 1);
   // Use fp32 for single precision (faster, less accurate)
   m.def("wtsne_gpu_fp32", &wtsne_gpu<float>, py::return_value_policy::take_ownership,
         "Run stochastic cluster embedding with CUDA", py::arg("I_vec"),
@@ -36,6 +36,6 @@ PYBIND11_MODULE(SCE, m) {
         py::arg("perplexity"), py::arg("maxIter"), py::arg("blockSize") = 128,
         py::arg("n_workers") = 128, py::arg("nRepuSamp") = 5,
         py::arg("eta0") = 1, py::arg("bInit") = 0, py::arg("cpu_threads") = 1,
-        py::arg("deviceId") = 0, py::arg("seed") = 1);
+        py::arg("device_id") = 0, py::arg("seed") = 1);
 #endif
 }
