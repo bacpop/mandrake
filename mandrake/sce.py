@@ -45,13 +45,14 @@ def loadIJdist(npzfilename):
 
 def runSCE(I, J, dists, weight_file, names, SCE_opts):
     weights = np.ones((len(names)))
-    if (weight_file):
+    if weight_file:
         weights_in = pd.read_csv(weights, sep="\t", header=None, index_col=0)
         if (weights_in.index.symmetric_difference(names)):
             sys.stderr.write("Names in weights do not match sequences - using equal weights\n")
         else:
             intersecting_samples = weights_in.index.intersection(names)
             weights = weights_in.loc[intersecting_samples]
+    weights = list(weights)
 
     # Set up function call with either CPU or GPU
     maxIter = SCE_opts['maxIter'] // SCE_opts['n_workers']
