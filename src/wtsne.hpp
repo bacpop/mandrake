@@ -173,7 +173,7 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
 #else
     static const int thread_idx = 1;
 #endif
-    rng_state_t<real_t> thread_rng_state = rng_state.state(thread_idx);
+    rng_state_t<real_t>& thread_rng_state = rng_state.state(thread_idx);
     Y[coor] = unif_rand(thread_rng_state) * static_cast<real_t>(1e-4);
   }
 

@@ -49,7 +49,7 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
       std::vector<double> Yk_read(DIM);
       std::vector<double> Yl_read(DIM);
 
-      rng_state_t<double> worker_rng = rng_state.state(worker);
+      rng_state_t<double>& worker_rng = rng_state.state(worker);
       uint64_t e = edge_table.discrete_draw(worker_rng) % ne;
       uint64_t i = I[e];
       uint64_t j = J[e];
