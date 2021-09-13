@@ -19,9 +19,9 @@ template <typename real_t> struct discrete_table_device {
 };
 #endif
 
-template <typename real_t> class discrete_table {
+template <typename real_t, typename real_t_p = real_t> class discrete_table {
 public:
-  discrete_table(std::vector<real_t> probs, const int n_threads = 1)
+  discrete_table(std::vector<real_t_p> probs, const int n_threads = 1)
       : K(probs.size()), F(K), A(K) {
     if (probs.size() < 1) {
       throw std::runtime_error("Probability table has too few values");
@@ -42,10 +42,10 @@ public:
 
     /* Now create the Bigs and the Smalls */
     std::stack<real_t> Bigs, Smalls;
-    real_t mean = static_cast<real_t>(1.0) / K;
+    real_t_p mean = static_cast<real_t>(1.0) / K;
 
     /* Temporarily use A[k] to indicate small or large */
-    for (real_t k = 0; k < K; ++k) {
+    for (int k = 0; k < K; ++k) {
       if (probs[k] < mean) {
         A[k] = 0;
       } else {
@@ -53,11 +53,11 @@ public:
       }
     }
 
-    for (real_t k = 0; k < K; ++k) {
+    for (int k = 0; k < K; ++k) {
       if (A[k]) {
-        Bigs.push(k);
+        Bigs.push(static_cast<real_t>(k));
       } else {
-        Smalls.push(k);
+        Smalls.push(static_cast<real_t>(k));
       }
     }
 
@@ -75,7 +75,7 @@ public:
       A[s] = b;
       F[s] = K * probs[s];
 
-      real_t d = mean - probs[s];
+      real_t_p d = mean - probs[s];
       probs[s] += d; /* now E[s] == mean */
       probs[b] -= d;
       if (probs[b] < mean) {

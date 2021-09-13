@@ -39,13 +39,13 @@ template <typename real_t> class SCEDeviceMemory {
 public:
   SCEDeviceMemory(const std::vector<real_t> &Y, const std::vector<uint64_t> &I,
                   const std::vector<uint64_t> &J, const std::vector<double> &P,
-                  const std::vector<double> &weights, int block_size,
-                  int block_count)
-      : n_workers_(block_size * block_count), nn_(weights.size()),
+                  const std::vector<double> &weights, int n_workers,
+                  int block_count, const unsigned int seed)
+      : n_workers_(n_workers), nn_(weights.size()),
         ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
-        rng_state_(load_rng<real_t>(n_workers_)), Y_(Y), I_(I),
-        J_(J), Eq_(1.0), qsum_(n_workers_), qsum_total_(0.0),
-        qcount_(n_workers_), qcount_total_(0) {
+        rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), I_(I),
+        J_(J), Eq_(1.0), qsum_(n_workers), qsum_total_(0.0),
+        qcount_(n_workers), qcount_total_(0) {
     // Initialise tmp space for reductions on qsum and qcount
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
                            qsum_.data(), qsum_total_.data(), qsum_.size());
@@ -84,8 +84,8 @@ public:
                                        .qcount = qcount_.data(),
                                        .nn = nn_,
                                        .ne = ne_,
-                                       .nsq = nsq_},
-                                       .n_workers = n_workers_;
+                                       .nsq = nsq_,
+                                       .n_workers = n_workers_};
     return device_ptrs;
   }
 
@@ -112,7 +112,7 @@ public:
   }
 
 private:
-  discrete_table_device<real_t> set_device_table(const std::vector<real_t>& probs) {
+  discrete_table_device<real_t> set_device_table(const std::vector<double>& probs) {
     discrete_table<real_t> table(probs);
     discrete_table_device<real_t> dev_table = { .F = table.F_table(),
                                          .A = table.A_table() };
@@ -272,24 +272,20 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           std::vector<real_t> &dists, std::vector<double> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
           const int n_workers, const uint64_t nRepuSamp, const real_t eta0,
-          const bool bInit, const int n_threads, const int device_id,
+          const bool bInit, const int cpu_threads, const int device_id,
           const unsigned int seed) {
   // Check input
   std::vector<real_t> Y;
   std::vector<double> P;
   std::tie(Y, P) =
-      wtsne_init<real_t>(I, J, dists, weights, perplexity, n_threads, seed);
+      wtsne_init<real_t>(I, J, dists, weights, perplexity, cpu_threads, seed);
 
   // Initialise CUDA
   CUDA_CALL(cudaSetDevice(device_id));
 
   // This class sets up and manages all of the memory
-  SCEDeviceMemory<real_t> embedding(Y, I, J, P, weights, block_size,
-                                    block_count);
+  SCEDeviceMemory<real_t> embedding(Y, I, J, P, weights, n_workers, seed);
   kernel_ptrs<real_t> device_ptrs = embedding.get_device_ptrs();
-
-  // Set up random number generation for device
-  device_array<uint32_t> device_rng = load_rng<real_t>(n_workers);
 
   // Main SCE loop
   const size_t block_count = (n_workers + block_size - 1) / block_size;
@@ -299,7 +295,7 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
 
     real_t attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
     wtsneUpdateYKernel<real_t><<<block_count, block_size>>>(
-        device_rng.data(), embedding.get_node_table(),
+        device_ptrs.rng, embedding.get_node_table(),
         embedding.get_edge_table(), device_ptrs.Y, device_ptrs.I, device_ptrs.J,
         device_ptrs.Eq, device_ptrs.qsum, device_ptrs.qcount, device_ptrs.nn,
         device_ptrs.ne, eta, nRepuSamp, device_ptrs.nsq, attrCoef, device_ptrs.n_workers);
