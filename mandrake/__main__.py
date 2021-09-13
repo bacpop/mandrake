@@ -1,6 +1,6 @@
 # Copyright 2019 John Lees
 
-'''Main control function for pathoSCE'''
+'''Main control function for mandrake'''
 
 import sys
 import re
@@ -18,7 +18,7 @@ def get_options():
 
     description = 'Visualisation of genomic distances in pathogen populations'
     parser = argparse.ArgumentParser(description=description,
-                                     prog='pathoSCE')
+                                     prog='mandrake')
 
     modeGroup = parser.add_argument_group('Input type')
     mode = modeGroup.add_mutually_exclusive_group(required=True)
@@ -37,7 +37,7 @@ def get_options():
 
     ioGroup = parser.add_argument_group('I/O options')
     ioGroup.add_argument('--labels', default=None, help='Sample labels for plotting (overrides DBSCAN clusters)')
-    ioGroup.add_argument('--output', default="pathoSCE", type=str, help='Prefix for output files [default = "pathoSCE"]')
+    ioGroup.add_argument('--output', default="mandrake", type=str, help='Prefix for output files [default = "mandrake"]')
 
     sceGroup = parser.add_argument_group('SCE options')
     sceGroup.add_argument('--no-preprocessing', default=False, action='store_true',

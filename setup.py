@@ -87,12 +87,12 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='pathoSCE',
-    version=find_version("pathoSCE/__init__.py"),
+    name='mandrake',
+    version=find_version("mandrake/__init__.py"),
     description='Visualisation of pathogen population structure',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/johnlees/pathoSCE',
+    url='https://github.com/johnlees/mandrake',
     author='John Lees',
     author_email='john@johnlees.me',
     license='Apache Software License',
@@ -105,10 +105,10 @@ setup(
     ],
     python_requires='>=3.7.0',
     keywords='bacteria genomics population-genetics k-mer visualisation',
-    packages=['pathoSCE'],
+    packages=['mandrake'],
     entry_points={
         "console_scripts": [
-            'pathoSCE = pathoSCE.__main__:main'
+            'mandrake = mandrake.__main__:main'
             ]
     },
     install_requires=['numpy'],
