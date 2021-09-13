@@ -241,8 +241,9 @@ KERNEL void wtsneUpdateYKernel(
           r--;
         }
       }
-      __syncwarp();
     }
+    __syncwarp();
+
     // Store local state (RNG & counts) back to global
     put_rng_state(rng_block, p_rng);
     qsum[workerIdx] = qsum_local;
