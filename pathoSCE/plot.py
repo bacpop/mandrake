@@ -84,31 +84,39 @@ def plotSCE(embedding, names, labels, output_prefix, dbscan=True):
         sys.stderr.write("Need to install orca ('plotly-orca') or kaleido "
         "('python-kaleido') to draw png image output\n")
         sys.stderr.write("Falling back to matplotlib\n")
-        plotSCE_static(embedding, labels, output_prefix, dbscan=True)
+        plotSCE_static(embedding, labels, output_prefix, dbscan=dbscan)
 
 # Fallback function if kaledio or orca are missing
-# From PopPUNK
 def plotSCE_static(embedding, labels, output_prefix, dbscan=True):
     # Black removed and is used for noise instead.
     unique_labels = set(labels)
-    colours = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]  # changed to work with two clusters
+
+    if embedding.shape[0] > 10000:
+        pt_scale = 1
+    else:
+        pt_scale = 7
 
     plt.figure(figsize=(11, 8), dpi= 160, facecolor='w', edgecolor='k')
+    rng = np.random.default_rng(1)
     for k in unique_labels:
         if k == -1 and dbscan:
-            ptsize = 1
+            ptsize = 1 * pt_scale
             col = 'k'
+            mec = None
+            mew = 0
         else:
-            ptsize = 2
-            col = tuple(colours.pop())
+            ptsize = 2 * pt_scale
+            col = tuple(rng.uniform(size=3))
+            mec = 'k'
+            mew = 0.2 * pt_scale
         class_member_mask = (labels == k)
         xy = embedding[class_member_mask]
-        plt.plot(xy[:, 0], xy[:, 1], '.', color=col, markersize=ptsize)
+        plt.plot(xy[:, 0], xy[:, 1], '.', color=col, markersize=ptsize, mec=mec, mew=mew)
 
     # plot output
     if dbscan:
-        plt.title('HDBSCAN – estimated number of spatial clusters: %d' % len(unique_labels) - 1)
+        plt.title('HDBSCAN – estimated number of spatial clusters: %d' % (len(unique_labels) - 1))
     plt.xlabel('SCE dimension 1')
     plt.ylabel('SCE dimension 2')
-    plt.savefig(output_prefix + ".png")
+    plt.savefig(output_prefix + ".embedding.png")
     plt.close()
