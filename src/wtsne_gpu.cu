@@ -10,19 +10,31 @@
 
 #include <cfloat>
 #include <cub/cub.cuh>
-#include <curand_kernel.h>
-#include <gsl/gsl_randist.h>
-#include <gsl/gsl_rng.h>
 #include <numeric>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "containers.cuh"
+#include "uniform_discrete.hpp"
 #include "wtsne.hpp"
 
 /****************************
  * Classes                  *
  ****************************/
+template <typename real_t> struct kernel_ptrs {
+  uint32_t *rng;
+  real_t *Y;
+  uint64_t *I;
+  uint64_t *J;
+  real_t *Eq;
+  real_t *qsum;
+  uint64_t *qcount;
+  uint64_t nn;
+  uint64_t ne;
+  real_t nsq;
+  int n_workers;
+};
+
 template <typename real_t> struct gsl_table_device {
   size_t K;
   real_t *F;
@@ -34,18 +46,6 @@ template <typename real_t> struct gsl_table_host {
   device_array<size_t> A;
 };
 
-template <typename real_t> struct kernel_ptrs {
-  real_t *Y;
-  uint64_t *I;
-  uint64_t *J;
-  real_t *Eq;
-  real_t *qsum;
-  uint64_t *qcount;
-  uint64_t nn;
-  uint64_t ne;
-  real_t nsq;
-};
-
 template <typename real_t> class SCEDeviceMemory {
 public:
   SCEDeviceMemory(const std::vector<real_t> &Y, const std::vector<uint64_t> &I,
@@ -53,7 +53,8 @@ public:
                   const std::vector<double> &weights, int block_size,
                   int block_count)
       : n_workers_(block_size * block_count), nn_(weights.size()),
-        ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)), Y_(Y), I_(I),
+        ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
+        rng_state_(load_rng<real_t>(n_workers_)), Y_(Y), I_(I),
         J_(J), Eq_(1.0), qsum_(n_workers_), qsum_total_(0.0),
         qcount_(n_workers_), qcount_total_(0) {
     // Initialise tmp space for reductions on qsum and qcount
@@ -66,7 +67,6 @@ public:
     qcount_tmp_storage_.set_size(qcount_tmp_storage_bytes_);
 
     // Set up discrete RNG tables
-    gsl_rng_env_setup();
     node_table_ = set_device_table(weights);
     edge_table_ = set_device_table(P);
   }
@@ -86,7 +86,8 @@ public:
   }
 
   kernel_ptrs<real_t> get_device_ptrs() {
-    kernel_ptrs<real_t> device_ptrs = {.Y = Y_.data(),
+    kernel_ptrs<real_t> device_ptrs = {.rng = rng_state_.data(),
+                                       .Y = Y_.data(),
                                        .I = I_.data(),
                                        .J = J_.data(),
                                        .Eq = Eq_.data(),
@@ -94,7 +95,8 @@ public:
                                        .qcount = qcount_.data(),
                                        .nn = nn_,
                                        .ne = ne_,
-                                       .nsq = nsq_};
+                                       .nsq = nsq_},
+                                       .n_workers = n_workers_;
     return device_ptrs;
   }
 
@@ -121,47 +123,11 @@ public:
   }
 
 private:
-  template <typename T, typename U = real_t>
-  typename std::enable_if<!std::is_same<U, double>::value,
-                          gsl_table_host<U>>::type
-  set_device_table(const std::vector<T> &weights) {
-    uint64_t table_size = weights.size();
-    gsl_ran_discrete_t *gsl_table =
-        gsl_ran_discrete_preproc(table_size, weights.data());
-
-    // Convert type from double to real_t in F table
-    std::vector<U> F_tab_flt(table_size);
-    double *gsl_ptr = gsl_table->F;
-    for (size_t i = 0; i < table_size; ++i) {
-      F_tab_flt[i] = static_cast<U>(*(gsl_ptr + i));
-    }
-
-    gsl_table_host<U> device_table;
-    device_table.F = device_array<U>(table_size);
-    device_table.F.set_array(F_tab_flt.data());
-    device_table.A = device_array<size_t>(table_size);
-    device_table.A.set_array(gsl_table->A);
-
-    gsl_ran_discrete_free(gsl_table);
-    return device_table;
-  }
-
-  // Double specialisation doesn't need type conversion of GSL table
-  template <typename T, typename U = real_t>
-  typename std::enable_if<std::is_same<U, double>::value,
-                          gsl_table_host<U>>::type
-  set_device_table(const std::vector<T> &weights) {
-    uint64_t table_size = weights.size();
-    gsl_ran_discrete_t *gsl_table =
-        gsl_ran_discrete_preproc(table_size, weights.data());
-    gsl_table_host<double> device_table;
-    device_table.F = device_array<double>(table_size);
-    device_table.F.set_array(gsl_table->F);
-    device_table.A = device_array<size_t>(table_size);
-    device_table.A.set_array(gsl_table->A);
-
-    gsl_ran_discrete_free(gsl_table);
-    return device_table;
+  gsl_table_host<real_t> set_device_table(const std::vector<real_t>& probs) {
+    gsl_table<real_t> table(probs);
+    gsl_table_host<real_t> dev_table = { .F = table.F_table(),
+                                         .A = table.A_table() };
+    return dev_table;
   }
 
   // delete move and copy to avoid accidentally using them
@@ -174,6 +140,7 @@ private:
   uint64_t ne_;
 
   // Uniform draw tables
+  device_array<uint32_t> rng_state_;
   gsl_table_host<real_t> node_table_;
   gsl_table_host<real_t> edge_table_;
 
@@ -198,125 +165,100 @@ private:
 };
 
 /****************************
- * Device functions         *
- ****************************/
-
-template <typename real_t>
-__device__ size_t discrete_draw(curandState *state,
-                                const gsl_table_device<real_t> &unif_table) {
-  real_t u = curand_uniform(state);
-  size_t c = u * unif_table.K;
-  real_t f = unif_table.F[c];
-
-  real_t draw;
-  if (f == 1.0 || u < f) {
-    draw = c;
-  } else {
-    draw = unif_table.A[c];
-  }
-  __syncwarp();
-  return draw;
-}
-
-/****************************
  * Kernels                  *
  ****************************/
 
-__global__ void setup_rng_kernel(curandState *state, const long n_draws,
-                                 int seed) {
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n_draws;
-       i += blockDim.x * gridDim.x) {
-    curand_init(seed, i, 0, &state[i]);
-  }
-}
-
 // Updates the embedding
 template <typename real_t>
-__global__ void wtsneUpdateYKernel(
-    curandState *rng_state, const gsl_table_device<real_t> node_table,
+KERNEL void wtsneUpdateYKernel(
+    uint32_t * rng_state, const gsl_table_device<real_t> node_table,
     const gsl_table_device<real_t> edge_table, real_t *Y, uint64_t *I,
     uint64_t *J, real_t *Eq, real_t *qsum, uint64_t *qcount, uint64_t nn,
-    uint64_t ne, real_t eta, uint64_t nRepuSamp, real_t nsq, real_t attrCoef) {
+    uint64_t ne, real_t eta, uint64_t nRepuSamp, real_t nsq, real_t attrCoef,
+    int n_workers) {
   // Worker index based on CUDA launch parameters
   int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
-  // Bring RNG state into local registers
-  curandState localState = rng_state[workerIdx];
+  if (workerIdx < n_workers) {
+    // Bring RNG state into local registers
+    interleaved<uint32_t> p_rng(rng_state, workerIdx, blockIdx.x * blockDim.x);
+    rng_state_t<real_t> rng_block = get_rng_state<real_t>(p_rng);
 
-  real_t dY[DIM];
-  real_t Yk_read[DIM];
-  real_t Yl_read[DIM];
-  real_t c = static_cast<real_t>(1.0) / ((*Eq) * nsq);
+    real_t dY[DIM];
+    real_t Yk_read[DIM];
+    real_t Yl_read[DIM];
+    real_t c = static_cast<real_t>(1.0) / ((*Eq) * nsq);
 
-  real_t qsum_local = 0.0;
-  uint64_t qcount_local = 0;
+    real_t qsum_local = 0.0;
+    uint64_t qcount_local = 0;
 
-  real_t repuCoef = 2 * c / nRepuSamp * nsq;
-  for (int r = 0; r < nRepuSamp + 1; r++) {
-    uint64_t k, l;
-    if (r == 0) {
-      uint64_t e =
-          static_cast<uint64_t>(discrete_draw(&localState, edge_table) % ne);
-      k = I[e];
-      l = J[e];
-    } else {
-      k = static_cast<uint64_t>(discrete_draw(&localState, node_table) % nn);
-      l = static_cast<uint64_t>(discrete_draw(&localState, node_table) % nn);
-    }
-
-    if (k != l) {
-      uint64_t lk = k * DIM;
-      uint64_t ll = l * DIM;
-      real_t dist2 = static_cast<real_t>(0.0);
-#pragma unroll
-      for (int d = 0; d < DIM; d++) {
-        // These are read here to avoid multiple workers writing to the same
-        // location below
-        Yk_read[d] = Y[d + lk];
-        Yl_read[d] = Y[d + ll];
-        dY[d] = Yk_read[d] - Yl_read[d];
-        dist2 += dY[d] * dY[d];
-      }
-      real_t q = static_cast<real_t>(1.0) / (1 + dist2);
-
-      real_t g;
+    real_t repuCoef = 2 * c / nRepuSamp * nsq;
+    for (int r = 0; r < nRepuSamp + 1; r++) {
+      uint64_t k, l;
       if (r == 0) {
-        g = -attrCoef * q;
+        uint64_t e =
+            static_cast<uint64_t>(discrete_draw(rng_block, edge_table) % ne);
+        k = I[e];
+        l = J[e];
       } else {
-        g = repuCoef * q * q;
+        k = static_cast<uint64_t>(discrete_draw(rng_block, node_table) % nn);
+        l = static_cast<uint64_t>(discrete_draw(rng_block, node_table) % nn);
       }
 
-      bool overwrite = false;
-#pragma unroll
-      for (int d = 0; d < DIM; d++) {
-        real_t gain = eta * g * dY[d];
-        // The atomics below basically do
-        // Y[d + lk] += gain;
-        // Y[d + ll] -= gain;
-        // But try again if another worker has written to the same location
-        if (atomicAdd(Y + d + lk, gain) != Yk_read[d] ||
-            atomicAdd(Y + d + ll, -gain) != Yl_read[d]) {
-          overwrite = true;
-        }
-      }
-      if (!overwrite) {
-        qsum_local += q;
-        qcount_local++;
-      } else {
-        // Reset values
-#pragma unroll
+      if (k != l) {
+        uint64_t lk = k * DIM;
+        uint64_t ll = l * DIM;
+        real_t dist2 = static_cast<real_t>(0.0);
+  #pragma unroll
         for (int d = 0; d < DIM; d++) {
-          Y[d + lk] = Yk_read[d];
-          Y[d + ll] = Yl_read[d];
+          // These are read here to avoid multiple workers writing to the same
+          // location below
+          Yk_read[d] = Y[d + lk];
+          Yl_read[d] = Y[d + ll];
+          dY[d] = Yk_read[d] - Yl_read[d];
+          dist2 += dY[d] * dY[d];
         }
-        r--;
+        real_t q = static_cast<real_t>(1.0) / (1 + dist2);
+
+        real_t g;
+        if (r == 0) {
+          g = -attrCoef * q;
+        } else {
+          g = repuCoef * q * q;
+        }
+
+        bool overwrite = false;
+  #pragma unroll
+        for (int d = 0; d < DIM; d++) {
+          real_t gain = eta * g * dY[d];
+          // The atomics below basically do
+          // Y[d + lk] += gain;
+          // Y[d + ll] -= gain;
+          // But try again if another worker has written to the same location
+          if (atomicAdd(Y + d + lk, gain) != Yk_read[d] ||
+              atomicAdd(Y + d + ll, -gain) != Yl_read[d]) {
+            overwrite = true;
+          }
+        }
+        if (!overwrite) {
+          qsum_local += q;
+          qcount_local++;
+        } else {
+          // Reset values
+  #pragma unroll
+          for (int d = 0; d < DIM; d++) {
+            Y[d + lk] = Yk_read[d];
+            Y[d + ll] = Yl_read[d];
+          }
+          r--;
+        }
       }
+      __syncwarp();
     }
-    __syncwarp();
+    // Store local state (RNG & counts) back to global
+    put_rng_state(rng_block, p_rng);
+    qsum[workerIdx] = qsum_local;
+    qcount[workerIdx] = qcount_local;
   }
-  // Store local state (RNG & counts) back to global
-  rng_state[workerIdx] = localState;
-  qsum[workerIdx] = qsum_local;
-  qcount[workerIdx] = qcount_local;
 }
 
 /****************************
@@ -341,7 +283,7 @@ std::vector<real_t>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           std::vector<real_t> &dists, std::vector<double> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
-          const int block_count, const uint64_t nRepuSamp, const real_t eta0,
+          const int n_workers, const uint64_t nRepuSamp, const real_t eta0,
           const bool bInit, const int n_threads, const int device_id,
           const unsigned int seed) {
   // Check input
@@ -359,14 +301,10 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   kernel_ptrs<real_t> device_ptrs = embedding.get_device_ptrs();
 
   // Set up random number generation for device
-  const int n_workers = block_size * block_count;
-  const size_t rng_block_count = (n_workers + block_size - 1) / block_size;
-  device_array<curandState> device_rng(n_workers);
-  setup_rng_kernel<<<rng_block_count, block_size>>>(device_rng.data(),
-                                                    n_workers, seed);
-  CUDA_CALL(cudaDeviceSynchronize());
+  device_array<uint32_t> device_rng = load_rng<real_t>(n_workers);
 
   // Main SCE loop
+  const size_t block_count = (n_workers + block_size - 1) / block_size;
   for (uint64_t iter = 0; iter < maxIter; iter++) {
     real_t eta = eta0 * (1 - static_cast<real_t>(iter) / (maxIter - 1));
     eta = MAX(eta, eta0 * 1e-4);
@@ -376,7 +314,7 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
         device_rng.data(), embedding.get_node_table(),
         embedding.get_edge_table(), device_ptrs.Y, device_ptrs.I, device_ptrs.J,
         device_ptrs.Eq, device_ptrs.qsum, device_ptrs.qcount, device_ptrs.nn,
-        device_ptrs.ne, eta, nRepuSamp, device_ptrs.nsq, attrCoef);
+        device_ptrs.ne, eta, nRepuSamp, device_ptrs.nsq, attrCoef, device_ptrs.n_workers);
     CUDA_CALL(cudaDeviceSynchronize());
 
     // Print progress

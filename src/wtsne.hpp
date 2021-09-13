@@ -22,12 +22,15 @@
 #include <type_traits>
 #include <vector>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#include "uniform_discrete.hpp"
 
 #ifndef DIM
 #define DIM 2
@@ -35,23 +38,6 @@ namespace py = pybind11;
 
 const int n_steps = 100;
 const double PERPLEXITY_TOLERANCE = 1e-5;
-
-// fp64 -> fp32 converstions no longer needed
-/*
-template <typename T, typename U>
-typename std::enable_if<!std::is_same<U, T>::value, std::vector<T>>::type
-convert_vector(const std::vector<U>& d_vec) {
-  std::vector<T> f_vec(d_vec.begin(), d_vec.end());
-  return f_vec;
-}
-
-// No conversion needed
-template <typename T, typename U>
-typename std::enable_if<std::is_same<U, T>::value, std::vector<T>>::type
-convert_vector(const std::vector<U>& d_vec) {
-  return d_vec;
-}
-*/
 
 // Get indices where each row starts in the sparse matrix
 // NB this won't work if any rows are missing
@@ -151,20 +137,6 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
   return P;
 }
 
-template <typename T>
-inline void normalise_vector(std::vector<T> &vec, const int n_threads) {
-  T sum = static_cast<T>(0.0);
-#pragma omp parallel for schedule(static) reduction(+: sum) num_threads(n_threads)
-  for (uint64_t it = 0; it < vec.size(); ++it) {
-    sum += vec[it];
-  }
-  sum = MAX(sum, std::numeric_limits<T>::epsilon());
-#pragma omp parallel for schedule(static) num_threads(n_threads)
-  for (uint64_t it = 0; it < vec.size(); ++it) {
-    vec[it] /= sum;
-  }
-}
-
 template <class real_t>
 std::tuple<std::vector<real_t>, std::vector<double>>
 wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
@@ -187,19 +159,24 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       conditional_probabilities<real_t>(I, J, dists, nn, perplexity, n_threads);
 
   // Normalise distances and weights
-  normalise_vector(P, n_threads);
-  normalise_vector(weights, n_threads);
+  normalise_vector(P, true, n_threads);
+  normalise_vector(weights, true, n_threads);
 
   // Set starting Y0
-  // Not parallelised, but could be (or easy to do in CUDA too)
-  std::mt19937 mersenne_engine{seed};
-  std::uniform_real_distribution<real_t> distribution(0.0, 1e-4);
-  auto gen = [&distribution, &mersenne_engine]() {
-    return distribution(mersenne_engine);
-  };
-
+  pRNG<real_t> rng_state(n_threads, std::vector<uint32_t>(1, seed));
+  rng_state.long_jump(); // Independent RNG from SCE algorithm
   std::vector<real_t> Y(nn * DIM);
-  std::generate(Y.begin(), Y.end(), gen);
+  #pragma omp parallel for schedule(static) num_threads(n_threads)
+  for (int coor = 0; coor < nn * DIM; ++coor) {
+#ifdef _OPENMP
+    const int thread_idx = omp_get_thread_num();
+#else
+    static const int thread_idx = 1;
+#endif
+    rng_state_t<real_t>& thread_rng_state = rng_state.state(thread_idx);
+    Y[coor] = unif_rand(thread_rng_state) * static_cast<real_t>(1e-4);
+  }
+
   return std::make_tuple(Y, P);
 }
 
@@ -224,7 +201,7 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
                           std::vector<double> &dists,
                           std::vector<double> &weights, const double perplexity,
                           const uint64_t maxIter, const uint64_t nRepuSamp,
-                          const double eta0, const bool bInit,
+                          const double eta0, const bool bInit, const int n_workers,
                           const int n_threads, const unsigned int seed);
 // in wtsne_gpu.cu
 template <typename real_t>
@@ -232,6 +209,6 @@ std::vector<real_t>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           std::vector<real_t> &dists, std::vector<double> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
-          const int block_count, const uint64_t nRepuSamp, const real_t eta0,
+          const int n_workers, const uint64_t nRepuSamp, const real_t eta0,
           const bool bInit, const int n_threads, const int device_id,
           const unsigned int seed);

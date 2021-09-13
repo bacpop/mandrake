@@ -50,6 +50,14 @@ def get_options():
     sceGroup.add_argument('--eta0', default=1, type=float, help="Learning rate [default = 1]")
     sceGroup.add_argument('--bInit', default=0, type=bool, help="1 for over-exaggeration in early stage [default = 0]")
 
+    parallelGroup = parser.add_argument_group('Parallelism options')
+    parallelGroup.add_argument('--n-workers', default=1, type=int, help="Number of workers to use, sets max parallelism [default = 1]")
+    parallelGroup.add_argument('--cpus', type=int, default=1, help='Number of CPUs to use [default = 1]')
+    parallelGroup.add_argument('--use-gpu', default=False, action='store_true',
+                               help="Run SCE on the GPU. If this fails, the CPU will be used [default = False]")
+    parallelGroup.add_argument('--device-id', type=int, default=0, help="GPU ID to use")
+    parallelGroup.add_argument('--blockSize', type=int, default=128, help='CUDA blockSize [default = 128]')
+
     sketchGroup = parser.add_argument_group('Sketch options')
     sketchGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances instead of core")
     sketchGroup.add_argument('--threshold', default=0, type=float, help='Maximum distance to consider [default = None]')
@@ -59,27 +67,7 @@ def get_options():
     alnGroup.add_argument('--pairsnp-exe', default="pairsnp", type=str, help="Location of pairsnp executable (default='pairsnp')")
 
     other = parser.add_argument_group('Other')
-    other.add_argument('--cpus',
-                        type=int,
-                        default=1,
-                        help='Number of CPUs to use '
-                             '[default = 1]')
-    other.add_argument('--use-gpu', default=False, action='store_true',
-                          help="Run SCE on the GPU. If this fails, the CPU will be used [default = False]")
-    other.add_argument('--device-id',
-                        type=int,
-                        default=0,
-                        help="GPU ID to use")
-    other.add_argument('--blockSize',
-                        type=int,
-                        default=128,
-                        help='CUDA blockSize '
-                             '[default = 128]')
-    other.add_argument('--blockCount',
-                        type=int,
-                        default=128,
-                        help='CUDA blockCount '
-                             '[default = 128]')
+    other.add_argument('--seed', type=int, default=1, help='Seed for random number generation')
     other.add_argument('--fp', type=int, choices=[32, 64], default=64,
                         help='Floating point precision when using a GPU')
     other.add_argument('--version', action='version',
@@ -87,9 +75,17 @@ def get_options():
 
     return parser.parse_args()
 
-
 def main():
     args = get_options()
+
+    # Set n_workers to a sensible default
+    if args.n_workers < args.cpus or (args.use_gpu and args.n_workers < args.blockSize):
+        sys.stderr.write("Number of workers less than number of available threads, "
+                         "increasing n_workers automatically\n")
+        if args.use_gpu:
+            args.n_workers = args.blockSize
+        else:
+            args.n_workers = args.cpus
 
     #***********************#
     #* Run seq -> distance *#
@@ -147,11 +143,12 @@ def main():
                'use_gpu': args.use_gpu,
                'device_id': args.device_id,
                'blockSize': args.blockSize,
-               'blockCount': args.blockCount,
+               'n_workers': args.n_workers,
                'fp': args.fp,
                'nRepuSamp': args.nRepuSamp,
                'eta0': args.eta0,
-               'bInit': args.bInit}
+               'bInit': args.bInit,
+               'seed': args.seed}
     if args.no_preprocessing:
         SCE_opts['perplexity'] = -1
     else:

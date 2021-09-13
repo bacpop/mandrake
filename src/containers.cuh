@@ -213,3 +213,37 @@ private:
   void* data_;
   size_t size_;
 };
+
+template <typename T>
+class interleaved {
+public:
+  DEVICE interleaved(T* data, size_t offset, size_t stride) :
+    data_(data + offset),
+    stride_(stride) {
+  }
+
+  template <typename Container>
+  DEVICE interleaved(Container& data, size_t offset, size_t stride) :
+    interleaved(data.data(), offset, stride) {
+  }
+
+  DEVICE T& operator[](size_t i) {
+    return data_[i * stride_];
+  }
+
+  DEVICE const T& operator[](size_t i) const {
+    return data_[i * stride_];
+  }
+
+  DEVICE interleaved<T> operator+(size_t by) {
+    return interleaved(data_ + by * stride_, 0, stride_);
+  }
+
+  DEVICE const interleaved<T> operator+(size_t by) const {
+    return interleaved(data_ + by * stride_, 0, stride_);
+  }
+
+private:
+  T* data_;
+  size_t stride_;
+};
