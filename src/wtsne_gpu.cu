@@ -114,7 +114,7 @@ public:
 private:
   template <typename T>
   discrete_table_device<real_t> set_device_table(const std::vector<T>& probs) {
-    discrete_table<real_t> table(probs);
+    discrete_table<real_t, T> table(probs);
     discrete_table_device<real_t> dev_table = { .F = table.F_table(),
                                          .A = table.A_table() };
     return dev_table;
