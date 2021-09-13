@@ -1,5 +1,9 @@
 #pragma once
 
+#include <stack>
+#include <stdexcept>
+
+#include "vector_norm.hpp"
 #include "rng.hpp"
 
 /* This code is based on randist/discrete.c from the GSL library
@@ -16,7 +20,7 @@
 
 template <typename real_t> class gsl_table {
 public:
-  gsl_table(std::vector<real_t> probs)
+  gsl_table(std::vector<real_t> probs, const int n_threads = 1)
       : K(probs.size()), F(K), A(K) {
     if (probs.size() < 1) {
       throw std::runtime_error("Probability table has too few values");
@@ -40,19 +44,21 @@ public:
       if (A[k]) {
         Bigs.push(k);
       } else {
-        Smalls.push(k)
+        Smalls.push(k);
       }
     }
 
     /* Now work through the smalls */
     while (Smalls.size() > 0) {
-      real_t s = Smalls.pop();
+      real_t s = Smalls.top();
+      Smalls.pop();
       if (Bigs.size() == 0) {
         A[s] = s;
         F[s] = static_cast<real_t>(1.0);
         continue;
       }
-      real_t b = Bigs.pop();
+      real_t b = Bigs.top();
+      Bigs.pop();
       A[s] = b;
       F[s] = K * probs[s];
 
@@ -70,7 +76,8 @@ public:
       }
     }
     while (Bigs.size() > 0) {
-      real_t b = Bigs.pop();
+      real_t b = Bigs.top();
+      Bigs.pop();
       A[b] = b;
       F[b] = static_cast<real_t>(1.0);
     }
@@ -81,11 +88,10 @@ public:
   }
 
   size_t size() const { return K; }
+  std::vector<real_t>& F_table() { return F; }
+  std::vector<size_t>& A_table() { return A; }
 
-  std::vector<real_t> F_table() const {return F; }
-  std::vector<size_t> A_table() const {return A; }
-
-  size_t discrete_draw(rng_state_t<real_t>& rng_state) {
+  uint64_t discrete_draw(rng_state_t<real_t>& rng_state) {
     real_t u = unif_rand<real_t>(rng_state);
     size_t c = u * K;
     real_t f = F[c];

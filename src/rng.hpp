@@ -2,9 +2,12 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <vector>
 #ifdef __NVCC__
 #include <containers.cuh>
 #endif
+
+#include "cuda_call.cuh"
 
 template <typename T>
 struct rng_state_t {
@@ -125,14 +128,14 @@ inline HOST U unif_rand(rng_state_t<T>& state) {
 #define CURAND_2POW32_INV_DOUBLE (2.3283064365386963e-10)
 
 template <>
-inline DEVICE double unif_rand(rng_state_t<double>& state) {
+inline HOSTDEVICE double unif_rand(rng_state_t<double>& state) {
   const uint32_t value = xoshiro_next(state);
   double rand = value * CURAND_2POW32_INV_DOUBLE + (CURAND_2POW32_INV_DOUBLE/2.0);
   return rand;
 }
 
 template <>
-inline DEVICE float unif_rand(rng_state_t<float>& state) {
+inline HOSTDEVICE float unif_rand(rng_state_t<float>& state) {
   const uint32_t value = xoshiro_next(state);
   float rand = value * CURAND_2POW32_INV + (CURAND_2POW32_INV/2.0f);
   return rand;
