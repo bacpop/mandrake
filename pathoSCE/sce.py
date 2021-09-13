@@ -54,6 +54,7 @@ def runSCE(I, J, dists, weight_file, names, SCE_opts):
             weights = weights_in.loc[intersecting_samples]
 
     # Set up function call with either CPU or GPU
+    maxIter = SCE_opts['maxIter'] // SCE_opts['n_workers']
     if SCE_opts['use_gpu'] and gpu_fn_available:
         sys.stderr.write("Running on GPU\n")
         if SCE_opts['fp'] == 64:
@@ -62,7 +63,7 @@ def runSCE(I, J, dists, weight_file, names, SCE_opts):
             wtsne_gpu = wtsne_gpu_fp32
         wtsne_call = partial(wtsne_gpu,
                              perplexity = SCE_opts['perplexity'],
-                             maxIter = SCE_opts['maxIter'],
+                             maxIter = maxIter,
                              blockSize = SCE_opts['blockSize'],
                              n_workers = SCE_opts['n_workers'],
                              nRepuSamp = SCE_opts['nRepuSamp'],
@@ -70,18 +71,18 @@ def runSCE(I, J, dists, weight_file, names, SCE_opts):
                              bInit = SCE_opts['bInit'],
                              n_threads = SCE_opts['cpus'],
                              device_id = SCE_opts['device_id'],
-                             seed = 1)
+                             seed = SCE_opts['seed'])
     else:
         sys.stderr.write("Running on CPU\n")
         wtsne_call = partial(wtsne,
                              perplexity = SCE_opts['perplexity'],
-                             maxIter = SCE_opts['maxIter'],
+                             maxIter = maxIter,
                              nRepuSamp = SCE_opts['nRepuSamp'],
                              eta0 = SCE_opts['eta0'],
                              bInit = SCE_opts['bInit'],
                              n_workers = SCE_opts['n_workers'],
                              n_threads = SCE_opts['cpus'],
-                             seed = 1)
+                             seed = SCE_opts['seed'])
 
     # Run embedding with C++ extension
     embedding = np.array(wtsne_call(I, J, dists, weights))
