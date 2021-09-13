@@ -35,17 +35,6 @@ template <typename real_t> struct kernel_ptrs {
   int n_workers;
 };
 
-template <typename real_t> struct gsl_table_device {
-  size_t K;
-  real_t *F;
-  size_t *A;
-};
-
-template <typename real_t> struct gsl_table_host {
-  device_array<real_t> F;
-  device_array<size_t> A;
-};
-
 template <typename real_t> class SCEDeviceMemory {
 public:
   SCEDeviceMemory(const std::vector<real_t> &Y, const std::vector<uint64_t> &I,
@@ -71,15 +60,15 @@ public:
     edge_table_ = set_device_table(P);
   }
 
-  gsl_table_device<real_t> get_node_table() {
-    gsl_table_device<real_t> device_node_table = {.K = node_table_.F.size(),
+  discrete_table_ptrs<real_t> get_node_table() {
+    discrete_table_ptrs<real_t> device_node_table = {.K = node_table_.F.size(),
                                                   .F = node_table_.F.data(),
                                                   .A = node_table_.A.data()};
     return device_node_table;
   }
 
-  gsl_table_device<real_t> get_edge_table() {
-    gsl_table_device<real_t> device_edge_table = {.K = edge_table_.F.size(),
+  discrete_table_ptrs<real_t> get_edge_table() {
+    discrete_table_ptrs<real_t> device_edge_table = {.K = edge_table_.F.size(),
                                                   .F = edge_table_.F.data(),
                                                   .A = edge_table_.A.data()};
     return device_edge_table;
@@ -123,9 +112,9 @@ public:
   }
 
 private:
-  gsl_table_host<real_t> set_device_table(const std::vector<real_t>& probs) {
-    gsl_table<real_t> table(probs);
-    gsl_table_host<real_t> dev_table = { .F = table.F_table(),
+  discrete_table_device<real_t> set_device_table(const std::vector<real_t>& probs) {
+    discrete_table<real_t> table(probs);
+    discrete_table_device<real_t> dev_table = { .F = table.F_table(),
                                          .A = table.A_table() };
     return dev_table;
   }
@@ -141,8 +130,8 @@ private:
 
   // Uniform draw tables
   device_array<uint32_t> rng_state_;
-  gsl_table_host<real_t> node_table_;
-  gsl_table_host<real_t> edge_table_;
+  discrete_table_device<real_t> node_table_;
+  discrete_table_device<real_t> edge_table_;
 
   // Embedding
   device_array<real_t> Y_;
@@ -171,8 +160,8 @@ private:
 // Updates the embedding
 template <typename real_t>
 KERNEL void wtsneUpdateYKernel(
-    uint32_t * rng_state, const gsl_table_device<real_t> node_table,
-    const gsl_table_device<real_t> edge_table, real_t *Y, uint64_t *I,
+    uint32_t * rng_state, const discrete_table_ptrs<real_t> node_table,
+    const discrete_table_ptrs<real_t> edge_table, real_t *Y, uint64_t *I,
     uint64_t *J, real_t *Eq, real_t *qsum, uint64_t *qcount, uint64_t nn,
     uint64_t ne, real_t eta, uint64_t nRepuSamp, real_t nsq, real_t attrCoef,
     int n_workers) {
@@ -195,20 +184,19 @@ KERNEL void wtsneUpdateYKernel(
     for (int r = 0; r < nRepuSamp + 1; r++) {
       uint64_t k, l;
       if (r == 0) {
-        uint64_t e =
-            static_cast<uint64_t>(discrete_draw(rng_block, edge_table) % ne);
+        uint64_t e = discrete_draw(rng_block, edge_table) % ne;
         k = I[e];
         l = J[e];
       } else {
-        k = static_cast<uint64_t>(discrete_draw(rng_block, node_table) % nn);
-        l = static_cast<uint64_t>(discrete_draw(rng_block, node_table) % nn);
+        k = discrete_draw(rng_block, node_table) % nn;
+        l = discrete_draw(rng_block, node_table) % nn;
       }
 
       if (k != l) {
         uint64_t lk = k * DIM;
         uint64_t ll = l * DIM;
         real_t dist2 = static_cast<real_t>(0.0);
-  #pragma unroll
+#pragma unroll
         for (int d = 0; d < DIM; d++) {
           // These are read here to avoid multiple workers writing to the same
           // location below
@@ -227,7 +215,7 @@ KERNEL void wtsneUpdateYKernel(
         }
 
         bool overwrite = false;
-  #pragma unroll
+#pragma unroll
         for (int d = 0; d < DIM; d++) {
           real_t gain = eta * g * dY[d];
           // The atomics below basically do
@@ -244,7 +232,7 @@ KERNEL void wtsneUpdateYKernel(
           qcount_local++;
         } else {
           // Reset values
-  #pragma unroll
+#pragma unroll
           for (int d = 0; d < DIM; d++) {
             Y[d + lk] = Yk_read[d];
             Y[d + ll] = Yl_read[d];
