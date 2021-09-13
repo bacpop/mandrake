@@ -44,7 +44,7 @@ const double PERPLEXITY_TOLERANCE = 1e-5;
 inline std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
                                                const size_t n_samples) {
   std::vector<uint64_t> row_start_idx(n_samples + 1);
-  size_t i_idx = 0;
+  uint64_t i_idx = 0;
   row_start_idx[0] = 0;
   row_start_idx[n_samples] = I.size();
   for (long i = 1; i < n_samples; ++i) {

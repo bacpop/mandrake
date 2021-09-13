@@ -8,14 +8,14 @@
 
 #ifdef __NVCC__
 template <typename real_t> struct discrete_table_ptrs {
-  size_t K;
+  uint64_t K;
   real_t *F;
-  size_t *A;
+  uint64_t *A;
 };
 
 template <typename real_t> struct discrete_table_device {
   device_array<real_t> F;
-  device_array<size_t> A;
+  device_array<uint64_t> A;
 };
 #endif
 
@@ -100,13 +100,13 @@ public:
     }
   }
 
-  size_t size() const { return K; }
+  uint64_t size() const { return K; }
   std::vector<real_t>& F_table() { return F; }
-  std::vector<size_t>& A_table() { return A; }
+  std::vector<uint64_t>& A_table() { return A; }
 
   uint64_t discrete_draw(rng_state_t<real_t>& rng_state) {
     real_t u = unif_rand<real_t>(rng_state);
-    size_t c = u * K;
+    uint64_t c = u * K;
     real_t f = F[c];
 
     real_t draw;
@@ -119,9 +119,9 @@ public:
   }
 
 private:
-  size_t K;
+  uint64_t K;
   std::vector<real_t> F;
-  std::vector<size_t> A;
+  std::vector<uint64_t> A;
 };
 
 #ifdef __NVCC__
@@ -129,7 +129,7 @@ template <typename real_t>
 DEVICE uint64_t discrete_draw(rng_state_t<real_t>& rng_state,
                             const discrete_table_ptrs<real_t> &unif_table) {
   real_t u = unif_rand<real_t>(rng_state);
-  size_t c = u * unif_table.K;
+  uint64_t c = u * unif_table.K;
   real_t f = unif_table.F[c];
 
   real_t draw;

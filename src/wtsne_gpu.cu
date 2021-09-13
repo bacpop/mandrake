@@ -40,7 +40,7 @@ public:
   SCEDeviceMemory(const std::vector<real_t> &Y, const std::vector<uint64_t> &I,
                   const std::vector<uint64_t> &J, const std::vector<double> &P,
                   const std::vector<real_t> &weights, int n_workers,
-                  int block_count, const unsigned int seed)
+                  const unsigned int seed)
       : n_workers_(n_workers), nn_(weights.size()),
         ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
         rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), I_(I),
