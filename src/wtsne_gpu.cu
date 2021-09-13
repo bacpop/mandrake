@@ -170,7 +170,7 @@ KERNEL void wtsneUpdateYKernel(
   int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
   if (workerIdx < n_workers) {
     // Bring RNG state into local registers
-    interleaved<uint32_t> p_rng(rng_state, workerIdx, blockIdx.x * blockDim.x);
+    interleaved<uint32_t> p_rng(rng_state, workerIdx, n_workers);
     rng_state_t<real_t> rng_block = get_rng_state<real_t>(p_rng);
 
     real_t dY[DIM];
