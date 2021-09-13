@@ -38,7 +38,7 @@ template <typename real_t> struct kernel_ptrs {
 template <typename real_t> class SCEDeviceMemory {
 public:
   SCEDeviceMemory(const std::vector<real_t> &Y, const std::vector<uint64_t> &I,
-                  const std::vector<uint64_t> &J, const std::vector<real_t> &P,
+                  const std::vector<uint64_t> &J, const std::vector<double> &P,
                   const std::vector<real_t> &weights, int n_workers,
                   int block_count, const unsigned int seed)
       : n_workers_(n_workers), nn_(weights.size()),
