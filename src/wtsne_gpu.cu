@@ -38,8 +38,8 @@ template <typename real_t> struct kernel_ptrs {
 template <typename real_t> class SCEDeviceMemory {
 public:
   SCEDeviceMemory(const std::vector<real_t> &Y, const std::vector<uint64_t> &I,
-                  const std::vector<uint64_t> &J, const std::vector<double> &P,
-                  const std::vector<double> &weights, int n_workers,
+                  const std::vector<uint64_t> &J, const std::vector<real_t> &P,
+                  const std::vector<real_t> &weights, int n_workers,
                   int block_count, const unsigned int seed)
       : n_workers_(n_workers), nn_(weights.size()),
         ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
@@ -112,7 +112,8 @@ public:
   }
 
 private:
-  discrete_table_device<real_t> set_device_table(const std::vector<double>& probs) {
+  template <typename T>
+  discrete_table_device<real_t> set_device_table(const std::vector<T>& probs) {
     discrete_table<real_t> table(probs);
     discrete_table_device<real_t> dev_table = { .F = table.F_table(),
                                          .A = table.A_table() };
@@ -257,7 +258,7 @@ KERNEL void wtsneUpdateYKernel(
 // when imported
 template std::vector<float>
 wtsne_gpu<float>(const std::vector<uint64_t> &, const std::vector<uint64_t> &,
-                 std::vector<float> &, std::vector<double> &, const float,
+                 std::vector<float> &, std::vector<float> &, const float,
                  const uint64_t, const int, const int, const uint64_t,
                  const float, const bool, const int, const int, const unsigned int);
 template std::vector<double>
@@ -269,7 +270,7 @@ wtsne_gpu<double>(const std::vector<uint64_t> &, const std::vector<uint64_t> &,
 template <typename real_t>
 std::vector<real_t>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
-          std::vector<real_t> &dists, std::vector<double> &weights,
+          std::vector<real_t> &dists, std::vector<real_t> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
           const int n_workers, const uint64_t nRepuSamp, const real_t eta0,
           const bool bInit, const int cpu_threads, const int device_id,

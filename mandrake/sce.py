@@ -69,7 +69,7 @@ def runSCE(I, J, dists, weight_file, names, SCE_opts):
                              nRepuSamp = SCE_opts['nRepuSamp'],
                              eta0 = SCE_opts['eta0'],
                              bInit = SCE_opts['bInit'],
-                             n_threads = SCE_opts['cpus'],
+                             cpu_threads = SCE_opts['cpus'],
                              device_id = SCE_opts['device_id'],
                              seed = SCE_opts['seed'])
     else:

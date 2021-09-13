@@ -140,7 +140,7 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
 template <class real_t>
 std::tuple<std::vector<real_t>, std::vector<double>>
 wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
-           std::vector<real_t> &dists, std::vector<double> &weights,
+           std::vector<real_t> &dists, std::vector<real_t> &weights,
            const real_t perplexity, const int n_threads,
            const unsigned int seed) {
   // Check input
@@ -207,7 +207,7 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
 template <typename real_t>
 std::vector<real_t>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
-          std::vector<real_t> &dists, std::vector<double> &weights,
+          std::vector<real_t> &dists, std::vector<real_t> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
           const int n_workers, const uint64_t nRepuSamp, const real_t eta0,
           const bool bInit, const int cpu_threads, const int device_id,
