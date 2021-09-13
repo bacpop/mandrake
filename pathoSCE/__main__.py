@@ -85,7 +85,7 @@ def main():
         if args.use_gpu:
             args.n_workers = args.blockSize
         else:
-            args.n_workers = args.n_threads
+            args.n_workers = args.cpus
 
     #***********************#
     #* Run seq -> distance *#
