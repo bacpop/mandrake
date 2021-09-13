@@ -3,11 +3,11 @@
 #include <algorithm>
 #include <cfloat>
 #include <vector>
-#ifdef __NVCC__
-#include <containers.cuh>
-#endif
 
 #include "cuda_call.cuh"
+#ifdef __NVCC__
+#include "containers.cuh"
+#endif
 
 template <typename T>
 struct rng_state_t {
