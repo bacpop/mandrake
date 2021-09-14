@@ -46,6 +46,22 @@ template <typename real_t> struct callBackData_t {
   uint64_t *maxIter;
 };
 
+template <typename real_t>
+void CUDART_CB Eq_callback(void *data) {
+  callBackData_t<real_t> *tmp = (callBackData_t<real_t> *)(data);
+  real_t* Eq = tmp->Eq;
+  real_t* nsq = tmp->nsq;
+  real_t* qsum = tmp->qsum;
+  uint64_t* qcount = tmp->qcount;
+  real_t Eq_new = (*Eq * *nsq + *qsum) / (*nsq + *qcount);
+  Eq = &Eq_new;
+
+  real_t* eta = tmp->eta;
+  uint64_t* iter = tmp->iter;
+  uint64_t* maxIter = tmp->maxIter;
+  update_progress(*iter, *maxIter, *eta, *Eq);
+}
+
 template <typename real_t> class SCEDeviceMemory {
 public:
   SCEDeviceMemory(const std::vector<real_t> &Y, const std::vector<uint64_t> &I,
@@ -54,7 +70,7 @@ public:
                   const unsigned int seed)
       : n_workers_(n_workers), nn_(weights.size()),
         ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
-        hostFn_(Eq_callback),
+        hostFn_(Eq_callback<real_t>),
         rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), I_(I),
         J_(J), Eq_(1.0), qsum_(n_workers), qsum_total_(0.0),
         qcount_(n_workers), qcount_total_(0) {
@@ -175,21 +191,6 @@ private:
   device_array<void> qsum_tmp_storage_;
   device_array<void> qcount_tmp_storage_;
 };
-
-void CUDART_CB Eq_callback(void *data) {
-  callBackData_t<real_t> *tmp = (callBackData_t<real_t> *)(data);
-  real_t* Eq = tmp->Eq;
-  real_t* nsq = tmp->nsq;
-  real_t* qsum = tmp->qsum;
-  uint64_t* qcount = tmp->qcount;
-  real_t Eq_new = (*Eq * *nsq + *qsum) / (*nsq + *qcount);
-  Eq = &Eq_new;
-
-  real_t* eta = tmp->eta;
-  uint64_t* iter = tmp->iter;
-  uint64_t* maxIter = tmp->maxIter;
-  update_progress(*iter, *maxIter, *eta, *Eq);
-}
 
 /****************************
  * Kernels                  *
