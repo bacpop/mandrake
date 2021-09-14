@@ -65,9 +65,21 @@ public:
     return host_value;
   }
 
+  T get_value_async(cudaStream_t& stream) const {
+    T host_value;
+    CUDA_CALL(cudaMemcpyAsync(&host_value, data_, sizeof(T),
+                        cudaMemcpyDefault, stream));
+    return host_value;
+  }
+
   void set_value(const T value) {
     CUDA_CALL(cudaMemcpy(data_, &value, sizeof(T),
                         cudaMemcpyDefault));
+  }
+
+  void set_value_async(const T value, cudaStream_t& stream) {
+    CUDA_CALL(cudaMemcpyAsync(data_, &value, sizeof(T),
+                        cudaMemcpyDefault, stream));
   }
 
   T* data() {
