@@ -54,7 +54,7 @@ public:
                   const unsigned int seed)
       : n_workers_(n_workers), nn_(weights.size()),
         ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
-        hostFn_(this->*Eq_callback),
+        hostFn_(Eq_callback),
         rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), I_(I),
         J_(J), Eq_(1.0), qsum_(n_workers), qsum_total_(0.0),
         qcount_(n_workers), qcount_total_(0) {
@@ -109,7 +109,7 @@ public:
     return Y_host;
   }
 
-  void update_Eq(cuda_stream stream, real_t eta, uint64_t iter, uint64_t maxIter) {
+  void update_Eq(cuda_stream& stream, real_t eta, uint64_t iter, uint64_t maxIter) {
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
                            qsum_.data(), qsum_total_.data(), qsum_.size(), stream.stream());
     cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
@@ -128,7 +128,7 @@ public:
     hostFnData_.maxIter = &maxIter;
 
     CUDA_CALL(cudaLaunchHostFunc(stream.stream(), hostFn_, &hostFnData_));
-    Eq_.set_value_async(*(hostFnData.Eq), stream.stream());
+    Eq_.set_value_async(*(hostFnData_.Eq), stream.stream());
   }
 
 private:
@@ -138,21 +138,6 @@ private:
     discrete_table_device<real_t> dev_table = { .F = table.F_table(),
                                          .A = table.A_table() };
     return dev_table;
-  }
-
-  void CUDART_CB Eq_callback(void *data) {
-    callBackData_t<real_t> *tmp = (callBackData_t<real_t> *)(data);
-    real_t* Eq = tmp->Eq;
-    real_t* nsq = tmp->nsq;
-    real_t* qsum = tmp->qsum;
-    uint64_t* qcount = tmp->qcount;
-    real_t Eq_new = (*Eq * *nsq + *qsum) / (*nsq + *qcount);
-    Eq = &Eq_new;
-
-    real_t* eta = tmp->eta;
-    uint64_t* iter = tmp->iter;
-    uint64_t* maxIter = tmp->maxIter;
-    update_progress(*iter, *maxIter, *eta, *Eq);
   }
 
   // delete move and copy to avoid accidentally using them
@@ -190,6 +175,21 @@ private:
   device_array<void> qsum_tmp_storage_;
   device_array<void> qcount_tmp_storage_;
 };
+
+void CUDART_CB Eq_callback(void *data) {
+  callBackData_t<real_t> *tmp = (callBackData_t<real_t> *)(data);
+  real_t* Eq = tmp->Eq;
+  real_t* nsq = tmp->nsq;
+  real_t* qsum = tmp->qsum;
+  uint64_t* qcount = tmp->qcount;
+  real_t Eq_new = (*Eq * *nsq + *qsum) / (*nsq + *qcount);
+  Eq = &Eq_new;
+
+  real_t* eta = tmp->eta;
+  uint64_t* iter = tmp->iter;
+  uint64_t* maxIter = tmp->maxIter;
+  update_progress(*iter, *maxIter, *eta, *Eq);
+}
 
 /****************************
  * Kernels                  *
@@ -344,7 +344,7 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       embedding.get_edge_table(), device_ptrs.Y, device_ptrs.I, device_ptrs.J,
       device_ptrs.Eq, device_ptrs.qsum, device_ptrs.qcount, device_ptrs.nn,
       device_ptrs.ne, eta, nRepuSamp, device_ptrs.nsq, attrCoef, device_ptrs.n_workers);
-  embedding.update_Eq(capture_stream.stream(), eta, iter, maxIter);
+  embedding.update_Eq(capture_stream, eta, iter, maxIter);
   capture_stream.capture_end(graph.graph());
 
   for (iter = 0; iter < maxIter; iter++) {
