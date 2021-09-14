@@ -282,6 +282,7 @@ KERNEL void wtsneUpdateYKernel(
           // But try again if another worker has written to the same location
           atomicMin(Y + d + lk, Yk_read[d] + gain);
           atomicMin(Y + d + ll, Yl_read[d] - gain);
+          printf("Write at thread:%d d:%d r:%d k:%llu l:%llu Yk:%f Yd:%f\n", workerIdx, r, d, k, l, Yk_read[d], Yl_read[d]);
         }
         qsum_local += q;
         qcount_local++;
