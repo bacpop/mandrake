@@ -35,7 +35,7 @@ private:
 
   cudaGraph_t graph_;
   cudaGraphExec_t graph_instance_;
-}
+};
 
 class cuda_stream {
 public:

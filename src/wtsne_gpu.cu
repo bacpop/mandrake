@@ -14,8 +14,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cuda_launch.cuh"
 #include "containers.cuh"
+#include "cuda_launch.cuh"
 #include "uniform_discrete.hpp"
 #include "wtsne.hpp"
 
@@ -36,7 +36,7 @@ template <typename real_t> struct kernel_ptrs {
   int n_workers;
 };
 
-typedef struct callBackData {
+typedef <typename real_t> struct callBackData {
   real_t *Eq;
   real_t *nsq;
   real_t *qsum;
@@ -54,7 +54,7 @@ public:
                   const unsigned int seed)
       : n_workers_(n_workers), nn_(weights.size()),
         ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
-        hostFn_(Eq_callback),
+        hostFn_(&Eq_callback),
         rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), I_(I),
         J_(J), Eq_(1.0), qsum_(n_workers), qsum_total_(0.0),
         qcount_(n_workers), qcount_total_(0) {
@@ -141,7 +141,7 @@ private:
   }
 
   void CUDART_CB Eq_callback(void *data) {
-    callBackData_t *tmp = (callBackData_t *)(data);
+    callBackData_t<real_t> *tmp = (callBackData_t<real_t> *)(data);
     real_t* Eq = tmp->Eq;
     real_t* nsq = tmp->nsq;
     real_t* qsum = tmp->qsum;
@@ -163,7 +163,7 @@ private:
   uint64_t nn_;
   uint64_t ne_;
   real_t nsq_;
-  callBackData_t hostFnData_;
+  callBackData_t<real_t> hostFnData_;
   cudaHostFn_t hostFn_;
 
   // Uniform draw tables
