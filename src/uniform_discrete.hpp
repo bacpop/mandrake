@@ -45,7 +45,7 @@ public:
     real_t_p mean = static_cast<real_t>(1.0) / K;
 
     /* Temporarily use A[k] to indicate small or large */
-    for (int k = 0; k < K; ++k) {
+    for (uint64_t k = 0; k < K; ++k) {
       if (probs[k] < mean) {
         A[k] = 0;
       } else {
@@ -53,7 +53,7 @@ public:
       }
     }
 
-    for (int k = 0; k < K; ++k) {
+    for (uint64_t k = 0; k < K; ++k) {
       if (A[k]) {
         Bigs.push(static_cast<real_t>(k));
       } else {
@@ -133,12 +133,12 @@ DEVICE uint64_t discrete_draw(rng_state_t<real_t>& rng_state,
   real_t f = unif_table.F[c];
 
   real_t draw;
-  if (f == 1.0 || u < f) {
+  if (f == static_cast<real_t>(1.0) || u < f) {
     draw = c;
   } else {
     draw = unif_table.A[c];
   }
-  //__syncwarp();
+  __syncwarp();
   return static_cast<uint64_t>(draw);
 }
 #endif

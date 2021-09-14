@@ -158,43 +158,6 @@ private:
  * Kernels                  *
  ****************************/
 
-template <typename real_t>
-real_t infinity_nvcc();
-
-template <>
-inline DEVICE float infinity_nvcc() {
-  return HUGE_VALF;
-}
-
-template <>
-inline DEVICE double infinity_nvcc() {
-  return HUGE_VAL;
-}
-
-DEVICE double atomicMin(volatile double* address, double val) {
-  unsigned long long int* address_as_ull =(unsigned long long int*)address;
-  unsigned long long int old = *address_as_ull, assumed;
-
-  while(val < __longlong_as_double(old) ) {
-    assumed = old;
-    old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val));
-  }
-
-  return __longlong_as_double(old);
-}
-
-DEVICE float atomicMin(volatile float* address, float val) {
-  unsigned long long int* address_as_ull =(unsigned long long int*)address;
-  unsigned long long int old = *address_as_ull, assumed;
-
-  while(val < __uint_as_float(old) ) {
-    assumed = old;
-    old = atomicCAS(address_as_ull, assumed, __float_as_uint(val));
-  }
-
-  return __uint_as_float(old);
-}
-
 // Updates the embedding
 template <typename real_t>
 KERNEL void wtsneUpdateYKernel(
@@ -205,6 +168,7 @@ KERNEL void wtsneUpdateYKernel(
     int n_workers) {
   // Worker index based on CUDA launch parameters
   int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
+  const real_t one = 1.0; // Used a few times, fp64/fp32
   if (workerIdx < n_workers) {
     // Bring RNG state into local registers
     interleaved<uint32_t> p_rng(rng_state, workerIdx, n_workers);
@@ -213,7 +177,7 @@ KERNEL void wtsneUpdateYKernel(
     real_t dY[DIM];
     real_t Yk_read[DIM];
     real_t Yl_read[DIM];
-    real_t c = static_cast<real_t>(1.0) / ((*Eq) * nsq);
+    real_t c = one / ((*Eq) * nsq);
 
     real_t qsum_local = 0.0;
     uint64_t qcount_local = 0;
@@ -234,36 +198,18 @@ KERNEL void wtsneUpdateYKernel(
         uint64_t lk = k * DIM;
         uint64_t ll = l * DIM;
         real_t dist2 = static_cast<real_t>(0.0);
-        int d_fail = DIM;
 #pragma unroll
         for (int d = 0; d < DIM; d++) {
           // These are read here to avoid multiple workers writing to the same
           // location below
-          Yk_read[d] = atomicAdd((real_t*)Y + d + lk, infinity_nvcc<real_t>());
-          if (Yk_read[d] < infinity_nvcc<real_t>()) {
-            Yl_read[d] = atomicAdd((real_t*)Y + d + ll, infinity_nvcc<real_t>());
-            if (Yl_read[d] < infinity_nvcc<real_t>()) {
-              dY[d] = Yk_read[d] - Yl_read[d];
-              dist2 += dY[d] * dY[d];
-            } else {
-              atomicMin(Y + d + lk, Yk_read[d]);
-              d_fail = d;
-            }
-          } else {
-            d_fail = d;
-          }
-          if (d_fail < DIM) {
-            break;
-          }
+          Yk_read[d] = Y[d + lk];
+          Yl_read[d] = Y[d + ll];
+          dY[d] = Yk_read[d] - Yl_read[d];
+          dist2 += dY[d] * dY[d];
         }
+        __threadfence();
 
-        for (int d = d_fail; d < DIM; d++) {
-          atomicMin(Y + d + lk, Yk_read[d]);
-          atomicMin(Y + d + ll, Yk_read[d]);
-          break;
-        }
-
-        real_t q = static_cast<real_t>(1.0) / (1 + dist2);
+        real_t q = one / (1 + dist2);
 
         real_t g;
         if (r == 0) {
@@ -279,15 +225,27 @@ KERNEL void wtsneUpdateYKernel(
           // Y[d + lk] += gain;
           // Y[d + ll] -= gain;
           // But try again if another worker has written to the same location
-          atomicMin(Y + d + lk, Yk_read[d] + gain);
-          atomicMin(Y + d + ll, Yl_read[d] - gain);
-          printf("Write at thread:%d d:%d r:%d k:%llu l:%llu Yk:%f Yd:%f\n", workerIdx, r, d, k, l, Yk_read[d], Yl_read[d]);
+          if (atomicAdd((real_t*)Y + d + lk, gain) != Yk_read[d] ||
+              atomicAdd((real_t*)Y + d + ll, -gain) != Yl_read[d]) {
+            overwrite = true;
+          }
         }
-        qsum_local += q;
-        qcount_local++;
+        if (!overwrite) {
+          qsum_local += q;
+          qcount_local++;
+        } else {
+          // Reset values
+#pragma unroll
+          for (int d = 0; d < DIM; d++) {
+            Y[d + lk] = Yk_read[d];
+            Y[d + ll] = Yl_read[d];
+          }
+          __threadfence();
+          r--;
+        }
       }
     }
-    // __syncwarp();
+    __syncwarp();
 
     // Store local state (RNG & counts) back to global
     put_rng_state(rng_block, p_rng);

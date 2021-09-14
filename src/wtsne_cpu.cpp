@@ -55,8 +55,6 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
       uint64_t j = J[e];
 
       for (int r = 0; r < nRepuSamp + 1; r++) {
-        // fprintf(stderr, "r: %d", r);
-        // fflush(stderr);
         long long k, l;
         if (r == 0) {
           k = i;
