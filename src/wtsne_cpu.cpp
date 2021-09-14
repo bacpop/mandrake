@@ -65,17 +65,18 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
           k = node_table.discrete_draw(worker_rng) % nn;
           l = node_table.discrete_draw(worker_rng) % nn;
         }
-        if (k == l)
+        if (k == l) {
           continue;
+        }
 
         uint64_t lk = k * DIM;
         uint64_t ll = l * DIM;
         double dist2 = 0.0;
         for (int d = 0; d < DIM; d++) {
 #pragma omp atomic read
-            Yk_read[d] = Y[d + lk];
+          Yk_read[d] = Y[d + lk];
 #pragma omp atomic read
-            Yl_read[d] = Y[d + ll];
+          Yl_read[d] = Y[d + ll];
           dY[d] = Yk_read[d] - Yl_read[d];
           dist2 += dY[d] * dY[d];
         }
