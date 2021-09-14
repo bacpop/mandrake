@@ -152,7 +152,6 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
     throw std::runtime_error("Input size too small");
   }
   const uint64_t nn = weights.size();
-  const uint64_t ne = dists.size();
 
   // Preprocess distances
   std::vector<double> P =

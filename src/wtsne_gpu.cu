@@ -125,9 +125,9 @@ private:
   SCEDeviceMemory(SCEDeviceMemory &&) = delete;
 
   int n_workers_;
-  real_t nsq_;
   uint64_t nn_;
   uint64_t ne_;
+  real_t nsq_;
 
   // Uniform draw tables
   device_array<uint32_t> rng_state_;
@@ -272,7 +272,6 @@ KERNEL void wtsneUpdateYKernel(
           g = repuCoef * q * q;
         }
 
-        bool overwrite = false;
 #pragma unroll
         for (int d = 0; d < DIM; d++) {
           real_t gain = eta * g * dY[d];
