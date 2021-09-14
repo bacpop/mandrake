@@ -21,7 +21,7 @@ public:
     return graph_;
   }
 
-  void launch(cudaStream_t& stream) {
+  void launch(cudaStream_t stream) {
     if (graph_instance_ == nullptr) {
       CUDA_CALL(cudaGraphInstantiate(&graph_instance_, graph_, NULL, NULL, 0));
     }

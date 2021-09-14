@@ -54,7 +54,7 @@ public:
                   const unsigned int seed)
       : n_workers_(n_workers), nn_(weights.size()),
         ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
-        hostFn_(&Eq_callback),
+        hostFn_(this->*Eq_callback),
         rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), I_(I),
         J_(J), Eq_(1.0), qsum_(n_workers), qsum_total_(0.0),
         qcount_(n_workers), qcount_total_(0) {
@@ -109,7 +109,7 @@ public:
     return Y_host;
   }
 
-  void update_Eq(cuda_stream& stream, real_t eta, uint64_t iter, uint64_t maxIter) {
+  void update_Eq(cuda_stream stream, real_t eta, uint64_t iter, uint64_t maxIter) {
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
                            qsum_.data(), qsum_total_.data(), qsum_.size(), stream.stream());
     cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
@@ -127,7 +127,7 @@ public:
     hostFnData_.iter = &iter;
     hostFnData_.maxIter = &maxIter;
 
-    CUDA_CALL(cudaLaunchHostFunc(stream.stream(), hostFn_, &hostFnData));
+    CUDA_CALL(cudaLaunchHostFunc(stream.stream(), hostFn_, &hostFnData_));
     Eq_.set_value_async(*(hostFnData.Eq), stream.stream());
   }
 
@@ -146,7 +146,7 @@ private:
     real_t* nsq = tmp->nsq;
     real_t* qsum = tmp->qsum;
     uint64_t* qcount = tmp->qcount;
-    real_t Eq_new = (*Eq * *nsq + *qsum) / (*nsq_ + *qcount);
+    real_t Eq_new = (*Eq * *nsq + *qsum) / (*nsq + *qcount);
     Eq = &Eq_new;
 
     real_t* eta = tmp->eta;
