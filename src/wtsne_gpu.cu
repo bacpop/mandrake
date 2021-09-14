@@ -36,7 +36,7 @@ template <typename real_t> struct kernel_ptrs {
   int n_workers;
 };
 
-typedef template <typename real_t> struct callBackData {
+template <typename real_t> struct callBackData_t {
   real_t *Eq;
   real_t *nsq;
   real_t *qsum;
@@ -44,7 +44,7 @@ typedef template <typename real_t> struct callBackData {
   real_t *eta;
   uint64_t *iter;
   uint64_t *maxIter;
-} callBackData_t;
+};
 
 template <typename real_t> class SCEDeviceMemory {
 public:
