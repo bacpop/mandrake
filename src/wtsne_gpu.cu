@@ -158,11 +158,48 @@ private:
  * Kernels                  *
  ****************************/
 
+template <typename real_t>
+real_t infinity_nvcc();
+
+template <>
+inline DEVICE float infinity_nvcc() {
+  return HUGE_VALF;
+}
+
+template <>
+inline DEVICE double infinity_nvcc() {
+  return HUGE_VAL;
+}
+
+DEVICE double atomicMin(volatile double* address, double val) {
+  unsigned long long int* address_as_ull =(unsigned long long int*)address;
+  unsigned long long int old = *address_as_ull, assumed;
+
+  while(val < __longlong_as_double(old) ) {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val));
+  }
+
+  return __longlong_as_double(old);
+}
+
+DEVICE float atomicMin(volatile float* address, float val) {
+  unsigned long long int* address_as_ull =(unsigned long long int*)address;
+  unsigned long long int old = *address_as_ull, assumed;
+
+  while(val < __uint_as_float(old) ) {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed, __float_as_uint(val));
+  }
+
+  return __uint_as_float(old);
+}
+
 // Updates the embedding
 template <typename real_t>
 KERNEL void wtsneUpdateYKernel(
     uint32_t * rng_state, const discrete_table_ptrs<real_t> node_table,
-    const discrete_table_ptrs<real_t> edge_table, real_t *Y, uint64_t *I,
+    const discrete_table_ptrs<real_t> edge_table, volatile real_t *Y, uint64_t *I,
     uint64_t *J, real_t *Eq, real_t *qsum, uint64_t *qcount, uint64_t nn,
     uint64_t ne, real_t eta, uint64_t nRepuSamp, real_t nsq, real_t attrCoef,
     int n_workers) {
@@ -197,15 +234,35 @@ KERNEL void wtsneUpdateYKernel(
         uint64_t lk = k * DIM;
         uint64_t ll = l * DIM;
         real_t dist2 = static_cast<real_t>(0.0);
+        int d_fail = DIM;
 #pragma unroll
         for (int d = 0; d < DIM; d++) {
           // These are read here to avoid multiple workers writing to the same
           // location below
-          Yk_read[d] = Y[d + lk];
-          Yl_read[d] = Y[d + ll];
-          dY[d] = Yk_read[d] - Yl_read[d];
-          dist2 += dY[d] * dY[d];
+          Yk_read[d] = atomicAdd((real_t*)Y + d + lk, infinity_nvcc<real_t>());
+          if (Yk_read[d] < infinity_nvcc<real_t>()) {
+            Yl_read[d] = atomicAdd((real_t*)Y + d + ll, infinity_nvcc<real_t>());
+            if (Yl_read[d] < infinity_nvcc<real_t>()) {
+              dY[d] = Yk_read[d] - Yl_read[d];
+              dist2 += dY[d] * dY[d];
+            } else {
+              atomicMin(Y + d + lk, Yk_read[d]);
+              d_fail = d;
+            }
+          } else {
+            d_fail = d;
+          }
+          if (d_fail < DIM) {
+            break;
+          }
         }
+
+        for (int d = d_fail; d < DIM; d++) {
+          atomicMin(Y + d + lk, Yk_read[d]);
+          atomicMin(Y + d + ll, Yk_read[d]);
+          break;
+        }
+
         real_t q = static_cast<real_t>(1.0) / (1 + dist2);
 
         real_t g;
@@ -223,26 +280,14 @@ KERNEL void wtsneUpdateYKernel(
           // Y[d + lk] += gain;
           // Y[d + ll] -= gain;
           // But try again if another worker has written to the same location
-          if (atomicAdd(Y + d + lk, gain) != Yk_read[d] ||
-              atomicAdd(Y + d + ll, -gain) != Yl_read[d]) {
-            overwrite = true;
-          }
+          atomicMin(Y + d + lk, Yk_read[d] + gain);
+          atomicMin(Y + d + ll, Yl_read[d] - gain);
         }
-        if (!overwrite) {
-          qsum_local += q;
-          qcount_local++;
-        } else {
-          // Reset values
-#pragma unroll
-          for (int d = 0; d < DIM; d++) {
-            Y[d + lk] = Yk_read[d];
-            Y[d + ll] = Yl_read[d];
-          }
-          r--;
-        }
+        qsum_local += q;
+        qcount_local++;
       }
     }
-    __syncwarp();
+    // __syncwarp();
 
     // Store local state (RNG & counts) back to global
     put_rng_state(rng_block, p_rng);

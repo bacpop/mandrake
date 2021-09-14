@@ -138,7 +138,7 @@ DEVICE uint64_t discrete_draw(rng_state_t<real_t>& rng_state,
   } else {
     draw = unif_table.A[c];
   }
-  __syncwarp();
+  //__syncwarp();
   return static_cast<uint64_t>(draw);
 }
 #endif
