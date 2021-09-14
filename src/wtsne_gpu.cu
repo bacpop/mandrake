@@ -36,7 +36,7 @@ template <typename real_t> struct kernel_ptrs {
   int n_workers;
 };
 
-typedef <typename real_t> struct callBackData {
+typedef template <typename real_t> struct callBackData {
   real_t *Eq;
   real_t *nsq;
   real_t *qsum;

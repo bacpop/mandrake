@@ -5,7 +5,7 @@
 class cuda_graph {
 public:
   cuda_graph() : graph_instance_(nullptr) {
-    CUDA_CALL(cudaGraphCreate(&graph_));
+    CUDA_CALL(cudaGraphCreate(&graph_, 0));
   }
 
   ~cuda_graph() {
