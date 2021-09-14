@@ -22,7 +22,7 @@ def accessoryDists(accessory_file, kNN, threshold):
     if kNN is not None:
         I, J, dists = _kNNJaccard(acc_mat, kNN)
     else:
-        I, J, dists = _sparseJaccard(acc_mat.values)
+        I, J, dists = _sparseJaccard(acc_mat.values, threshold)
 
     return I, J, dists, names
 
