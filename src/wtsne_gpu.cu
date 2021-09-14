@@ -218,6 +218,7 @@ KERNEL void wtsneUpdateYKernel(
           g = repuCoef * q * q;
         }
 
+        bool overwrite = false;
 #pragma unroll
         for (int d = 0; d < DIM; d++) {
           real_t gain = eta * g * dY[d];

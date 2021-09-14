@@ -16,7 +16,7 @@ public:
   // Constructor from value
   device_value(const T value) {
     CUDA_CALL(cudaMalloc((void**)&data_, sizeof(T)));
-    CUDA_CALL(cudaMemcpy(data_, value, sizeof(T),
+    CUDA_CALL(cudaMemcpy(data_, &value, sizeof(T),
                         cudaMemcpyDefault));
   }
 
