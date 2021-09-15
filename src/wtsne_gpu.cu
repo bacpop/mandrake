@@ -20,179 +20,6 @@
 #include "wtsne.hpp"
 
 /****************************
- * Classes                  *
- ****************************/
-template <typename real_t> struct kernel_ptrs {
-  uint32_t *rng;
-  real_t *Y;
-  uint64_t *I;
-  uint64_t *J;
-  real_t *Eq;
-  real_t *qsum;
-  uint64_t *qcount;
-  uint64_t nn;
-  uint64_t ne;
-  real_t nsq;
-  int n_workers;
-};
-
-template <typename real_t> struct callBackData_t {
-  real_t *Eq;
-  real_t *nsq;
-  real_t *qsum;
-  uint64_t *qcount;
-  real_t *eta;
-  uint64_t *iter;
-  uint64_t *maxIter;
-};
-
-template <typename real_t>
-void CUDART_CB Eq_callback(void *data) {
-  callBackData_t<real_t> *tmp = (callBackData_t<real_t> *)(data);
-  real_t* Eq = tmp->Eq;
-  real_t* nsq = tmp->nsq;
-  real_t* qsum = tmp->qsum;
-  uint64_t* qcount = tmp->qcount;
-  real_t Eq_new = (*Eq * *nsq + *qsum) / (*nsq + *qcount);
-  Eq = &Eq_new;
-
-  real_t* eta = tmp->eta;
-  uint64_t* iter = tmp->iter;
-  uint64_t* maxIter = tmp->maxIter;
-  update_progress(*iter, *maxIter, *eta, *Eq);
-}
-
-template <typename real_t> class SCEDeviceMemory {
-public:
-  SCEDeviceMemory(const std::vector<real_t> &Y, const std::vector<uint64_t> &I,
-                  const std::vector<uint64_t> &J, const std::vector<double> &P,
-                  const std::vector<real_t> &weights, int n_workers,
-                  const unsigned int seed)
-      : n_workers_(n_workers), nn_(weights.size()),
-        ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
-        hostFn_(Eq_callback<real_t>),
-        rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), I_(I),
-        J_(J), Eq_(1.0), qsum_(n_workers), qsum_total_(0.0),
-        qcount_(n_workers), qcount_total_(0) {
-    hostFnData_.nsq = &nsq_;
-
-    // Initialise tmp space for reductions on qsum and qcount
-    cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
-                           qsum_.data(), qsum_total_.data(), qsum_.size());
-    qsum_tmp_storage_.set_size(qsum_tmp_storage_bytes_);
-    cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
-                           qcount_tmp_storage_bytes_, qcount_.data(),
-                           qcount_total_.data(), qcount_.size());
-    qcount_tmp_storage_.set_size(qcount_tmp_storage_bytes_);
-
-    // Set up discrete RNG tables
-    node_table_ = set_device_table(weights);
-    edge_table_ = set_device_table(P);
-  }
-
-  discrete_table_ptrs<real_t> get_node_table() {
-    discrete_table_ptrs<real_t> device_node_table = {.K = node_table_.F.size(),
-                                                  .F = node_table_.F.data(),
-                                                  .A = node_table_.A.data()};
-    return device_node_table;
-  }
-
-  discrete_table_ptrs<real_t> get_edge_table() {
-    discrete_table_ptrs<real_t> device_edge_table = {.K = edge_table_.F.size(),
-                                                  .F = edge_table_.F.data(),
-                                                  .A = edge_table_.A.data()};
-    return device_edge_table;
-  }
-
-  kernel_ptrs<real_t> get_device_ptrs() {
-    kernel_ptrs<real_t> device_ptrs = {.rng = rng_state_.data(),
-                                       .Y = Y_.data(),
-                                       .I = I_.data(),
-                                       .J = J_.data(),
-                                       .Eq = Eq_.data(),
-                                       .qsum = qsum_.data(),
-                                       .qcount = qcount_.data(),
-                                       .nn = nn_,
-                                       .ne = ne_,
-                                       .nsq = nsq_,
-                                       .n_workers = n_workers_};
-    return device_ptrs;
-  }
-
-  std::vector<real_t> get_embedding_result() {
-    std::vector<real_t> Y_host(Y_.size());
-    Y_.get_array(Y_host);
-    return Y_host;
-  }
-
-  void update_Eq(cuda_stream& stream, real_t eta, uint64_t iter, uint64_t maxIter) {
-    cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
-                           qsum_.data(), qsum_total_.data(), qsum_.size(), stream.stream());
-    cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
-                           qcount_tmp_storage_bytes_, qcount_.data(),
-                           qcount_total_.data(), qcount_.size(), stream.stream());
-
-    real_t Eq = Eq_.get_value_async(stream.stream());
-    real_t qsum_total = qsum_total_.get_value_async(stream.stream());
-    uint64_t qcount_total = qcount_total_.get_value_async(stream.stream());
-
-    hostFnData_.Eq = &Eq;
-    hostFnData_.qsum = &qsum_total;
-    hostFnData_.qcount = &qcount_total;
-    hostFnData_.eta = &eta;
-    hostFnData_.iter = &iter;
-    hostFnData_.maxIter = &maxIter;
-
-    CUDA_CALL(cudaLaunchHostFunc(stream.stream(), hostFn_, &hostFnData_));
-    Eq_.set_value_async(*(hostFnData_.Eq), stream.stream());
-  }
-
-private:
-  template <typename T>
-  discrete_table_device<real_t> set_device_table(const std::vector<T>& probs) {
-    discrete_table<real_t, T> table(probs);
-    discrete_table_device<real_t> dev_table = { .F = table.F_table(),
-                                         .A = table.A_table() };
-    return dev_table;
-  }
-
-  // delete move and copy to avoid accidentally using them
-  SCEDeviceMemory(const SCEDeviceMemory &) = delete;
-  SCEDeviceMemory(SCEDeviceMemory &&) = delete;
-
-  int n_workers_;
-  uint64_t nn_;
-  uint64_t ne_;
-  real_t nsq_;
-  callBackData_t<real_t> hostFnData_;
-  cudaHostFn_t hostFn_;
-
-  // Uniform draw tables
-  device_array<uint32_t> rng_state_;
-  discrete_table_device<real_t> node_table_;
-  discrete_table_device<real_t> edge_table_;
-
-  // Embedding
-  device_array<real_t> Y_;
-  // Sparse distance indexes
-  device_array<uint64_t> I_;
-  device_array<uint64_t> J_;
-
-  // Algorithm progress
-  device_value<real_t> Eq_;
-  device_array<real_t> qsum_;
-  device_value<real_t> qsum_total_;
-  device_array<uint64_t> qcount_;
-  device_value<uint64_t> qcount_total_;
-
-  // cub space
-  size_t qsum_tmp_storage_bytes_;
-  size_t qcount_tmp_storage_bytes_;
-  device_array<void> qsum_tmp_storage_;
-  device_array<void> qcount_tmp_storage_;
-};
-
-/****************************
  * Kernels                  *
  ****************************/
 
@@ -294,6 +121,226 @@ KERNEL void wtsneUpdateYKernel(
 }
 
 /****************************
+ * Classes                  *
+ ****************************/
+template <typename real_t> struct kernel_ptrs {
+  uint32_t *rng;
+  real_t *Y;
+  uint64_t *I;
+  uint64_t *J;
+  real_t *Eq;
+  real_t *qsum;
+  uint64_t *qcount;
+  uint64_t nn;
+  uint64_t ne;
+  real_t nsq;
+  int n_workers;
+};
+
+template <typename real_t> struct callBackData_t {
+  real_t *Eq;
+  real_t *nsq;
+  real_t *qsum;
+  uint64_t *qcount;
+  real_t *eta;
+  uint64_t *iter;
+  uint64_t *maxIter;
+};
+
+// Callback, which is a CUDA host function that updates the progress meter
+// and calculates Eq
+template <typename real_t>
+void CUDART_CB Eq_callback(void *data) {
+  callBackData_t<real_t> *tmp = (callBackData_t<real_t> *)(data);
+  real_t* Eq = tmp->Eq;
+  real_t* nsq = tmp->nsq;
+  real_t* qsum = tmp->qsum;
+  uint64_t* qcount = tmp->qcount;
+  *Eq = (*Eq * *nsq + *qsum) / (*nsq + *qcount);
+
+  real_t* eta = tmp->eta;
+  uint64_t* iter = tmp->iter;
+  uint64_t* maxIter = tmp->maxIter;
+  update_progress(*iter, *maxIter, *eta, *Eq);
+}
+
+// This is the class that does all the work
+template <typename real_t> class SCEDeviceMemory {
+public:
+  SCEDeviceMemory(const std::vector<real_t> &Y, const std::vector<uint64_t> &I,
+                  const std::vector<uint64_t> &J, const std::vector<double> &P,
+                  const std::vector<real_t> &weights, int n_workers,
+                  const int device_id, const unsigned int seed)
+      : n_workers_(n_workers), nn_(weights.size()),
+        ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
+        hostFn_(Eq_callback<real_t>),
+        rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), I_(I),
+        J_(J), Eq_(1.0), qsum_(n_workers), qsum_total_(0.0),
+        qcount_(n_workers), qcount_total_(0) {
+    // Initialise CUDA
+    CUDA_CALL(cudaSetDevice(device_id));
+
+    // Initialise tmp space for reductions on qsum and qcount
+    cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
+                           qsum_.data(), qsum_total_.data(), qsum_.size());
+    qsum_tmp_storage_.set_size(qsum_tmp_storage_bytes_);
+    cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
+                           qcount_tmp_storage_bytes_, qcount_.data(),
+                           qcount_total_.data(), qcount_.size());
+    qcount_tmp_storage_.set_size(qcount_tmp_storage_bytes_);
+
+    // Set up discrete RNG tables
+    node_table_ = set_device_table(weights);
+    edge_table_ = set_device_table(P);
+  }
+
+  void runSCE(const uint64_t maxIter, const int block_size,
+      const int n_workers, const uint64_t nRepuSamp, const real_t eta0,
+      const bool bInit) {
+    uint64_t iter = 0;
+    real_t eta = eta0;
+    real_t attrCoef = bInit ? 8 : 2;
+    kernel_ptrs<real_t> device_ptrs = embedding.get_device_ptrs();
+
+    // Set up a single iteration on a CUDA graph
+    const size_t block_count = (n_workers_ + block_size - 1) / block_size;
+    cuda_graph graph;
+    cuda_stream capture_stream, graph_stream;
+
+    // SCE updates kernel with workers, then updates Eq
+    // Start capture
+    capture_stream.capture_start();
+    wtsneUpdateYKernel<real_t><<<block_count, block_size, 0, capture_stream.stream()>>>(
+        device_ptrs.rng, embedding.get_node_table(),
+        embedding.get_edge_table(), device_ptrs.Y, device_ptrs.I, device_ptrs.J,
+        device_ptrs.Eq, device_ptrs.qsum, device_ptrs.qcount, device_ptrs.nn,
+        device_ptrs.ne, eta, nRepuSamp, device_ptrs.nsq, attrCoef, device_ptrs.n_workers);
+
+    cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
+                           qsum_.data(), qsum_total_.data(), qsum_.size(), capture_stream.stream());
+    cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
+                           qcount_tmp_storage_bytes_, qcount_.data(),
+                           qcount_total_.data(), qcount_.size(), capture_stream.stream());
+    real_t Eq = Eq_.get_value_async(capture_stream.stream());
+    real_t qsum_total = qsum_total_.get_value_async(capture_stream.stream());
+    uint64_t qcount_total = qcount_total_.get_value_async(capture_stream.stream());
+
+    hostFnData_.Eq = &Eq;
+    hostFnData_.nsq = &nsq_;
+    hostFnData_.qsum = &qsum_total;
+    hostFnData_.qcount = &qcount_total;
+    hostFnData_.eta = &eta;
+    hostFnData_.iter = &iter;
+    hostFnData_.maxIter = &maxIter;
+
+    CUDA_CALL(cudaLaunchHostFunc(stream.stream(), hostFn_, &hostFnData_));
+    Eq_.set_value_async(*(hostFnData_.Eq), stream.stream());
+
+    capture_stream.capture_end(graph.graph());
+    // End capture
+
+    size_t n_nodes = 1;
+    cudaGraphNode_t* nodes;
+    cudaKernelNodeParams* pNodeParams;
+    CUDA_CALL(cudaGraphGetNodes(graph.graph(), nodes, &n_nodes));
+    CUDA_CALL(cudaGraphKernelNodeGetParams(nodes[0], pNodeParams));
+
+    // Main SCE loop - run captured graph
+    for (iter = 0; iter < maxIter; iter++) {
+      eta = eta0 * (1 - static_cast<real_t>(iter) / (maxIter - 1));
+      eta = MAX(eta, eta0 * 1e-4);
+      attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
+      pNodeParams->kernelParams[11] = eta;
+      pNodeParams->kernelParams[14] = attrCoef;
+      CUDA_CALL(cudaGraphExecKernelNodeSetParams(graph.graph_instance(), nodes[0], pNodeParams));
+      graph.launch(graph_stream.stream());
+    }
+
+    graph_stream.sync();
+    std::cerr << std::endl << "Optimizing done" << std::endl;
+  }
+
+  std::vector<real_t> get_embedding_result() {
+    std::vector<real_t> Y_host(Y_.size());
+    Y_.get_array(Y_host);
+    return Y_host;
+  }
+
+private:
+  template <typename T>
+  discrete_table_device<real_t> set_device_table(const std::vector<T>& probs) {
+    discrete_table<real_t, T> table(probs);
+    discrete_table_device<real_t> dev_table = { .F = table.F_table(),
+                                         .A = table.A_table() };
+    return dev_table;
+  }
+
+  discrete_table_ptrs<real_t> get_node_table() {
+    discrete_table_ptrs<real_t> device_node_table = {.K = node_table_.F.size(),
+                                                  .F = node_table_.F.data(),
+                                                  .A = node_table_.A.data()};
+    return device_node_table;
+  }
+
+  discrete_table_ptrs<real_t> get_edge_table() {
+    discrete_table_ptrs<real_t> device_edge_table = {.K = edge_table_.F.size(),
+                                                  .F = edge_table_.F.data(),
+                                                  .A = edge_table_.A.data()};
+    return device_edge_table;
+  }
+
+  kernel_ptrs<real_t> get_device_ptrs() {
+    kernel_ptrs<real_t> device_ptrs = {.rng = rng_state_.data(),
+                                       .Y = Y_.data(),
+                                       .I = I_.data(),
+                                       .J = J_.data(),
+                                       .Eq = Eq_.data(),
+                                       .qsum = qsum_.data(),
+                                       .qcount = qcount_.data(),
+                                       .nn = nn_,
+                                       .ne = ne_,
+                                       .nsq = nsq_,
+                                       .n_workers = n_workers_};
+    return device_ptrs;
+  }
+
+  // delete move and copy to avoid accidentally using them
+  SCEDeviceMemory(const SCEDeviceMemory &) = delete;
+  SCEDeviceMemory(SCEDeviceMemory &&) = delete;
+
+  int n_workers_;
+  uint64_t nn_;
+  uint64_t ne_;
+  real_t nsq_;
+  callBackData_t<real_t> hostFnData_;
+  cudaHostFn_t hostFn_;
+
+  // Uniform draw tables
+  device_array<uint32_t> rng_state_;
+  discrete_table_device<real_t> node_table_;
+  discrete_table_device<real_t> edge_table_;
+
+  // Embedding
+  device_array<real_t> Y_;
+  // Sparse distance indexes
+  device_array<uint64_t> I_;
+  device_array<uint64_t> J_;
+
+  // Algorithm progress
+  device_value<real_t> Eq_;
+  device_array<real_t> qsum_;
+  device_value<real_t> qsum_total_;
+  device_array<uint64_t> qcount_;
+  device_value<uint64_t> qcount_total_;
+
+  // cub space
+  size_t qsum_tmp_storage_bytes_;
+  size_t qcount_tmp_storage_bytes_;
+  device_array<void> qsum_tmp_storage_;
+  device_array<void> qcount_tmp_storage_;
+};
+
+/****************************
  * Main control function     *
  ****************************/
 // These two templates are explicitly instantiated here as the instantiation
@@ -324,38 +371,8 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   std::tie(Y, P) =
       wtsne_init<real_t>(I, J, dists, weights, perplexity, cpu_threads, seed);
 
-  // Initialise CUDA
-  CUDA_CALL(cudaSetDevice(device_id));
-
   // This class sets up and manages all of the memory
-  SCEDeviceMemory<real_t> embedding(Y, I, J, P, weights, n_workers, seed);
-  kernel_ptrs<real_t> device_ptrs = embedding.get_device_ptrs();
-
-  // Main SCE loop
-  const size_t block_count = (n_workers + block_size - 1) / block_size;
-  cuda_graph graph;
-  cuda_stream capture_stream, graph_stream;
-  capture_stream.capture_start();
-
-  uint64_t iter = 0;
-  real_t eta = eta0;
-  real_t attrCoef = bInit ? 8 : 2;
-  wtsneUpdateYKernel<real_t><<<block_count, block_size, 0, capture_stream.stream()>>>(
-      device_ptrs.rng, embedding.get_node_table(),
-      embedding.get_edge_table(), device_ptrs.Y, device_ptrs.I, device_ptrs.J,
-      device_ptrs.Eq, device_ptrs.qsum, device_ptrs.qcount, device_ptrs.nn,
-      device_ptrs.ne, eta, nRepuSamp, device_ptrs.nsq, attrCoef, device_ptrs.n_workers);
-  embedding.update_Eq(capture_stream, eta, iter, maxIter);
-  capture_stream.capture_end(graph.graph());
-
-  for (iter = 0; iter < maxIter; iter++) {
-    real_t eta = eta0 * (1 - static_cast<real_t>(iter) / (maxIter - 1));
-    eta = MAX(eta, eta0 * 1e-4);
-    real_t attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
-    graph.launch(graph_stream.stream());
-  }
-  graph_stream.sync();
-  std::cerr << std::endl << "Optimizing done" << std::endl;
-
+  SCEDeviceMemory<real_t> embedding(Y, I, J, P, weights, n_workers, device_id, seed);
+  embedding.runSCE(maxIter, block_size, n_workers, nRepuSamp, eta0, bInit);
   return embedding.get_embedding_result();
 }

@@ -21,6 +21,10 @@ public:
     return graph_;
   }
 
+  cudaGraphExec_t& graph_instance() {
+    return graph_instance_;
+  }
+
   void launch(cudaStream_t stream) {
     if (graph_instance_ == nullptr) {
       CUDA_CALL(cudaGraphInstantiate(&graph_instance_, graph_, NULL, NULL, 0));

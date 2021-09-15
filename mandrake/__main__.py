@@ -79,7 +79,8 @@ def main():
     args = get_options()
 
     # Set n_workers to a sensible default
-    if args.n_workers < args.cpus or (args.use_gpu and args.n_workers < args.blockSize):
+    if (not args.use_gpu and args.n_workers < args.cpus)\
+       or (args.use_gpu and args.n_workers < args.blockSize):
         sys.stderr.write("Number of workers less than number of available threads, "
                          "increasing n_workers automatically\n")
         if args.use_gpu:
