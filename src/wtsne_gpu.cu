@@ -34,7 +34,7 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
                                uint64_t nn, uint64_t ne, real_t eta0,
                                uint64_t nRepuSamp, real_t nsq, bool bInit,
                                uint64_t *iter, uint64_t maxIter, int n_workers,
-                               uint64_t *clash_cnt) {
+                               unsigned long long int *clash_cnt) {
   // Worker index based on CUDA launch parameters
   int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -117,7 +117,7 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
             Y[d + ll] = Yl_read[d];
           }
           __threadfence();
-          atomicAdd(clash_cnt, UINT64_C(1));
+          atomicAdd(clash_cnt, 1ULL);
           r--;
         }
       }
@@ -154,7 +154,7 @@ template <typename real_t> struct callBackData_t {
   real_t *qsum;
   uint64_t *qcount;
   real_t *eta0;
-  uint64_t *n_clashes;
+  unsigned long long int *n_clashes;
   uint64_t *iter;
   uint64_t *maxIter;
 };
@@ -175,7 +175,7 @@ template <typename real_t> void CUDART_CB Eq_callback(void *data) {
   real_t eta = *eta0 * (1 - static_cast<real_t>(*iter) / (*maxIter - 1));
   eta = MAX(eta, *eta0 * 1e-4);
 
-  uint64_t *n_clashes = tmp->n_clashes;
+  unsigned long long int *n_clashes = tmp->n_clashes;
   update_progress(*iter, *maxIter, eta, *Eq, *n_clashes);
 }
 
@@ -224,7 +224,7 @@ public:
     uint64_t iter_h = 0;
     device_value<uint64_t> iter_d(iter_h);
     uint64_t n_clashes_h = 0;
-    device_value<uint64_t> n_clashes_d(n_clashes_h);
+    device_value<unsigned long long int> n_clashes_d(n_clashes_h);
     kernel_ptrs<real_t> device_ptrs = get_device_ptrs();
 
     // Set up a single iteration on a CUDA graph
@@ -285,8 +285,6 @@ public:
     }
     graph_stream.sync();
     std::cerr << std::endl << "Optimizing done" << std::endl;
-    std::cerr << "Number of clashes between workers: " << n_clashes_d.get_value()
-              << std::endl;
   }
 
   // Copy result back to host

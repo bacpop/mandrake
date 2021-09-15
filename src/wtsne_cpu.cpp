@@ -31,7 +31,7 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   // SNE algorithm
   const double nsq = nn * (nn - 1);
   double Eq = 1.0;
-  uint64_t n_clashes = 0;
+  unsigned long long int n_clashes = 0;
   for (uint64_t iter = 0; iter < maxIter; iter++) {
     double eta = eta0 * (1 - (double)iter / maxIter);
     eta = MAX(eta, eta0 * 1e-4);
