@@ -26,13 +26,15 @@
 
 // Updates the embedding
 template <typename real_t>
-KERNEL void wtsneUpdateYKernel(
-    uint32_t *rng_state, const discrete_table_ptrs<real_t> node_table,
-    const discrete_table_ptrs<real_t> edge_table, volatile real_t *Y,
-    uint64_t *I, uint64_t *J, real_t *Eq, real_t *qsum, uint64_t *qcount,
-    uint64_t nn, uint64_t ne, real_t eta0, uint64_t nRepuSamp, real_t nsq,
-    bool bInit, uint64_t *iter, uint64_t maxIter, int n_workers,
-    unsigned int *clash_cnt) {
+KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
+                               const discrete_table_ptrs<real_t> node_table,
+                               const discrete_table_ptrs<real_t> edge_table,
+                               volatile real_t *Y, uint64_t *I, uint64_t *J,
+                               real_t *Eq, real_t *qsum, uint64_t *qcount,
+                               uint64_t nn, uint64_t ne, real_t eta0,
+                               uint64_t nRepuSamp, real_t nsq, bool bInit,
+                               uint64_t *iter, uint64_t maxIter, int n_workers,
+                               uint64_t *clash_cnt) {
   // Worker index based on CUDA launch parameters
   int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -115,7 +117,7 @@ KERNEL void wtsneUpdateYKernel(
             Y[d + ll] = Yl_read[d];
           }
           __threadfence();
-          atomicInc(clash_cnt, UINT32_MAX);
+          atomicAdd(clash_cnt, 1);
           r--;
         }
       }
@@ -152,6 +154,7 @@ template <typename real_t> struct callBackData_t {
   real_t *qsum;
   uint64_t *qcount;
   real_t *eta0;
+  uint64_t *n_clashes;
   uint64_t *iter;
   uint64_t *maxIter;
 };
@@ -172,7 +175,8 @@ template <typename real_t> void CUDART_CB Eq_callback(void *data) {
   real_t eta = *eta0 * (1 - static_cast<real_t>(*iter) / (*maxIter - 1));
   eta = MAX(eta, *eta0 * 1e-4);
 
-  update_progress(*iter, *maxIter, eta, *Eq);
+  real_t *n_clashes = tmp->n_clashes;
+  update_progress(*iter, *maxIter, eta, *Eq, *n_clashes);
 }
 
 // This is the class that does all the work
@@ -219,7 +223,8 @@ public:
                const uint64_t nRepuSamp, real_t eta0, const bool bInit) {
     uint64_t iter_h = 0;
     device_value<uint64_t> iter_d(iter_h);
-    device_value<unsigned int> n_clashes(0);
+    uint64_t n_clashes_h = 0;
+    device_value<uint64_t> n_clashes_d(n_clashes_h);
     kernel_ptrs<real_t> device_ptrs = get_device_ptrs();
 
     // Set up a single iteration on a CUDA graph
@@ -233,12 +238,14 @@ public:
     progress_callback_params_.qsum = &qsum_total_host_;
     progress_callback_params_.qcount = &qcount_total_host_;
     progress_callback_params_.eta0 = &eta0;
+    progress_callback_params_.n_clashes = &n_clashes_h;
     progress_callback_params_.iter = &iter_h;
     progress_callback_params_.maxIter = &maxIter;
 
     // SCE updates kernel with workers, then updates Eq
     // Start capture
     capture_stream.capture_start();
+    iter_d.set_value_async(&iter_h, capture_stream.stream());
     wtsneUpdateYKernel<real_t>
         <<<block_count, block_size, 0, capture_stream.stream()>>>(
             device_ptrs.rng, get_node_table(), get_edge_table(), device_ptrs.Y,
@@ -257,11 +264,11 @@ public:
                                        capture_stream.stream());
     qcount_total_device_.get_value_async(&qcount_total_host_,
                                          capture_stream.stream());
+    n_clashes_d.get_value_async(&n_clashes_h, capture_stream.stream());
 
     capture_stream.add_host_fn(progress_callback_fn_,
                                (void *)&progress_callback_params_);
     Eq_device_.set_value_async(&Eq_host_, capture_stream.stream());
-    iter_d.set_value_async(&iter_h, capture_stream.stream());
 
     capture_stream.capture_end(graph.graph());
     // End capture
@@ -278,7 +285,8 @@ public:
     }
     graph_stream.sync();
     std::cerr << std::endl << "Optimizing done" << std::endl;
-    std::cerr << "Number of clashes between workers: " << n_clashes.get_value() << std::endl;
+    std::cerr << "Number of clashes between workers: " << n_clashes.get_value()
+              << std::endl;
   }
 
   // Copy result back to host

@@ -31,6 +31,7 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   // SNE algorithm
   const double nsq = nn * (nn - 1);
   double Eq = 1.0;
+  uint64_t n_clashes = 0;
   for (uint64_t iter = 0; iter < maxIter; iter++) {
     double eta = eta0 * (1 - (double)iter / maxIter);
     eta = MAX(eta, eta0 * 1e-4);
@@ -109,12 +110,14 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
 #pragma omp atomic write
             Y[d + ll] = Yl_read[d];
           }
+#pragma omp atomic update
+          n_clashes++;
           r--;
         }
       }
     }
     Eq = (Eq * nsq + qsum) / (nsq + qcount);
-    update_progress(iter, maxIter, eta, Eq);
+    update_progress(iter, maxIter, eta, Eq, n_clashes);
   }
   std::cerr << std::endl << "Optimizing done" << std::endl;
 
