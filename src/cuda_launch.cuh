@@ -21,10 +21,6 @@ public:
     return graph_;
   }
 
-  cudaGraphExec_t& graph_instance() {
-    return graph_instance_;
-  }
-
   void launch(cudaStream_t stream) {
     if (graph_instance_ == nullptr) {
       CUDA_CALL(cudaGraphInstantiate(&graph_instance_, graph_, NULL, NULL, 0));
@@ -63,6 +59,10 @@ public:
 
   void capture_end(cudaGraph_t& graph) {
     cudaStreamEndCapture(stream_, &graph);
+  }
+
+  void add_host_fn(cudaHostFn_t fn, void* hostData) {
+    CUDA_CALL(cudaLaunchHostFunc(stream_, fn, hostData));
   }
 
   void sync() {

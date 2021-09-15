@@ -174,11 +174,11 @@ public:
                   const int device_id, const unsigned int seed)
       : n_workers_(n_workers), nn_(weights.size()),
         ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
-        hostFn_(Eq_callback<real_t>),
+        progress_callback_fn_(Eq_callback<real_t>),
         rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), I_(I),
         J_(J), Eq_host_(1.0), Eq_device_(1.0),
         qsum_(n_workers), qsum_total_host_(0.0), qsum_total_device_(0.0),
-        qcount_(n_workers), qcount_total_host_(0), qcount_total_host_(0) {
+        qcount_(n_workers), qcount_total_host_(0), qcount_total_device_(0) {
     // Initialise CUDA
     CUDA_CALL(cudaSetDevice(device_id));
 
@@ -210,35 +210,33 @@ public:
     cuda_stream capture_stream, graph_stream;
 
     // Set up pointers used for kernel parameters in graph
-    hostFnData_.Eq = &Eq_host_;
-    hostFnData_.nsq = &nsq_;
-    hostFnData_.qsum = &qsum_total_host_;
-    hostFnData_.qcount = &qcount_total_host_;
-    hostFnData_.eta = &eta;
-    hostFnData_.attrCoef = &attrCoef;
-    hostFnData_.iter = &iter;
-    hostFnData_.maxIter = &maxIter;
+    progress_callback_params_.Eq = &Eq_host_;
+    progress_callback_params_.nsq = &nsq_;
+    progress_callback_params_.qsum = &qsum_total_host_;
+    progress_callback_params_.qcount = &qcount_total_host_;
+    progress_callback_params_.eta = &eta;
+    progress_callback_params_.attrCoef = &attrCoef;
+    progress_callback_params_.iter = &iter;
+    progress_callback_params_.maxIter = &maxIter;
 
     // SCE updates kernel with workers, then updates Eq
     // Start capture
     capture_stream.capture_start();
     wtsneUpdateYKernel<real_t><<<block_count, block_size, 0, capture_stream.stream()>>>(
-        device_ptrs.rng, embedding.get_node_table(),
-        embedding.get_edge_table(), device_ptrs.Y, device_ptrs.I, device_ptrs.J,
+        device_ptrs.rng, get_node_table(), get_edge_table(), device_ptrs.Y, device_ptrs.I, device_ptrs.J,
         device_ptrs.Eq, device_ptrs.qsum, device_ptrs.qcount, device_ptrs.nn,
-        device_ptrs.ne, hostFnData_.eta, nRepuSamp, device_ptrs.nsq, hostFnData_.attrCoef, device_ptrs.n_workers);
+        device_ptrs.ne, progress_callback_params_.eta, nRepuSamp, device_ptrs.nsq, progress_callback_params_.attrCoef, device_ptrs.n_workers);
 
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
                            qsum_.data(), qsum_total_device_.data(), qsum_.size(), capture_stream.stream());
     cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
                            qcount_tmp_storage_bytes_, qcount_.data(),
                            qcount_total_device_.data(), qcount_.size(), capture_stream.stream());
-    Eq_host_ = Eq_device_.get_value_async(capture_stream.stream());
-    qsum_total_host_ = qsum_total_device_.get_value_async(capture_stream.stream());
-    qcount_total_host_ = qcount_total_device_.get_value_async(capture_stream.stream());
+    qsum_total_device_.get_value_async(&qsum_total_host_, capture_stream.stream());
+    qcount_total_device_.get_value_async(&qcount_total_host_, capture_stream.stream());
 
-    CUDA_CALL(cudaLaunchHostFunc(stream.stream(), hostFn_, &hostFnData_));
-    Eq_device_.set_value_async(*(hostFnData_.Eq), capture_stream.stream());
+    capture_stream.add_host_fn(progress_callback_fn_, (void*)&progress_callback_params_);
+    Eq_device_.set_value_async(hostFnData_.Eq, capture_stream.stream());
 
     capture_stream.capture_end(graph.graph());
     // End capture
@@ -307,8 +305,9 @@ private:
   uint64_t nn_;
   uint64_t ne_;
   real_t nsq_;
-  callBackData_t<real_t> hostFnData_;
-  cudaHostFn_t hostFn_;
+
+  cudaHostFn_t progress_callback_fn_;
+  callBackData_t<real_t> progress_callback_params_;
 
   // Uniform draw tables
   device_array<uint32_t> rng_state_;
