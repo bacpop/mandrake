@@ -254,7 +254,7 @@ public:
     // using pointers to device memory, and two iter counters.
     // The alternative would be to use cudaGraphExecKernelNodeSetParams to
     // change the kernel launch parameters. See 0c369b209ef69d91016bedd41ea8d0775879f153
-    for (iter_h = 0; iter_h < maxIter; ++iter) {
+    for (iter_h = 0; iter_h < maxIter; ++iter_h) {
       graph.launch(graph_stream.stream());
     }
     graph_stream.sync();
