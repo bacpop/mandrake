@@ -117,7 +117,7 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
             Y[d + ll] = Yl_read[d];
           }
           __threadfence();
-          atomicAdd(clash_cnt, 1ULL);
+          atomicAdd(clash_cnt, UINT64_C(1));
           r--;
         }
       }
@@ -285,7 +285,7 @@ public:
     }
     graph_stream.sync();
     std::cerr << std::endl << "Optimizing done" << std::endl;
-    std::cerr << "Number of clashes between workers: " << n_clashes.get_value()
+    std::cerr << "Number of clashes between workers: " << n_clashes_d.get_value()
               << std::endl;
   }
 
