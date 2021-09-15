@@ -42,12 +42,12 @@ const double PERPLEXITY_TOLERANCE = 1e-5;
 // Get indices where each row starts in the sparse matrix
 // NB this won't work if any rows are missing
 inline std::vector<uint64_t> row_start_indices(const std::vector<uint64_t> &I,
-                                               const size_t n_samples) {
+                                               const uint64_t n_samples) {
   std::vector<uint64_t> row_start_idx(n_samples + 1);
   uint64_t i_idx = 0;
   row_start_idx[0] = 0;
   row_start_idx[n_samples] = I.size();
-  for (long i = 1; i < n_samples; ++i) {
+  for (uint64_t i = 1; i < n_samples; ++i) {
     while (I[i_idx] < i) {
       i_idx++;
     }
@@ -166,7 +166,7 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   rng_state.long_jump(); // Independent RNG from SCE algorithm
   std::vector<real_t> Y(nn * DIM);
 #pragma omp parallel for schedule(static) num_threads(n_threads)
-  for (int coor = 0; coor < nn * DIM; ++coor) {
+  for (uint64_t coor = 0; coor < nn * DIM; ++coor) {
 #ifdef _OPENMP
     const int thread_idx = omp_get_thread_num();
 #else
@@ -180,7 +180,7 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
 }
 
 template <typename real_t>
-inline void update_progress(const long long iter, const uint64_t maxIter,
+inline void update_progress(const uint64_t iter, const uint64_t maxIter,
                             const real_t eta, const real_t Eq) {
   if (iter % MAX(1, maxIter / 1000) == 0 || iter == maxIter - 1) {
     // Check for keyboard interrupt from python

@@ -52,8 +52,8 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       uint64_t i = I[e];
       uint64_t j = J[e];
 
-      for (int r = 0; r < nRepuSamp + 1; r++) {
-        long long k, l;
+      for (uint64_t r = 0; r < nRepuSamp + 1; r++) {
+        uint64_t k, l;
         if (r == 0) {
           k = i;
           l = j;
