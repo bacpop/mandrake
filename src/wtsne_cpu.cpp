@@ -10,14 +10,12 @@
 
 #include "wtsne.hpp"
 
-std::vector<double> wtsne(const std::vector<uint64_t> &I,
-                          const std::vector<uint64_t> &J,
-                          std::vector<double> &dists,
-                          std::vector<double> &weights, const double perplexity,
-                          const uint64_t maxIter, const uint64_t nRepuSamp,
-                          const double eta0, const bool bInit,
-                          const int n_workers,
-                          const int n_threads, const unsigned int seed) {
+std::vector<double>
+wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
+      std::vector<double> &dists, std::vector<double> &weights,
+      const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
+      const double eta0, const bool bInit, const int n_workers,
+      const int n_threads, const unsigned int seed) {
   // Check input
   std::vector<double> Y, P;
   std::tie(Y, P) =
@@ -49,7 +47,7 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
       std::vector<double> Yk_read(DIM);
       std::vector<double> Yl_read(DIM);
 
-      rng_state_t<double>& worker_rng = rng_state.state(worker);
+      rng_state_t<double> &worker_rng = rng_state.state(worker);
       uint64_t e = edge_table.discrete_draw(worker_rng) % ne;
       uint64_t i = I[e];
       uint64_t j = J[e];
@@ -94,7 +92,8 @@ std::vector<double> wtsne(const std::vector<uint64_t> &I,
           Yk_read_end = Y[d + lk] += gain;
 #pragma omp atomic capture
           Yl_read_end = Y[d + ll] -= gain;
-          if (Yk_read_end != Yk_read[d] + gain || Yl_read_end != Yl_read[d] - gain) {
+          if (Yk_read_end != Yk_read[d] + gain ||
+              Yl_read_end != Yl_read[d] - gain) {
             overwrite = true;
             break;
           }

@@ -17,9 +17,7 @@ public:
     }
   }
 
-  cudaGraph_t& graph() {
-    return graph_;
-  }
+  cudaGraph_t &graph() { return graph_; }
 
   void launch(cudaStream_t stream) {
     if (graph_instance_ == nullptr) {
@@ -30,8 +28,8 @@ public:
 
 private:
   // Delete copy and move
-  cuda_graph ( const cuda_graph & ) = delete;
-  cuda_graph ( cuda_graph && ) = delete;
+  cuda_graph(const cuda_graph &) = delete;
+  cuda_graph(cuda_graph &&) = delete;
 
   cudaGraph_t graph_;
   cudaGraphExec_t graph_instance_;
@@ -39,9 +37,7 @@ private:
 
 class cuda_stream {
 public:
-  cuda_stream() {
-    CUDA_CALL(cudaStreamCreate(&stream_));
-  }
+  cuda_stream() { CUDA_CALL(cudaStreamCreate(&stream_)); }
 
   ~cuda_stream() {
     if (stream_ != nullptr) {
@@ -49,30 +45,26 @@ public:
     }
   }
 
-  cudaStream_t stream() {
-    return stream_;
-  }
+  cudaStream_t stream() { return stream_; }
 
   void capture_start() {
     CUDA_CALL(cudaStreamBeginCapture(stream_, cudaStreamCaptureModeGlobal));
   }
 
-  void capture_end(cudaGraph_t& graph) {
+  void capture_end(cudaGraph_t &graph) {
     cudaStreamEndCapture(stream_, &graph);
   }
 
-  void add_host_fn(cudaHostFn_t fn, void* hostData) {
+  void add_host_fn(cudaHostFn_t fn, void *hostData) {
     CUDA_CALL(cudaLaunchHostFunc(stream_, fn, hostData));
   }
 
-  void sync() {
-    CUDA_CALL(cudaStreamSynchronize(stream_));
-  }
+  void sync() { CUDA_CALL(cudaStreamSynchronize(stream_)); }
 
 private:
   // Delete copy and move
-  cuda_stream ( const cuda_stream & ) = delete;
-  cuda_stream ( cuda_stream && ) = delete;
+  cuda_stream(const cuda_stream &) = delete;
+  cuda_stream(cuda_stream &&) = delete;
 
   cudaStream_t stream_;
 };

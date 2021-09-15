@@ -3,8 +3,8 @@
 #include <stack>
 #include <stdexcept>
 
-#include "vector_norm.hpp"
 #include "rng.hpp"
+#include "vector_norm.hpp"
 
 #ifdef __NVCC__
 template <typename real_t> struct discrete_table_ptrs {
@@ -29,16 +29,16 @@ public:
     normalise_vector(probs, true, n_threads);
 
     /* This code is based on randist/discrete.c from the GSL library
-    *
-    * Implements an O(N) version of Walker's algorithm to set lookup
-    * tables A and F. These are then O(1) to draw from
-    *
-    * Based on: Alastair J Walker, An efficient method for generating
-    * discrete random variables with general distributions, ACM Trans
-    * Math Soft 3, 253-256 (1977).  See also: D. E. Knuth, The Art of
-    * Computer Programming, Volume 2 (Seminumerical algorithms), 3rd
-    * edition, Addison-Wesley (1997), p120.
-    */
+     *
+     * Implements an O(N) version of Walker's algorithm to set lookup
+     * tables A and F. These are then O(1) to draw from
+     *
+     * Based on: Alastair J Walker, An efficient method for generating
+     * discrete random variables with general distributions, ACM Trans
+     * Math Soft 3, 253-256 (1977).  See also: D. E. Knuth, The Art of
+     * Computer Programming, Volume 2 (Seminumerical algorithms), 3rd
+     * edition, Addison-Wesley (1997), p120.
+     */
 
     /* Now create the Bigs and the Smalls */
     std::stack<real_t> Bigs, Smalls;
@@ -101,10 +101,10 @@ public:
   }
 
   uint64_t size() const { return K; }
-  std::vector<real_t>& F_table() { return F; }
-  std::vector<uint64_t>& A_table() { return A; }
+  std::vector<real_t> &F_table() { return F; }
+  std::vector<uint64_t> &A_table() { return A; }
 
-  uint64_t discrete_draw(rng_state_t<real_t>& rng_state) {
+  uint64_t discrete_draw(rng_state_t<real_t> &rng_state) {
     real_t u = unif_rand<real_t>(rng_state);
     uint64_t c = u * K;
     real_t f = F[c];
@@ -126,8 +126,8 @@ private:
 
 #ifdef __NVCC__
 template <typename real_t>
-DEVICE uint64_t discrete_draw(rng_state_t<real_t>& rng_state,
-                            const discrete_table_ptrs<real_t> &unif_table) {
+DEVICE uint64_t discrete_draw(rng_state_t<real_t> &rng_state,
+                              const discrete_table_ptrs<real_t> &unif_table) {
   real_t u = unif_rand<real_t>(rng_state);
   uint64_t c = u * unif_table.K;
   real_t f = unif_table.F[c];

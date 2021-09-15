@@ -11,7 +11,8 @@ PYBIND11_MODULE(SCE, m) {
         "Run stochastic cluster embedding", py::arg("I_vec"), py::arg("J_vec"),
         py::arg("dist_vec"), py::arg("weights"), py::arg("perplexity"),
         py::arg("maxIter"), py::arg("nRepuSamp") = 5, py::arg("eta0") = 1,
-        py::arg("bInit") = 0, py::arg("n_workers") = 128, py::arg("n_threads") = 1, py::arg("seed") = 1);
+        py::arg("bInit") = 0, py::arg("n_workers") = 128,
+        py::arg("n_threads") = 1, py::arg("seed") = 1);
 
 #ifdef GPU_AVAILABLE
   // NOTE: python always uses fp64 so cannot easily template these (which
@@ -30,7 +31,8 @@ PYBIND11_MODULE(SCE, m) {
         py::arg("eta0") = 1, py::arg("bInit") = 0, py::arg("cpu_threads") = 1,
         py::arg("device_id") = 0, py::arg("seed") = 1);
   // Use fp32 for single precision (faster, less accurate)
-  m.def("wtsne_gpu_fp32", &wtsne_gpu<float>, py::return_value_policy::take_ownership,
+  m.def("wtsne_gpu_fp32", &wtsne_gpu<float>,
+        py::return_value_policy::take_ownership,
         "Run stochastic cluster embedding with CUDA", py::arg("I_vec"),
         py::arg("J_vec"), py::arg("dist_vec"), py::arg("weights"),
         py::arg("perplexity"), py::arg("maxIter"), py::arg("blockSize") = 128,

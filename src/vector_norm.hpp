@@ -8,7 +8,8 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 template <typename T>
-inline void normalise_vector(std::vector<T> &vec, const bool check_positive, const int n_threads) {
+inline void normalise_vector(std::vector<T> &vec, const bool check_positive,
+                             const int n_threads) {
   T sum = static_cast<T>(0.0);
   bool all_positive = true;
 #pragma omp parallel for schedule(static) reduction(+: sum) reduction(&: all_positive) num_threads(n_threads)

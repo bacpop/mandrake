@@ -16,13 +16,13 @@ static void HandleCUDAError(const char *file, int line,
       printf("%s(%i) An Unknown CUDA Error Occurred :(\n", file, line);
     }
     printf("%s(%i) CUDA Error Occurred;\n%s\n", file, line,
-    cudaGetErrorString(status));
+           cudaGetErrorString(status));
     throw std::runtime_error("CUDA error");
   }
 }
 
 #define CUDA_CALL(err) (HandleCUDAError(__FILE__, __LINE__, err))
-#define CUDA_CALL_NOTHROW( err ) (err)
+#define CUDA_CALL_NOTHROW(err) (err)
 
 #else
 #define DEVICE

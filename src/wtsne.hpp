@@ -165,14 +165,14 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   pRNG<real_t> rng_state(n_threads, std::vector<uint32_t>(1, seed));
   rng_state.long_jump(); // Independent RNG from SCE algorithm
   std::vector<real_t> Y(nn * DIM);
-  #pragma omp parallel for schedule(static) num_threads(n_threads)
+#pragma omp parallel for schedule(static) num_threads(n_threads)
   for (int coor = 0; coor < nn * DIM; ++coor) {
 #ifdef _OPENMP
     const int thread_idx = omp_get_thread_num();
 #else
     static const int thread_idx = 1;
 #endif
-    rng_state_t<real_t>& thread_rng_state = rng_state.state(thread_idx);
+    rng_state_t<real_t> &thread_rng_state = rng_state.state(thread_idx);
     Y[coor] = unif_rand(thread_rng_state) * static_cast<real_t>(1e-4);
   }
 
@@ -195,13 +195,12 @@ inline void update_progress(const long long iter, const uint64_t maxIter,
 
 // Function prototypes
 // in wtsne_cpu.cpp
-std::vector<double> wtsne(const std::vector<uint64_t> &I,
-                          const std::vector<uint64_t> &J,
-                          std::vector<double> &dists,
-                          std::vector<double> &weights, const double perplexity,
-                          const uint64_t maxIter, const uint64_t nRepuSamp,
-                          const double eta0, const bool bInit, const int n_workers,
-                          const int n_threads, const unsigned int seed);
+std::vector<double>
+wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
+      std::vector<double> &dists, std::vector<double> &weights,
+      const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
+      const double eta0, const bool bInit, const int n_workers,
+      const int n_threads, const unsigned int seed);
 // in wtsne_gpu.cu
 template <typename real_t>
 std::vector<real_t>
