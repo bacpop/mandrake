@@ -31,7 +31,8 @@ KERNEL void wtsneUpdateYKernel(
     const discrete_table_ptrs<real_t> edge_table, volatile real_t *Y,
     uint64_t *I, uint64_t *J, real_t *Eq, real_t *qsum, uint64_t *qcount,
     uint64_t nn, uint64_t ne, real_t eta0, uint64_t nRepuSamp, real_t nsq,
-    bool bInit, uint64_t *iter, uint64_t maxIter, int n_workers) {
+    bool bInit, uint64_t *iter, uint64_t maxIter, int n_workers,
+    const unsigned int *clash_cnt) {
   // Worker index based on CUDA launch parameters
   int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -114,6 +115,7 @@ KERNEL void wtsneUpdateYKernel(
             Y[d + ll] = Yl_read[d];
           }
           __threadfence();
+          atomicInc(clash_cnt, UINT32_MAX);
           r--;
         }
       }
@@ -217,6 +219,7 @@ public:
                const uint64_t nRepuSamp, real_t eta0, const bool bInit) {
     uint64_t iter_h = 0;
     device_value<uint64_t> iter_d(iter_h);
+    device_value<unsigned int> n_clashes(0);
     kernel_ptrs<real_t> device_ptrs = get_device_ptrs();
 
     // Set up a single iteration on a CUDA graph
@@ -242,7 +245,7 @@ public:
             device_ptrs.I, device_ptrs.J, device_ptrs.Eq, device_ptrs.qsum,
             device_ptrs.qcount, device_ptrs.nn, device_ptrs.ne, eta0, nRepuSamp,
             device_ptrs.nsq, bInit, iter_d.data(), maxIter,
-            device_ptrs.n_workers);
+            device_ptrs.n_workers, n_clashes.data());
 
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
                            qsum_.data(), qsum_total_device_.data(),
@@ -275,6 +278,7 @@ public:
     }
     graph_stream.sync();
     std::cerr << std::endl << "Optimizing done" << std::endl;
+    std::cerr << "Number of clashes between workers: " << n_clashes.get_value() << std::endl;
   }
 
   // Copy result back to host
