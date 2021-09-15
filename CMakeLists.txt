@@ -9,14 +9,19 @@ add_compile_definitions(PYTHON_EXT)
 
 IF(CMAKE_COMPILER_IS_GNUCC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
-    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
 ENDIF(CMAKE_COMPILER_IS_GNUCC)
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
+# Set these to profile
+# set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g")
+# set(CMAKE_CUDA_FLAGS_RELEASE "-O2")
+
 if(UNIX AND NOT APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS")
     set(CMAKE_LD_FLAGS "${CMAKE_LDFLAGS} -Wl,--as-needed")
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math -m64")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -ffast-math -m64")
 
 # Set paths for non standard lib/ and include/ locations
 if(DEFINED ENV{CONDA_PREFIX})
@@ -44,15 +49,16 @@ if(CMAKE_CUDA_COMPILER)
     else()
         string(APPEND CUDA_OPTS " --use_fast_math")
     endif()
+    # Set this to profile
+    # string(APPEND CUDA_OPTS " -pg --generate-line-info")
     set(CMAKE_CUDA_FLAGS "${CUDA_OPTS}")
-
 
     add_compile_definitions(GPU_AVAILABLE)
     add_library("${TARGET_NAME}_CUDA" OBJECT src/wtsne_gpu.cu)
     target_include_directories("${TARGET_NAME}_CUDA" PRIVATE "${pybind11_INCLUDE_DIRS}")
     set_property(TARGET "${TARGET_NAME}_CUDA"
                  PROPERTY POSITION_INDEPENDENT_CODE ON
-                 CUDA_SEPARABLE_COMPILATION ON
+                 CUDA_SEPARABLE_COMPILATION OFF
                  CUDA_RESOLVE_DEVICE_SYMBOLS ON   # try and ensure device link with nvcc
                  CUDA_VISIBILITY_PRESET "hidden")
 else()
@@ -70,7 +76,6 @@ if(UNIX AND (NOT APPLE OR NOT CMAKE_COMPILER_IS_GNUCC))
     set_target_properties("${TARGET_NAME}" PROPERTIES
                           INTERPROCEDURAL_OPTIMIZATION ON)
 endif()
-
 
 if(CMAKE_CUDA_COMPILER)
     target_link_libraries("${TARGET_NAME}" PRIVATE "${TARGET_NAME}_CUDA")
