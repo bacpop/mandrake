@@ -29,7 +29,7 @@ KERNEL void wtsneUpdateYKernel(
     uint32_t * rng_state, const discrete_table_ptrs<real_t> node_table,
     const discrete_table_ptrs<real_t> edge_table, volatile real_t *Y, uint64_t *I,
     uint64_t *J, real_t *Eq, real_t *qsum, uint64_t *qcount, uint64_t nn,
-    uint64_t ne, real_t eta, uint64_t nRepuSamp, real_t nsq, real_t attrCoef,
+    uint64_t ne, real_t *eta, uint64_t nRepuSamp, real_t nsq, real_t *attrCoef,
     int n_workers) {
   // Worker index based on CUDA launch parameters
   int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -78,7 +78,7 @@ KERNEL void wtsneUpdateYKernel(
 
         real_t g;
         if (r == 0) {
-          g = -attrCoef * q;
+          g = -*attrCoef * q;
         } else {
           g = repuCoef * q * q;
         }
@@ -86,7 +86,7 @@ KERNEL void wtsneUpdateYKernel(
         bool overwrite = false;
 #pragma unroll
         for (int d = 0; d < DIM; d++) {
-          real_t gain = eta * g * dY[d];
+          real_t gain = *eta * g * dY[d];
           // The atomics below basically do
           // Y[d + lk] += gain;
           // Y[d + ll] -= gain;
@@ -143,6 +143,7 @@ template <typename real_t> struct callBackData_t {
   real_t *qsum;
   uint64_t *qcount;
   real_t *eta;
+  real_t *attrCoef;
   uint64_t *iter;
   uint64_t *maxIter;
 };
@@ -207,6 +208,16 @@ public:
     cuda_graph graph;
     cuda_stream capture_stream, graph_stream;
 
+    // Set up pointers used for kernel parameters in graph
+    hostFnData_.Eq = &Eq;
+    hostFnData_.nsq = &nsq_;
+    hostFnData_.qsum = &qsum_total;
+    hostFnData_.qcount = &qcount_total;
+    hostFnData_.eta = &eta;
+    hostFnData_.attrCoef = &attrCoef;
+    hostFnData_.iter = &iter;
+    hostFnData_.maxIter = &maxIter;
+
     // SCE updates kernel with workers, then updates Eq
     // Start capture
     capture_stream.capture_start();
@@ -214,7 +225,7 @@ public:
         device_ptrs.rng, embedding.get_node_table(),
         embedding.get_edge_table(), device_ptrs.Y, device_ptrs.I, device_ptrs.J,
         device_ptrs.Eq, device_ptrs.qsum, device_ptrs.qcount, device_ptrs.nn,
-        device_ptrs.ne, eta, nRepuSamp, device_ptrs.nsq, attrCoef, device_ptrs.n_workers);
+        device_ptrs.ne, hostFnData_.eta, nRepuSamp, device_ptrs.nsq, hostFnData_.attrCoef, device_ptrs.n_workers);
 
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
                            qsum_.data(), qsum_total_.data(), qsum_.size(), capture_stream.stream());
@@ -225,34 +236,17 @@ public:
     real_t qsum_total = qsum_total_.get_value_async(capture_stream.stream());
     uint64_t qcount_total = qcount_total_.get_value_async(capture_stream.stream());
 
-    hostFnData_.Eq = &Eq;
-    hostFnData_.nsq = &nsq_;
-    hostFnData_.qsum = &qsum_total;
-    hostFnData_.qcount = &qcount_total;
-    hostFnData_.eta = &eta;
-    hostFnData_.iter = &iter;
-    hostFnData_.maxIter = &maxIter;
-
     CUDA_CALL(cudaLaunchHostFunc(stream.stream(), hostFn_, &hostFnData_));
     Eq_.set_value_async(*(hostFnData_.Eq), stream.stream());
 
     capture_stream.capture_end(graph.graph());
     // End capture
 
-    size_t n_nodes = 1;
-    cudaGraphNode_t* nodes;
-    cudaKernelNodeParams* pNodeParams;
-    CUDA_CALL(cudaGraphGetNodes(graph.graph(), nodes, &n_nodes));
-    CUDA_CALL(cudaGraphKernelNodeGetParams(nodes[0], pNodeParams));
-
     // Main SCE loop - run captured graph
     for (iter = 0; iter < maxIter; iter++) {
-      eta = eta0 * (1 - static_cast<real_t>(iter) / (maxIter - 1));
-      eta = MAX(eta, eta0 * 1e-4);
-      attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
-      pNodeParams->kernelParams[11] = eta;
-      pNodeParams->kernelParams[14] = attrCoef;
-      CUDA_CALL(cudaGraphExecKernelNodeSetParams(graph.graph_instance(), nodes[0], pNodeParams));
+      real_t new_eta = eta0 * (1 - static_cast<real_t>(iter) / (maxIter - 1));
+      *eta = MAX(new_eta, eta0 * 1e-4);
+      *attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
       graph.launch(graph_stream.stream());
     }
 
