@@ -25,6 +25,7 @@
  ****************************/
 
 // Updates the embedding
+// NB: strides of Y are switched in the GPU code compared to the CPU code
 template <typename real_t>
 KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
                                const discrete_table_ptrs<real_t> node_table,
@@ -70,15 +71,13 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
       }
 
       if (k != l) {
-        uint64_t lk = k * DIM;
-        uint64_t ll = l * DIM;
         real_t dist2 = static_cast<real_t>(0.0);
 #pragma unroll
         for (int d = 0; d < DIM; d++) {
           // These are read here to avoid multiple workers writing to the same
           // location below
-          Yk_read[d] = Y[d + lk];
-          Yl_read[d] = Y[d + ll];
+          Yk_read[d] = Y[k + d * nn];
+          Yl_read[d] = Y[l + d * nn];
           dY[d] = Yk_read[d] - Yl_read[d];
           dist2 += dY[d] * dY[d];
         }
@@ -101,8 +100,8 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
           // Y[d + lk] += gain;
           // Y[d + ll] -= gain;
           // But try again if another worker has written to the same location
-          if (atomicAdd((real_t *)Y + d + lk, gain) != Yk_read[d] ||
-              atomicAdd((real_t *)Y + d + ll, -gain) != Yl_read[d]) {
+          if (atomicAdd((real_t *)Y + k + d * nn, gain) != Yk_read[d] ||
+              atomicAdd((real_t *)Y + l + d * nn, -gain) != Yl_read[d]) {
             overwrite = true;
           }
         }
@@ -113,8 +112,8 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
           // Reset values
 #pragma unroll
           for (int d = 0; d < DIM; d++) {
-            Y[d + lk] = Yk_read[d];
-            Y[d + ll] = Yl_read[d];
+            Y[k + d * nn] = Yk_read[d];
+            Y[l + d * nn] = Yl_read[d];
           }
           __threadfence();
           atomicAdd(clash_cnt, 1ULL);
@@ -288,10 +287,17 @@ public:
   }
 
   // Copy result back to host
-  std::vector<real_t> get_embedding_result() {
+  std::vector<real_t> get_embedding_result(const int cpu_threads) {
     std::vector<real_t> Y_host(Y_.size());
     Y_.get_array(Y_host);
-    return Y_host;
+    std::vector<real_t> Y_restride(Y_host.size());
+#pragma omp parallel for num_threads(cpu_threads)
+    for (uint64_t i = 0; i < nn_; ++i) {
+      for (int j = 0; j < DIM; ++j) {
+        Y_restride[i * DIM + j] = Y_host[i + j * nn_];
+      }
+    }
+    return Y_restride;
   }
 
 private:
@@ -411,5 +417,5 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   // Run the algorithm
   embedding.run_SCE(maxIter, block_size, n_workers, nRepuSamp, eta0, bInit);
   // Get the result back
-  return embedding.get_embedding_result();
+  return embedding.get_embedding_result(cpu_threads);
 }
