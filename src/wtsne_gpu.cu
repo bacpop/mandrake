@@ -148,6 +148,7 @@ template <typename real_t> struct callBackData_t {
   real_t *nsq;
   real_t *qsum;
   uint64_t *qcount;
+  real_t *eta0;
   uint64_t *iter;
   uint64_t *maxIter;
 };
@@ -163,10 +164,13 @@ void CUDART_CB Eq_callback(void *data) {
   uint64_t* qcount = tmp->qcount;
   *Eq = (*Eq * *nsq + *qsum) / (*nsq + *qcount);
 
-  real_t* eta = tmp->eta;
   uint64_t* iter = tmp->iter;
   uint64_t* maxIter = tmp->maxIter;
-  update_progress(*iter, *maxIter, *eta, *Eq);
+  real_t* eta0 = tmp->eta0;
+  real_t eta = eta0 * (1 - static_cast<real_t>(*iter) / (*maxIter - 1));
+  eta = MAX(eta, eta0 * 1e-4);
+
+  update_progress(*iter, *maxIter, eta, *Eq);
 }
 
 // This is the class that does all the work
@@ -217,6 +221,7 @@ public:
     progress_callback_params_.nsq = &nsq_;
     progress_callback_params_.qsum = &qsum_total_host_;
     progress_callback_params_.qcount = &qcount_total_host_;
+    progress_callback_params_.eta0 = &eta0;
     progress_callback_params_.iter = &iter;
     progress_callback_params_.maxIter = &maxIter;
 
