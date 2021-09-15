@@ -236,7 +236,7 @@ public:
     qcount_total_device_.get_value_async(&qcount_total_host_, capture_stream.stream());
 
     capture_stream.add_host_fn(progress_callback_fn_, (void*)&progress_callback_params_);
-    Eq_device_.set_value_async(hostFnData_.Eq, capture_stream.stream());
+    Eq_device_.set_value_async(&Eq_host_, capture_stream.stream());
 
     capture_stream.capture_end(graph.graph());
     // End capture
@@ -288,8 +288,8 @@ private:
                                        .I = I_.data(),
                                        .J = J_.data(),
                                        .Eq = Eq_device_.data(),
-                                       .qsum = qsum_device_.data(),
-                                       .qcount = qcount_device_.data(),
+                                       .qsum = qsum_.data(),
+                                       .qcount = qcount_.data(),
                                        .nn = nn_,
                                        .ne = ne_,
                                        .nsq = nsq_,

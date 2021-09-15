@@ -72,13 +72,13 @@ public:
 
   // Special functions for working with streams/graphs
   // (prefer above functions unless using these)
-  void get_value_async(const T* value, cudaStream_t stream) const {
-    CUDA_CALL(cudaMemcpyAsync(value, data_, sizeof(T),
+  void get_value_async(T* value, cudaStream_t stream) const {
+    CUDA_CALL(cudaMemcpyAsync((void *)value, data_, sizeof(T),
                         cudaMemcpyDefault, stream));
   }
 
   void set_value_async(const T* value, cudaStream_t stream) {
-    CUDA_CALL(cudaMemcpyAsync(data_, value, sizeof(T),
+    CUDA_CALL(cudaMemcpyAsync(data_, (void *)value, sizeof(T),
                         cudaMemcpyDefault, stream));
   }
 
