@@ -176,18 +176,19 @@ public:
         ne_(P.size()), nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
         hostFn_(Eq_callback<real_t>),
         rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), I_(I),
-        J_(J), Eq_(1.0), qsum_(n_workers), qsum_total_(0.0),
-        qcount_(n_workers), qcount_total_(0) {
+        J_(J), Eq_host_(1.0), Eq_device_(1.0),
+        qsum_(n_workers), qsum_total_host_(0.0), qsum_total_device_(0.0),
+        qcount_(n_workers), qcount_total_host_(0), qcount_total_host_(0) {
     // Initialise CUDA
     CUDA_CALL(cudaSetDevice(device_id));
 
     // Initialise tmp space for reductions on qsum and qcount
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
-                           qsum_.data(), qsum_total_.data(), qsum_.size());
+                           qsum_.data(), qsum_total_device_.data(), qsum_.size());
     qsum_tmp_storage_.set_size(qsum_tmp_storage_bytes_);
     cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
                            qcount_tmp_storage_bytes_, qcount_.data(),
-                           qcount_total_.data(), qcount_.size());
+                           qcount_total_device_.data(), qcount_.size());
     qcount_tmp_storage_.set_size(qcount_tmp_storage_bytes_);
 
     // Set up discrete RNG tables
@@ -195,13 +196,13 @@ public:
     edge_table_ = set_device_table(P);
   }
 
-  void runSCE(const uint64_t maxIter, const int block_size,
-      const int n_workers, const uint64_t nRepuSamp, const real_t eta0,
+  void runSCE(uint64_t maxIter, const int block_size,
+      const int n_workers, const uint64_t nRepuSamp, real_t eta0,
       const bool bInit) {
     uint64_t iter = 0;
     real_t eta = eta0;
     real_t attrCoef = bInit ? 8 : 2;
-    kernel_ptrs<real_t> device_ptrs = embedding.get_device_ptrs();
+    kernel_ptrs<real_t> device_ptrs = get_device_ptrs();
 
     // Set up a single iteration on a CUDA graph
     const size_t block_count = (n_workers_ + block_size - 1) / block_size;
@@ -209,10 +210,10 @@ public:
     cuda_stream capture_stream, graph_stream;
 
     // Set up pointers used for kernel parameters in graph
-    hostFnData_.Eq = &Eq;
+    hostFnData_.Eq = &Eq_host_;
     hostFnData_.nsq = &nsq_;
-    hostFnData_.qsum = &qsum_total;
-    hostFnData_.qcount = &qcount_total;
+    hostFnData_.qsum = &qsum_total_host_;
+    hostFnData_.qcount = &qcount_total_host_;
     hostFnData_.eta = &eta;
     hostFnData_.attrCoef = &attrCoef;
     hostFnData_.iter = &iter;
@@ -228,16 +229,16 @@ public:
         device_ptrs.ne, hostFnData_.eta, nRepuSamp, device_ptrs.nsq, hostFnData_.attrCoef, device_ptrs.n_workers);
 
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
-                           qsum_.data(), qsum_total_.data(), qsum_.size(), capture_stream.stream());
+                           qsum_.data(), qsum_total_device_.data(), qsum_.size(), capture_stream.stream());
     cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
                            qcount_tmp_storage_bytes_, qcount_.data(),
-                           qcount_total_.data(), qcount_.size(), capture_stream.stream());
-    real_t Eq = Eq_.get_value_async(capture_stream.stream());
-    real_t qsum_total = qsum_total_.get_value_async(capture_stream.stream());
-    uint64_t qcount_total = qcount_total_.get_value_async(capture_stream.stream());
+                           qcount_total_device_.data(), qcount_.size(), capture_stream.stream());
+    Eq_host_ = Eq_device_.get_value_async(capture_stream.stream());
+    qsum_total_host_ = qsum_total_device_.get_value_async(capture_stream.stream());
+    qcount_total_host_ = qcount_total_device_.get_value_async(capture_stream.stream());
 
     CUDA_CALL(cudaLaunchHostFunc(stream.stream(), hostFn_, &hostFnData_));
-    Eq_.set_value_async(*(hostFnData_.Eq), stream.stream());
+    Eq_device_.set_value_async(*(hostFnData_.Eq), capture_stream.stream());
 
     capture_stream.capture_end(graph.graph());
     // End capture
@@ -245,8 +246,8 @@ public:
     // Main SCE loop - run captured graph
     for (iter = 0; iter < maxIter; iter++) {
       real_t new_eta = eta0 * (1 - static_cast<real_t>(iter) / (maxIter - 1));
-      *eta = MAX(new_eta, eta0 * 1e-4);
-      *attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
+      eta = MAX(new_eta, eta0 * 1e-4);
+      attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
       graph.launch(graph_stream.stream());
     }
 
@@ -288,9 +289,9 @@ private:
                                        .Y = Y_.data(),
                                        .I = I_.data(),
                                        .J = J_.data(),
-                                       .Eq = Eq_.data(),
-                                       .qsum = qsum_.data(),
-                                       .qcount = qcount_.data(),
+                                       .Eq = Eq_device_.data(),
+                                       .qsum = qsum_device_.data(),
+                                       .qcount = qcount_device_.data(),
                                        .nn = nn_,
                                        .ne = ne_,
                                        .nsq = nsq_,
@@ -321,11 +322,14 @@ private:
   device_array<uint64_t> J_;
 
   // Algorithm progress
-  device_value<real_t> Eq_;
+  real_t Eq_host_;
+  device_value<real_t> Eq_device_;
   device_array<real_t> qsum_;
-  device_value<real_t> qsum_total_;
+  real_t qsum_total_host_;
+  device_value<real_t> qsum_total_device_;
   device_array<uint64_t> qcount_;
-  device_value<uint64_t> qcount_total_;
+  uint64_t qcount_total_host_;
+  device_value<uint64_t> qcount_total_device_;
 
   // cub space
   size_t qsum_tmp_storage_bytes_;
