@@ -190,8 +190,8 @@ inline void update_progress(const uint64_t iter, const uint64_t maxIter,
     }
     fprintf(
         stderr,
-        "%cOptimizing\t Progress: %.1lf%%, eta=%.4f, Eq=%.10f, clashes=%.2e",
-        13, eta, (real_t)iter / maxIter * 100, Eq, (real_t)n_clashes);
+        "%cOptimizing\t Progress: %.1lf%%, eta=%.4f, Eq=%.10f, clashes=%.1e",
+        13, (real_t)iter / maxIter * 100, eta, Eq, (real_t)n_clashes);
     fflush(stderr);
   }
 }

@@ -290,6 +290,8 @@ public:
   std::vector<real_t> get_embedding_result(const int cpu_threads) {
     std::vector<real_t> Y_host(Y_.size());
     Y_.get_array(Y_host);
+
+    // Strides need to be changed from column-major to row-major
     std::vector<real_t> Y_restride(Y_host.size());
 #pragma omp parallel for num_threads(cpu_threads)
     for (uint64_t i = 0; i < nn_; ++i) {
