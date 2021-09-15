@@ -29,11 +29,17 @@ KERNEL void wtsneUpdateYKernel(
     uint32_t * rng_state, const discrete_table_ptrs<real_t> node_table,
     const discrete_table_ptrs<real_t> edge_table, volatile real_t *Y, uint64_t *I,
     uint64_t *J, real_t *Eq, real_t *qsum, uint64_t *qcount, uint64_t nn,
-    uint64_t ne, real_t *eta, uint64_t nRepuSamp, real_t nsq, real_t *attrCoef,
-    int n_workers) {
+    uint64_t ne, real_t eta0, uint64_t nRepuSamp, real_t nsq,
+    bool bInit, uint64_t *iter, uint64_t maxIter, int n_workers) {
   // Worker index based on CUDA launch parameters
   int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
+
+  // Iteration parameters
   const real_t one = 1.0; // Used a few times, fp64/fp32
+  real_t eta = eta0 * (1 - static_cast<real_t>(*iter) / (maxIter - 1));
+  eta = MAX(eta, eta0 * 1e-4);
+  real_t attrCoef = (bInit && *iter < maxIter / 10) ? 8 : 2;
+
   if (workerIdx < n_workers) {
     // Bring RNG state into local registers
     interleaved<uint32_t> p_rng(rng_state, workerIdx, n_workers);
@@ -78,7 +84,7 @@ KERNEL void wtsneUpdateYKernel(
 
         real_t g;
         if (r == 0) {
-          g = -*attrCoef * q;
+          g = -attrCoef * q;
         } else {
           g = repuCoef * q * q;
         }
@@ -86,7 +92,7 @@ KERNEL void wtsneUpdateYKernel(
         bool overwrite = false;
 #pragma unroll
         for (int d = 0; d < DIM; d++) {
-          real_t gain = *eta * g * dY[d];
+          real_t gain = eta * g * dY[d];
           // The atomics below basically do
           // Y[d + lk] += gain;
           // Y[d + ll] -= gain;
@@ -142,8 +148,6 @@ template <typename real_t> struct callBackData_t {
   real_t *nsq;
   real_t *qsum;
   uint64_t *qcount;
-  real_t *eta;
-  real_t *attrCoef;
   uint64_t *iter;
   uint64_t *maxIter;
 };
@@ -199,9 +203,8 @@ public:
   void runSCE(uint64_t maxIter, const int block_size,
       const int n_workers, const uint64_t nRepuSamp, real_t eta0,
       const bool bInit) {
-    uint64_t iter = 0;
-    real_t eta = eta0;
-    real_t attrCoef = bInit ? 8 : 2;
+    uint64_t iter_h = 0;
+    device_value<uint64_t> iter_d(iter_h);
     kernel_ptrs<real_t> device_ptrs = get_device_ptrs();
 
     // Set up a single iteration on a CUDA graph
@@ -214,8 +217,6 @@ public:
     progress_callback_params_.nsq = &nsq_;
     progress_callback_params_.qsum = &qsum_total_host_;
     progress_callback_params_.qcount = &qcount_total_host_;
-    progress_callback_params_.eta = &eta;
-    progress_callback_params_.attrCoef = &attrCoef;
     progress_callback_params_.iter = &iter;
     progress_callback_params_.maxIter = &maxIter;
 
@@ -225,7 +226,7 @@ public:
     wtsneUpdateYKernel<real_t><<<block_count, block_size, 0, capture_stream.stream()>>>(
         device_ptrs.rng, get_node_table(), get_edge_table(), device_ptrs.Y, device_ptrs.I, device_ptrs.J,
         device_ptrs.Eq, device_ptrs.qsum, device_ptrs.qcount, device_ptrs.nn,
-        device_ptrs.ne, progress_callback_params_.eta, nRepuSamp, device_ptrs.nsq, progress_callback_params_.attrCoef, device_ptrs.n_workers);
+        device_ptrs.ne, eta0, nRepuSamp, device_ptrs.nsq, bInit, iter_d.data(), maxIter, device_ptrs.n_workers);
 
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
                            qsum_.data(), qsum_total_device_.data(), qsum_.size(), capture_stream.stream());
@@ -237,18 +238,20 @@ public:
 
     capture_stream.add_host_fn(progress_callback_fn_, (void*)&progress_callback_params_);
     Eq_device_.set_value_async(&Eq_host_, capture_stream.stream());
+    iter_d.set_value_async(&iter_h, capture_stream.stream());
 
     capture_stream.capture_end(graph.graph());
     // End capture
 
     // Main SCE loop - run captured graph
-    for (iter = 0; iter < maxIter; iter++) {
-      real_t new_eta = eta0 * (1 - static_cast<real_t>(iter) / (maxIter - 1));
-      eta = MAX(new_eta, eta0 * 1e-4);
-      attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
+    // NB: Here I have written the code so the kernel launch parameters (and all
+    // CUDA API calls) are able to use the same parameters each loop, mainly by
+    // using pointers to device memory, and two iter counters.
+    // The alternative would be to use cudaGraphExecKernelNodeSetParams to
+    // change the kernel launch parameters. See 0c369b209ef69d91016bedd41ea8d0775879f153
+    for (iter_h = 0; iter_h < maxIter; ++iter) {
       graph.launch(graph_stream.stream());
     }
-
     graph_stream.sync();
     std::cerr << std::endl << "Optimizing done" << std::endl;
   }
