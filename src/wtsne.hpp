@@ -187,7 +187,7 @@ inline void update_progress(const long long iter, const uint64_t maxIter,
     if (PyErr_CheckSignals() != 0) {
       throw py::error_already_set();
     }
-    fprintf(stderr, "%cOptimizing\t eta=%.3f Progress: %.1lf%%, Eq=%.10f", 13,
+    fprintf(stderr, "%cOptimizing\t eta=%.4f Progress: %.1lf%%, Eq=%.10f", 13,
             eta, (real_t)iter / maxIter * 100, Eq);
     fflush(stderr);
   }
