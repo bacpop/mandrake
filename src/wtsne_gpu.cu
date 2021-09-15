@@ -223,7 +223,7 @@ public:
                const uint64_t nRepuSamp, real_t eta0, const bool bInit) {
     uint64_t iter_h = 0;
     device_value<uint64_t> iter_d(iter_h);
-    uint64_t n_clashes_h = 0;
+    unsigned long long int n_clashes_h = 0;
     device_value<unsigned long long int> n_clashes_d(n_clashes_h);
     kernel_ptrs<real_t> device_ptrs = get_device_ptrs();
 
