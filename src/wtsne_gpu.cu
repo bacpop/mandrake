@@ -117,7 +117,7 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
             Y[d + ll] = Yl_read[d];
           }
           __threadfence();
-          atomicAdd(clash_cnt, 1);
+          atomicAdd(clash_cnt, 1ULL);
           r--;
         }
       }
@@ -175,7 +175,7 @@ template <typename real_t> void CUDART_CB Eq_callback(void *data) {
   real_t eta = *eta0 * (1 - static_cast<real_t>(*iter) / (*maxIter - 1));
   eta = MAX(eta, *eta0 * 1e-4);
 
-  real_t *n_clashes = tmp->n_clashes;
+  uint64_t *n_clashes = tmp->n_clashes;
   update_progress(*iter, *maxIter, eta, *Eq, *n_clashes);
 }
 
@@ -252,7 +252,7 @@ public:
             device_ptrs.I, device_ptrs.J, device_ptrs.Eq, device_ptrs.qsum,
             device_ptrs.qcount, device_ptrs.nn, device_ptrs.ne, eta0, nRepuSamp,
             device_ptrs.nsq, bInit, iter_d.data(), maxIter,
-            device_ptrs.n_workers, n_clashes.data());
+            device_ptrs.n_workers, n_clashes_d.data());
 
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
                            qsum_.data(), qsum_total_device_.data(),
