@@ -32,7 +32,7 @@ KERNEL void wtsneUpdateYKernel(
     uint64_t *I, uint64_t *J, real_t *Eq, real_t *qsum, uint64_t *qcount,
     uint64_t nn, uint64_t ne, real_t eta0, uint64_t nRepuSamp, real_t nsq,
     bool bInit, uint64_t *iter, uint64_t maxIter, int n_workers,
-    const unsigned int *clash_cnt) {
+    unsigned int *clash_cnt) {
   // Worker index based on CUDA launch parameters
   int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
 
