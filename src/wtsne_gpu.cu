@@ -10,6 +10,7 @@
 
 #include <cfloat>
 #include <cub/cub.cuh>
+#include <cuda_profiler_api.h>
 #include <numeric>
 #include <stdio.h>
 #include <stdlib.h>
@@ -188,6 +189,9 @@ public:
         qcount_total_device_(0) {
     // Initialise CUDA
     CUDA_CALL(cudaSetDevice(device_id));
+#ifdef USE_CUDA_PROFILER
+    CUDA_CALL(cudaProfilerStart());
+#endif
 
     // Initialise tmp space for reductions on qsum and qcount
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
@@ -203,6 +207,10 @@ public:
     node_table_ = set_device_table(weights);
     edge_table_ = set_device_table(P);
   }
+
+#ifdef USE_CUDA_PROFILER
+  ~sce_gpu() { CUDA_CALL_NOTHROW(cudaProfilerStop()); }
+#endif
 
   // This runs the SCE loop on the device
   void run_SCE(uint64_t maxIter, const int block_size, const int n_workers,
