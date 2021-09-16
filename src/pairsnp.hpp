@@ -11,10 +11,22 @@
 
 #include <boost/dynamic_bitset.hpp>
 
+template <typename T>
+std::vector<T> combine_vectors(const std::vector<std::vector<T>> &vec,
+                               const size_t len) {
+  std::vector<T> all(len);
+  auto all_it = all.begin();
+  for (size_t i = 0; i < vec.size(); ++i) {
+    std::copy(vec[i].cbegin(), vec[i].cend(), all_it);
+    all_it += vec[i].size();
+  }
+  return all;
+}
+
 KSEQ_INIT(gzFile, gzread)
 
-inline std::tuple<std::vector<uint>, std::vector<uint>, std::vector<double>,
-                  std::vector<std::string>>
+inline std::tuple<std::vector<uint64_t>, std::vector<uint64_t>,
+                  std::vector<double>, std::vector<std::string>>
 pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   // open filename and initialise kseq
   int l;
@@ -162,16 +174,13 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   kseq_destroy(seq);
   gzclose(fp);
 
-  std::vector<uint> rows;
-  std::vector<uint> cols;
-  std::vector<double> distances;
+  std::vector<std::vector<uint64_t>> rows(n_seqs);
+  std::vector<std::vector<uint64_t>> cols(n_seqs);
+  std::vector<std::vector<double>> distances(n_seqs);
+  uint64_t len = 0;
 
-// TODO static is probably suboptimal as load is highly unbalanced (but check this)
-#pragma omp parallel for ordered shared(                                       \
-    A_snps, C_snps, G_snps, T_snps, seq_length, n_seqs, seq_names, dist, rows, \
-    cols, distances, knn) default(none) schedule(static, 1)                    \
-    num_threads(n_threads)
-  for (size_t i = 0; i < n_seqs; i++) {
+#pragma omp parallel for schedule(dynamic, 5) reduction(+:len) num_threads(n_threads)
+  for (uint64_t i = 0; i < n_seqs; i++) {
 
     std::vector<int> comp_snps(n_seqs);
     boost::dynamic_bitset<> res(seq_length);
@@ -183,7 +192,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
       start = 0;
     }
 
-    for (size_t j = start; j < n_seqs; j++) {
+    for (uint64_t j = start; j < n_seqs; j++) {
 
       res = A_snps[i] & A_snps[j];
       res |= C_snps[i] & C_snps[j];
@@ -203,17 +212,20 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
       start = i + 1;
     }
 
-// TODO: this can be replaced
-// output distances
-#pragma omp critical
+    // output distances
     for (size_t j = start; j < n_seqs; j++) {
       if ((dist == -1) || (comp_snps[j] <= dist)) {
-        rows.push_back(i);
-        cols.push_back(j);
-        distances.push_back(comp_snps[j]);
+        rows[i].push_back(i);
+        cols[i].push_back(j);
+        distances[i].push_back(comp_snps[j]);
       }
     }
+    len += dists[i].size();
   }
+  // Combine the lists from each thread
+  std::vector<double> distances_all = combine_vectors(distances, len);
+  std::vector<uint64_t> rows_all = combine_vectors(rows, len);
+  std::vector<uint64_t> cols_all = combine_vectors(cols, len);
 
-  return std::make_tuple(rows, cols, distances, seq_names);
+  return std::make_tuple(rows_all, cols_all, distances_all, seq_names);
 }
