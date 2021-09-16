@@ -14,8 +14,8 @@ std::vector<double>
 wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       std::vector<double> &dists, std::vector<double> &weights,
       const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
-      const double eta0, const bool bInit, const int n_workers,
-      const int n_threads, const unsigned int seed) {
+      const double eta0, const bool bInit, animate<double> &animation,
+      const int n_workers, const int n_threads, const unsigned int seed) {
   // Check input
   std::vector<double> Y, P;
   std::tie(Y, P) =
@@ -117,9 +117,10 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       }
     }
     Eq = (Eq * nsq + qsum) / (nsq + qcount);
-    update_progress(iter, maxIter, eta, Eq, n_clashes);
     if (iter % MAX(1, maxIter / 1000) == 0) {
       check_interrupts();
+      update_progress(iter, maxIter, eta, Eq, n_clashes);
+      animation.add_frame(Eq, Y);
     }
   }
   std::cerr << std::endl << "Optimizing done" << std::endl;

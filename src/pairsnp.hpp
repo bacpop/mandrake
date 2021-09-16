@@ -175,22 +175,22 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   kseq_destroy(seq);
   gzclose(fp);
 
+  // Set up progress meter
+  uint64_t dist_rows = static_cast<uint64_t>(0.5 * n_seqs * (n_seqs - 1));
+  static const int progressBitshift = 10;
+  uint64_t progress_blocks = 1 << progressBitshift;
+  uint64_t update_every = dist_rows >> progressBitshift;
+  if (progress_blocks > dist_rows || update_every < 1) {
+    progress_blocks = dist_rows;
+    update_every = 1;
+  }
+  ProgressMeter dist_progress(progress_blocks, true);
+  int progress = 0;
+
   std::vector<std::vector<uint64_t>> rows(n_seqs);
   std::vector<std::vector<uint64_t>> cols(n_seqs);
   std::vector<std::vector<double>> distances(n_seqs);
   uint64_t len = 0;
-
-    // Set up progress meter
-    uint64_t dist_rows = static_cast<uint64_t>(0.5 * n_seqs * (n_seqs - 1));
-    static const int progressBitshift = 10;
-    uint64_t progress_blocks = 1 << progressBitshift;
-    uint64_t update_every = dist_rows >> progressBitshift;
-    if (progress_blocks > dist_rows || update_every < 1) {
-      progress_blocks = dist_rows;
-      update_every = 1;
-    }
-    ProgressMeter dist_progress(progress_blocks, true);
-    int progress = 0;
 
 #pragma omp parallel for schedule(dynamic, 5) reduction(+:len) num_threads(n_threads)
   for (uint64_t i = 0; i < n_seqs; i++) {
