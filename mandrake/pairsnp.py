@@ -73,6 +73,10 @@ def runPairsnp(msaFile, kNN=None, threshold=None, threads=1):
         dist = -1
 
     # run pairsnp
-    I, J, dist, names = pairsnp(fasta=msaFile, n_threads=threads, dist=dist, knn=kNN)
+    I, J, dist, names = pairsnp(fasta=msaFile,
+                                n_threads=threads,
+                                dist=dist,
+                                knn=kNN)
+    dist = [float(x) / seq_len for x in dist]
 
-    return (np.array(I), np.array(J), np.array(dist) / seq_len, names)
+    return (I, J, dist, names)

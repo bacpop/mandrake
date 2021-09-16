@@ -32,7 +32,7 @@ def pairSnpDists(alignment, threshold, kNN, cpus):
                           threshold=threshold,
                           threads=cpus)
 
-    return I, J, dists, names 
+    return I, J, dists, names
 
 def sketchlibDists(sketch_db, dist_col, kNN, threshold, cpus, use_gpu, device_id):
     names = get_seqs_in_db(sketch_db + ".h5")
