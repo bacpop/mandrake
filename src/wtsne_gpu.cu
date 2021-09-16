@@ -281,6 +281,9 @@ public:
     // 0c369b209ef69d91016bedd41ea8d0775879f153
     for (iter_h = 0; iter_h < maxIter; ++iter_h) {
       graph.launch(graph_stream.stream());
+      if (iter_h % MAX(1, maxIter / 1000) == 0) {
+        check_interrupts();
+      }
     }
     graph_stream.sync();
     std::cerr << std::endl << "Optimizing done" << std::endl;

@@ -118,6 +118,9 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
     }
     Eq = (Eq * nsq + qsum) / (nsq + qcount);
     update_progress(iter, maxIter, eta, Eq, n_clashes);
+    if (iter % MAX(1, maxIter / 1000) == 0) {
+      check_interrupts();
+    }
   }
   std::cerr << std::endl << "Optimizing done" << std::endl;
 

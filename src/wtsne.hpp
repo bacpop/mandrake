@@ -179,15 +179,18 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   return std::make_tuple(Y, P);
 }
 
+// Check for keyboard interrupt from python
+inline void check_interrupts() {
+  if (PyErr_CheckSignals() != 0) {
+    throw py::error_already_set();
+  }
+}
+
 template <typename real_t>
 inline void update_progress(const uint64_t iter, const uint64_t maxIter,
                             const real_t eta, const real_t Eq,
                             const unsigned long long int n_clashes) {
   if (iter % MAX(1, maxIter / 1000) == 0 || iter == maxIter - 1) {
-    // Check for keyboard interrupt from python
-    if (PyErr_CheckSignals() != 0) {
-      throw py::error_already_set();
-    }
     fprintf(
         stderr,
         "%cOptimizing\t Progress: %.1lf%%, eta=%.4f, Eq=%.10f, clashes=%.1e",
