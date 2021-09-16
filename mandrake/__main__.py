@@ -59,12 +59,12 @@ def get_options():
     parallelGroup.add_argument('--blockSize', type=int, default=128, help='CUDA blockSize [default = 128]')
 
     sketchGroup = parser.add_argument_group('Sketch options')
-    sketchGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances instead of core")
-    sketchGroup.add_argument('--threshold', default=0, type=float, help='Maximum distance to consider [default = None]')
-    sketchGroup.add_argument('--kNN', default=0, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
+    sketchGroup.add_argument('--use-core', action='store_true', default=False, help="Use core distances")
+    sketchGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances")
 
-    alnGroup = parser.add_argument_group('Alignment options')
-    alnGroup.add_argument('--pairsnp-exe', default="pairsnp", type=str, help="Location of pairsnp executable (default='pairsnp')")
+    distGroup = parser.add_argument_group('Distance options')
+    distGroup.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
+    distGroup.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
 
     other = parser.add_argument_group('Other')
     other.add_argument('--seed', type=int, default=1, help='Seed for random number generation')
@@ -94,22 +94,16 @@ def main():
     if args.distances is None:
         sys.stderr.write("Calculating distances\n")
 
-        # TODO update with new pairsnp
-        # TODO I, J, dist, name return
         if (args.alignment is not None):
-            P, names = pairSnpDists(args.pairsnp_exe,
-                                    args.alignment,
-                                    args.output,
+            I, J, dists, names = pairSnpDists(args.alignment,
                                     args.threshold,
                                     args.kNN,
                                     args.cpus)
-
         elif (args.accessory is not None):
             I, J, dists, names = accessoryDists(args.accessory,
                                                 args.sparse,
                                                 args.kNN,
                                                 args.threshold)
-
         elif (args.sketches is not None):
             # sketches
             dist_col = 0

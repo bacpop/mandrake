@@ -33,7 +33,10 @@ else()
 endif()
 
 # Add libraries
+find_package(Boost)
+find_package(ZLIB)
 find_package(pybind11 REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
 
 # Check for CUDA and compiles GPU library
 include(CheckLanguage)
@@ -82,7 +85,7 @@ if(CMAKE_CUDA_COMPILER)
     set_property(TARGET "${TARGET_NAME}" PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 
-target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module)
+target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module ZLIB::ZLIB)
 if(DEFINED ENV{CONDA_PREFIX})
   target_link_libraries("${TARGET_NAME}" PRIVATE gomp)
 else()

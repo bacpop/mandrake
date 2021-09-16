@@ -26,17 +26,13 @@ def accessoryDists(accessory_file, kNN, threshold):
 
     return I, J, dists, names
 
-# TODO: need I, J, dists, names return
-def pairSnpDists(pairsnp_exe, alignment, output, threshold, kNN, cpus):
-    # alignment
-    P, names = runPairsnp(pairsnp_exe,
-                          alignment,
-                          output,
-                          threshold=threshold,
+def pairSnpDists(alignment, threshold, kNN, cpus):
+    I, J, dists, names = runPairsnp(alignment,
                           kNN=kNN,
+                          threshold=threshold,
                           threads=cpus)
 
-    return P, names
+    return I, J, dists, names 
 
 def sketchlibDists(sketch_db, dist_col, kNN, threshold, cpus, use_gpu, device_id):
     names = get_seqs_in_db(sketch_db + ".h5")

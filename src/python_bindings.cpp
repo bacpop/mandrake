@@ -1,6 +1,7 @@
 // 2020 John Lees and Gerry Tonkin-Hill
 
 #include "wtsne.hpp"
+#include "pairsnp.hpp"
 
 PYBIND11_MODULE(SCE, m) {
   m.doc() = "Stochastic cluster embedding";
@@ -13,6 +14,10 @@ PYBIND11_MODULE(SCE, m) {
         py::arg("maxIter"), py::arg("nRepuSamp") = 5, py::arg("eta0") = 1,
         py::arg("bInit") = 0, py::arg("n_workers") = 128,
         py::arg("n_threads") = 1, py::arg("seed") = 1);
+
+  m.def("pairsnp", &pairsnp, py::return_value_policy::take_ownership,
+        "Run pairsnp", py::arg("fasta"), py::arg("n_threads"),
+        py::arg("dist"), py::arg("knn"));
 
 #ifdef GPU_AVAILABLE
   // NOTE: python always uses fp64 so cannot easily template these (which

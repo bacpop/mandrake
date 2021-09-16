@@ -111,7 +111,7 @@ setup(
             'mandrake = mandrake.__main__:main'
             ]
     },
-    install_requires=['numpy'],
+    install_requires=['numpy','plotly'],
     ext_modules=[CMakeExtension('SCE')],
     cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False
