@@ -9,6 +9,7 @@ import numpy as np
 
 # C++ extensions
 sys.path.insert(0, os.path.dirname(__file__) + "/../build/lib.linux-x86_64-3.8")
+sys.path.insert(0, os.path.dirname(__file__) + '/../build/lib.macosx-10.9-x86_64-3.9')
 from SCE import pairsnp
 
 # from BioPython
