@@ -57,6 +57,8 @@ def runPairsnp(msaFile, kNN=None, threshold=None, threads=1):
     if kNN is not None:
         if not (isinstance(kNN, int) and (kNN > 0)):
             raise ValueError("invalid value for kNN!")
+    else:
+        kNN = -1
     if threshold is not None:
         if not (isinstance(threshold, float) and (threshold > 0) and (threshold <= 1)):
             raise ValueError("invalid value for threshold!")

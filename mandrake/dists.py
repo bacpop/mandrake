@@ -43,7 +43,6 @@ def pairSnpDists(alignment, threshold, kNN, cpus):
                           kNN=kNN,
                           threshold=threshold,
                           threads=cpus)
-
     return I, J, dists, names
 
 def sketchlibDists(sketch_db, dist_col, kNN, threshold, cpus, use_gpu, device_id):
