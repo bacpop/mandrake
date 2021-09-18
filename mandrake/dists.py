@@ -6,25 +6,37 @@
 import numpy as np
 import pandas as pd
 from scipy.sparse import csc_matrix, coo_matrix
-from sklearn.neighbors import NearestNeighbors
+from sklearn.neighbors import kneighbors_graph
 
 # C++ extensions
 import sys, os
-sys.path.insert(0, '/home/jlees/installs/pp-sketchlib/build/lib.linux-x86_64-3.8')
 import pp_sketchlib
 
 from .pairsnp import runPairsnp
 from .sketchlib import get_kmer_sizes, get_seqs_in_db
 
-def accessoryDists(accessory_file, kNN, threshold):
+def accessoryDists(accessory_file, kNN, threshold, cpus):
     acc_mat = pd.read_csv(accessory_file, sep="\t", header=0, index_col=0)
     names = list(acc_mat.columns)
-    if kNN is not None:
-        I, J, dists = _kNNJaccard(acc_mat, kNN)
-    else:
-        I, J, dists = _sparseJaccard(acc_mat.values, threshold)
 
-    return I, J, dists, names
+    if kNN is None:
+        kNN = len(names)
+
+    sp = kneighbors_graph(X=acc_mat, n_neighbors=kNN, 
+        metric = 'jaccard', mode = 'distance',
+        include_self=False, n_jobs=cpus).tocoo()
+
+    if threshold is not None:
+        index = []
+        for i, d in enumerate(sp.data):
+            if d<threshold:
+                index.append(i)
+        index = np.array(index)
+        sp.row = sp.row[index]
+        sp.col = sp.col[index]
+        sp.data = sp.data[index]
+
+    return sp.row, sp.col, sp.data, names
 
 def pairSnpDists(alignment, threshold, kNN, cpus):
     I, J, dists, names = runPairsnp(alignment,
@@ -51,25 +63,3 @@ def sketchlibDists(sketch_db, dist_col, kNN, threshold, cpus, use_gpu, device_id
                                                    device_id)
 
     return I, J, dists, names
-
-# Internal functions
-
-def _sparseJaccard(m, threshold=None):
-    sm = csc_matrix(m)
-    cTT = sm*sm.transpose()
-    cTT = cTT.todense()
-    temp = 1-np.eye(sm.shape[0])
-    di = np.diag(cTT)
-    d = 1-(cTT/((temp*di).transpose() + temp*di - cTT))
-    if threshold is not None:
-        d[d>threshold] = 0
-
-    sp_coo = coo_matrix(d)
-    return(sp_coo.data, sp_coo.row, sp_coo.col)
-
-def _kNNJaccard(m, k):
-    neigh = NearestNeighbors(n_neighbors=k, metric='jaccard')
-    neigh.fit(m)
-    d = neigh.kneighbors(m)
-
-    return(d[0].flatten(), np.repeat(np.arange(m.shape[0]), 2), d[1].flatten())

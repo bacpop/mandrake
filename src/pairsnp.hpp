@@ -220,7 +220,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
         distances[i].push_back(comp_snps[j]);
       }
     }
-    len += dists[i].size();
+    len += distances[i].size();
   }
   // Combine the lists from each thread
   std::vector<double> distances_all = combine_vectors(distances, len);
