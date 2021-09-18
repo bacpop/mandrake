@@ -1,11 +1,11 @@
-# pathoSCE
+# mandrake
 Fast visualisation of the population structure of pathogens using Stochastic Cluster Embedding
 
 ## Installation
 
 You will need some dependencies, which you can install through `conda`:
 ```
-conda create -n pathosce python numpy pandas scipy scikit-learn hdbscan pp-sketchlib cmake pybind11 openmp blas gsl gfortran-ng cudatoolkit
+conda create -n mandrake python numpy pandas scipy scikit-learn hdbscan pp-sketchlib cmake pybind11 openmp blas gsl gfortran-ng cudatoolkit boost gfortran_linux-64 gxx_linux-64 matplotlib plotly
 ```
 
 You can the clone this repository, and run:
@@ -26,7 +26,7 @@ CUDA not found, compiling CPU code only
 ## Usage
 After installing, an example command would look like this:
 ```
-pathoSCE --sketches sketchlib --output sketch --use-accessory --cpus 2 --nRepuSamp 1 --maxIter 200000
+mandrake --sketches sketchlib --output sketch --use-accessory --cpus 2 --nRepuSamp 1 --maxIter 200000
 ```
 This would use a file `sketchlib.h5` created by [pp-sketchlib](https://github.com/johnlees/pp-sketchlib)
 to calculate accessory distances. Output can be found in `sketch_SCE_result.html`.

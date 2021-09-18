@@ -6,375 +6,421 @@
  ============================================================================
  */
 
-#include <numeric>
-#include <stdlib.h>
-#include <stdio.h>
-#include <cfloat>
-#include <curand_kernel.h>
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_randist.h>
-#include <thrust/device_vector.h>
-#include <thrust/copy.h>
+// Modified by John Lees 2021
 
+#include <cfloat>
+#include <cub/cub.cuh>
+#include <cuda_profiler_api.h>
+#include <numeric>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "containers.cuh"
+#include "cuda_launch.cuh"
+#include "uniform_discrete.hpp"
 #include "wtsne.hpp"
 
-static void
-CheckCudaErrorAux(const char *, unsigned, const char *, cudaError_t);
-#define CUDA_CHECK_RETURN(value) CheckCudaErrorAux(__FILE__,__LINE__, #value, value)
-
-/**
- * Check the return value of the CUDA runtime API call and exit
- * the application if the call has failed.
- */
- static void CheckCudaErrorAux(const char *file, unsigned line,
-	const char *statement, cudaError_t err) 
-{
-	if (err == cudaSuccess)
-		return;
-	std::cerr << statement << " returned " << cudaGetErrorString(err) << "("
-			<< err << ") at " << file << ":" << line << std::endl;
-	exit(1);
-}
-
-
-
 /****************************
-* Functions run on the      *
-* device                    *
-****************************/
-__device__ size_t my_curand_discrete(curandState *state,
-		const gsl_ran_discrete_t *g) {
-	size_t c = 0;
-	double u, f;
-	u = curand_uniform(state);
-	c = (u * (g->K));
-	f = (g->F)[c];
-	if (f == 1.0)
-		return c;
-
-	if (u < f) {
-		return c;
-	} else {
-		return (g->A)[c];
-	}
-}
-
-__global__ void setupCURANDKernel(curandState *nnStates1,
-		curandState *nnStates2, curandState *neStates) {
-	long long workerIdx = (long long) (blockIdx.x * blockDim.x + threadIdx.x);
-	curand_init(314159, /* the seed */
-	workerIdx, /* the sequence number */
-	0, /* not use the offset */
-	&nnStates1[workerIdx]);
-	curand_init(314159 + 1, /* the seed */
-	workerIdx, /* the sequence number */
-	0, /* not use the offset */
-	&nnStates2[workerIdx]);
-	curand_init(271828, /* the seed */
-	workerIdx, /* the sequence number */
-	0, /* not use the offset */
-	&neStates[workerIdx]);
-}
-
-__global__ void assembleGSLKernel(gsl_ran_discrete_t *d_gsl_de,
-		size_t *d_gsl_de_A, double *d_gsl_de_F, gsl_ran_discrete_t *d_gsl_dn,
-		size_t *d_gsl_dn_A, double *d_gsl_dn_F) {
-	d_gsl_de->A = d_gsl_de_A;
-	d_gsl_de->F = d_gsl_de_F;
-	d_gsl_dn->A = d_gsl_dn_A;
-	d_gsl_dn->F = d_gsl_dn_F;
-}
+ * Kernels                  *
+ ****************************/
 
 // Updates the embedding
-// (These arguments are ok as they are passed the array pointers d_Y, d_I etc
-// which are already on the device; NOT the redefined Y vectors etc)
-__global__ void wtsneUpdateYKernel(curandState *nnStates1,
-		curandState *nnStates2, curandState *neStates,
-		gsl_ran_discrete_t* d_gsl_dn, gsl_ran_discrete_t* d_gsl_de, float *Y,
-		long long *I, long long *J, float *d_Eq, float *qsum, int *qcount, long long nn,
-		long long ne, float eta, long long nRepuSamp, float nsq, float attrCoef) {
-	int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
-	float dY[DIM];
-	float c = 1.0 / ((*d_Eq) * nsq);
-	qsum[workerIdx] = 0.0;
-	qcount[workerIdx] = 0;
+// NB: strides of Y are switched in the GPU code compared to the CPU code
+template <typename real_t>
+KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
+                               const discrete_table_ptrs<real_t> node_table,
+                               const discrete_table_ptrs<real_t> edge_table,
+                               volatile real_t *Y, uint64_t *I, uint64_t *J,
+                               real_t *Eq, real_t *qsum, uint64_t *qcount,
+                               uint64_t nn, uint64_t ne, real_t eta0,
+                               uint64_t nRepuSamp, real_t nsq, bool bInit,
+                               uint64_t *iter, uint64_t maxIter, int n_workers,
+                               unsigned long long int *clash_cnt) {
+  // Worker index based on CUDA launch parameters
+  int workerIdx = blockIdx.x * blockDim.x + threadIdx.x;
 
-	float repuCoef = 2 * c / nRepuSamp * nsq;
-	for (long long r = 0; r < nRepuSamp + 1; r++) {
-		long long k, l;
-		if (r == 0) {
-			long long e = (long long) (my_curand_discrete(neStates + workerIdx,
-					d_gsl_de) % ne);
-			k = I[e];
-			l = J[e];
-		} else {
-			k = (long long) (my_curand_discrete(nnStates1 + workerIdx, d_gsl_dn)
-					% nn);
-			l = (long long) (my_curand_discrete(nnStates2 + workerIdx, d_gsl_dn)
-					% nn);
-		}
+  // Iteration parameters
+  const real_t one = 1.0; // Used a few times, fp64/fp32
+  real_t eta = eta0 * (1 - static_cast<real_t>(*iter) / (maxIter - 1));
+  eta = MAX(eta, eta0 * 1e-4);
+  real_t attrCoef = (bInit && *iter < maxIter / 10) ? 8 : 2;
 
-		if (k == l)
-			continue;
+  if (workerIdx < n_workers) {
+    // Bring RNG state into local registers
+    interleaved<uint32_t> p_rng(rng_state, workerIdx, n_workers);
+    rng_state_t<real_t> rng_block = get_rng_state<real_t>(p_rng);
 
-		long long lk = k * DIM;
-		long long ll = l * DIM;
-		float dist2 = 0.0;
-		for (long long d = 0; d < DIM; d++) {
-			dY[d] = Y[d + lk] - Y[d + ll];
-			dist2 += dY[d] * dY[d];
-		}
-		float q = 1.0 / (1 + dist2);
+    real_t dY[DIM];
+    real_t Yk_read[DIM];
+    real_t Yl_read[DIM];
+    real_t c = one / ((*Eq) * nsq);
 
-		float g;
-		if (r == 0)
-			g = -attrCoef * q;
-		else
-			g = repuCoef * q * q;
+    real_t qsum_local = 0.0;
+    uint64_t qcount_local = 0;
 
-		for (long long d = 0; d < DIM; d++) {
-			float gain = eta * g * dY[d];
-			Y[d + lk] += gain;
-			Y[d + ll] -= gain;
+    real_t repuCoef = 2 * c / nRepuSamp * nsq;
+    for (int r = 0; r < nRepuSamp + 1; r++) {
+      uint64_t k, l;
+      if (r == 0) {
+        uint64_t e = discrete_draw(rng_block, edge_table) % ne;
+        k = I[e];
+        l = J[e];
+      } else {
+        k = discrete_draw(rng_block, node_table) % nn;
+        l = discrete_draw(rng_block, node_table) % nn;
+      }
 
-		}
-		qsum[workerIdx] += q;
-		qcount[workerIdx]++;
-	}
-}
-
-__global__ void resetQsumQCountTotalKernel(float *d_qsum_total,
-		int *d_qcount_total) {
-	(*d_qsum_total) = 0.0;
-	(*d_qcount_total) = 0;
-}
-
-template<typename T>
-__global__ void reduceSumArrayKernel(T *array, int n, T* arraySum) {
-	T sum = 0;
-	for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
-			i += blockDim.x * gridDim.x) {
-		sum += array[i];
-	}
-	atomicAdd(arraySum, sum);
-}
-
-__global__ void updateEqKernel(float *d_Eq, float *d_qsum_total,
-		int* d_qcount_total, float nsq) {
-	(*d_Eq) = ((*d_Eq) * nsq + (*d_qsum_total)) / (nsq + (*d_qcount_total));
-}
-
-/****************************
-* Functions to move data    *
-* and functions on/off GPUs *
-****************************/
-
-// Moves arrays onto GPU
-void allocateDataAndCopy2Device(float*& d_Eq,
-								long long nn, long long ne,
-								float*& d_qsum, int*& d_qcount, 
-								float*& d_qsum_total, int*& d_qcount_total,
-								int nWorker) 
-{
-	float Eq = 1;
-	CUDA_CHECK_RETURN(cudaMalloc((void** )&d_Eq, sizeof(float)));
-	CUDA_CHECK_RETURN(
-			cudaMemcpy(d_Eq, &Eq, sizeof(float), cudaMemcpyHostToDevice));
-
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_qsum, nWorker * sizeof(float)));
-	CUDA_CHECK_RETURN(
-			cudaMalloc((void ** )&d_qcount, nWorker * sizeof(long long)));
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_qsum_total, sizeof(float)));
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_qcount_total, sizeof(long long)));
-}
-
-void setupDiscreteDistribution(curandState *&d_nnStates1, curandState *&d_nnStates2, curandState *&d_neStates,
-	std::vector<double>& P, std::vector<double>& weights,
-	gsl_ran_discrete_t *&d_gsl_de, gsl_ran_discrete_t *&d_gsl_dn,
-	double *&d_gsl_de_F, double *&d_gsl_dn_F,
-	size_t *&d_gsl_de_A, size_t *&d_gsl_dn_A,
-	int blockCount, int blockSize, long long nn, long long ne)
-{
-	CUDA_CHECK_RETURN(
-	cudaMalloc((void ** )&d_nnStates1,
-	blockCount * blockSize * sizeof(curandState)));
-	CUDA_CHECK_RETURN(
-	cudaMalloc((void ** )&d_nnStates2,
-	blockCount * blockSize * sizeof(curandState)));
-	CUDA_CHECK_RETURN(
-	cudaMalloc((void ** )&d_neStates,
-	blockCount * blockSize * sizeof(curandState)));
-	setupCURANDKernel<<<blockCount, blockSize>>>(d_nnStates1, d_nnStates2,
-	d_neStates);
-
-	// These are free'd at the end of the function
-	gsl_rng_env_setup();
-	gsl_ran_discrete_t * gsl_de = gsl_ran_discrete_preproc(ne, P.data());
-	gsl_ran_discrete_t * gsl_dn = gsl_ran_discrete_preproc(nn, weights.data());
-
-	CUDA_CHECK_RETURN(
-	cudaMalloc((void ** )&d_gsl_de, sizeof(gsl_ran_discrete_t)));
-	CUDA_CHECK_RETURN(
-	cudaMalloc((void ** )&d_gsl_dn, sizeof(gsl_ran_discrete_t)));
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_gsl_de_A, sizeof(size_t) * ne));
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_gsl_de_F, sizeof(double) * ne));
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_gsl_dn_A, sizeof(size_t) * nn));
-	CUDA_CHECK_RETURN(cudaMalloc((void ** )&d_gsl_dn_F, sizeof(double) * nn));
-	CUDA_CHECK_RETURN(
-	cudaMemcpy(d_gsl_de, gsl_de, sizeof(gsl_ran_discrete_t),
-	cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-	cudaMemcpy(d_gsl_de_A, gsl_de->A, sizeof(size_t) * ne,
-	cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-	cudaMemcpy(d_gsl_de_F, gsl_de->F, sizeof(double) * ne,
-	cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-	cudaMemcpy(d_gsl_dn, gsl_dn, sizeof(gsl_ran_discrete_t),
-	cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-	cudaMemcpy(d_gsl_dn_A, gsl_dn->A, sizeof(size_t) * nn,
-	cudaMemcpyHostToDevice));
-	CUDA_CHECK_RETURN(
-	cudaMemcpy(d_gsl_dn_F, gsl_dn->F, sizeof(double) * nn,
-	cudaMemcpyHostToDevice));
-	assembleGSLKernel<<<1, 1>>>(d_gsl_de, d_gsl_de_A, d_gsl_de_F, d_gsl_dn,
-	d_gsl_dn_A, d_gsl_dn_F);
-	gsl_ran_discrete_free(gsl_de);
-	gsl_ran_discrete_free(gsl_dn);
-}
-
-// Frees memory on GPU
-void freeDataInDevice(
-	float*& d_qsum, int*& d_qcount, 
-	float*& d_qsum_total, int*& d_qcount_total,
-	curandState *&d_nnStates1, curandState *&d_nnStates2, curandState *&d_neStates,
-	gsl_ran_discrete_t *&d_gsl_de, gsl_ran_discrete_t *&d_gsl_dn,
-	double *&d_gsl_de_F, double *&d_gsl_dn_F,
-	size_t *&d_gsl_de_A, size_t *&d_gsl_dn_A)
-{
-	// data
-	CUDA_CHECK_RETURN(cudaFree(d_qsum));
-	CUDA_CHECK_RETURN(cudaFree(d_qcount));
-	CUDA_CHECK_RETURN(cudaFree(d_qsum_total));
-	CUDA_CHECK_RETURN(cudaFree(d_qcount_total));
-
-	// rng
-	CUDA_CHECK_RETURN(cudaFree(d_nnStates1));
-	CUDA_CHECK_RETURN(cudaFree(d_nnStates2));
-	CUDA_CHECK_RETURN(cudaFree(d_neStates));
-	CUDA_CHECK_RETURN(cudaFree(d_gsl_de_A));
-	CUDA_CHECK_RETURN(cudaFree(d_gsl_de_F));
-	CUDA_CHECK_RETURN(cudaFree(d_gsl_de));
-	CUDA_CHECK_RETURN(cudaFree(d_gsl_dn_A));
-	CUDA_CHECK_RETURN(cudaFree(d_gsl_dn_F));
-	CUDA_CHECK_RETURN(cudaFree(d_gsl_dn));
-}
-
-
-/****************************
-* Main control function     *
-****************************/
-std::vector<float> wtsne_gpu(
-	std::vector<long long>& I,
-	std::vector<long long>& J,
-	std::vector<double>& P,
-	std::vector<double>& weights,
-	long long maxIter, 
-	int blockSize, 
-	int blockCount,
-	long long nRepuSamp,
-	double eta0,
-	bool bInit) 
-{
-	// Check input
-	std::vector<float> Y = wtsne_init<float>(I, J, P, weights);
-    long long nn = weights.size();
-    long long ne = P.size();
-	
-	// Initialise CUDA
-	cudaSetDevice(0);
-	cudaDeviceReset();
-	int nWorker = blockSize * blockCount;
-	float nsq = (float) nn * (nn - 1);
-
-	// Create pointers for mallocs
-	float *d_Eq;
-	float *d_qsum, *d_qsum_total;
-	int *d_qcount, *d_qcount_total;
-
-	// malloc on device
-	allocateDataAndCopy2Device(d_Eq,
-							   nn, ne,
-							   d_qsum, d_qcount,
-							   d_qsum_total, d_qcount_total,
-							   nWorker);
-	thrust::device_vector<float> d_Y = Y;
-	thrust::device_vector<long long> d_I = I;
-	thrust::device_vector<long long> d_J = J;
-
-	// Set up random number generation
-	curandState *d_nnStates1, *d_nnStates2;
-	curandState *d_neStates;
-	gsl_ran_discrete_t *d_gsl_de = nullptr;
-	gsl_ran_discrete_t *d_gsl_dn = nullptr;
-	double *d_gsl_de_F, *d_gsl_dn_F;
-	size_t *d_gsl_de_A, *d_gsl_dn_A;
-	setupDiscreteDistribution(d_nnStates1, d_nnStates2, d_neStates,
-							  P, weights,
-		                      d_gsl_de, d_gsl_dn,
-		                      d_gsl_de_F, d_gsl_dn_F,
-							  d_gsl_de_A, d_gsl_dn_A,
-							  blockCount, blockSize, 
-							  nn, ne);
-
-	// Main SCE loop
-	float* d_Y_array = thrust::raw_pointer_cast( &d_Y[0] );
-	long long* d_I_array = thrust::raw_pointer_cast( &d_I[0] );
-	long long* d_J_array = thrust::raw_pointer_cast( &d_J[0] );
-	for (long long iter = 0; iter < maxIter; iter++) {
-		float eta = eta0 * (1 - (float) iter / (maxIter - 1));
-		eta = MAX(eta, eta0 * 1e-4);
-
-		float attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
-		wtsneUpdateYKernel<<<blockCount, blockSize>>>(d_nnStates1, d_nnStates2,
-				d_neStates, d_gsl_dn, d_gsl_de, d_Y_array, d_I_array, d_J_array, d_Eq, d_qsum,
-				d_qcount, nn, ne, eta, nRepuSamp, nsq, attrCoef);
-
-		resetQsumQCountTotalKernel<<<1, 1>>>(d_qsum_total, d_qcount_total);
-		reduceSumArrayKernel<<<16, 128>>>(d_qsum, nWorker, d_qsum_total);
-		reduceSumArrayKernel<<<16, 128>>>(d_qcount, nWorker, d_qcount_total);
-		updateEqKernel<<<1, 1>>>(d_Eq, d_qsum_total, d_qcount_total, nsq);
-
-        // Print progress
-		if (iter % MAX(1,maxIter/1000)==0 || iter==maxIter-1)
-        {
-			fprintf(stderr, "%cOptimizing progress (GPU): %.1lf%%", 13, 
-							(float)iter / maxIter * 100);
-            fflush(stderr);
+      if (k != l) {
+        real_t dist2 = static_cast<real_t>(0.0);
+#pragma unroll
+        for (int d = 0; d < DIM; d++) {
+          // These are read here to avoid multiple workers writing to the same
+          // location below
+          Yk_read[d] = Y[k + d * nn];
+          Yl_read[d] = Y[l + d * nn];
+          dY[d] = Yk_read[d] - Yl_read[d];
+          dist2 += dY[d] * dY[d];
         }
-	}
-	std::cerr << std::endl << "Optimizing done" << std::endl;
+        __threadfence();
 
-	// Free memory on GPU
-	freeDataInDevice(d_qsum, d_qcount, 
-		d_qsum_total, d_qcount_total,
-		d_nnStates1, d_nnStates2, d_neStates,
-		d_gsl_de, d_gsl_dn,
-		d_gsl_de_F, d_gsl_dn_F,
-		d_gsl_de_A, d_gsl_dn_A);
+        real_t q = one / (1 + dist2);
 
-	// Get the result from device
-	try
-	{
-		thrust::copy(d_Y.begin(), d_Y.end(), Y.begin());
-	}
-	catch(thrust::system_error &e)
-	{
-	  // output an error message and exit
-	  std::cerr << "Error getting result: " << e.what() << std::endl;
-	  //exit(1);
-	}
+        real_t g;
+        if (r == 0) {
+          g = -attrCoef * q;
+        } else {
+          g = repuCoef * q * q;
+        }
 
-    return Y;
+        bool overwrite = false;
+#pragma unroll
+        for (int d = 0; d < DIM; d++) {
+          real_t gain = eta * g * dY[d];
+          // The atomics below basically do
+          // Y[d + lk] += gain;
+          // Y[d + ll] -= gain;
+          // But try again if another worker has written to the same location
+          if (atomicAdd((real_t *)Y + k + d * nn, gain) != Yk_read[d] ||
+              atomicAdd((real_t *)Y + l + d * nn, -gain) != Yl_read[d]) {
+            overwrite = true;
+          }
+        }
+        if (!overwrite) {
+          qsum_local += q;
+          qcount_local++;
+        } else {
+          // Reset values
+#pragma unroll
+          for (int d = 0; d < DIM; d++) {
+            Y[k + d * nn] = Yk_read[d];
+            Y[l + d * nn] = Yl_read[d];
+          }
+          __threadfence();
+          atomicAdd(clash_cnt, 1ULL);
+          r--;
+        }
+      }
+    }
+    __syncwarp();
+
+    // Store local state (RNG & counts) back to global
+    put_rng_state(rng_block, p_rng);
+    qsum[workerIdx] = qsum_local;
+    qcount[workerIdx] = qcount_local;
+  }
+}
+
+/****************************
+ * Classes                  *
+ ****************************/
+template <typename real_t> struct kernel_ptrs {
+  uint32_t *rng;
+  real_t *Y;
+  uint64_t *I;
+  uint64_t *J;
+  real_t *Eq;
+  real_t *qsum;
+  uint64_t *qcount;
+  uint64_t nn;
+  uint64_t ne;
+  real_t nsq;
+  int n_workers;
+};
+
+template <typename real_t> struct callBackData_t {
+  real_t *Eq;
+  real_t *nsq;
+  real_t *qsum;
+  uint64_t *qcount;
+  real_t *eta0;
+  unsigned long long int *n_clashes;
+  uint64_t *iter;
+  uint64_t *maxIter;
+};
+
+// Callback, which is a CUDA host function that updates the progress meter
+// and calculates Eq
+template <typename real_t> void CUDART_CB Eq_callback(void *data) {
+  callBackData_t<real_t> *tmp = (callBackData_t<real_t> *)(data);
+  real_t *Eq = tmp->Eq;
+  real_t *nsq = tmp->nsq;
+  real_t *qsum = tmp->qsum;
+  uint64_t *qcount = tmp->qcount;
+  *Eq = (*Eq * *nsq + *qsum) / (*nsq + *qcount);
+
+  uint64_t *iter = tmp->iter;
+  uint64_t *maxIter = tmp->maxIter;
+  real_t *eta0 = tmp->eta0;
+  real_t eta = *eta0 * (1 - static_cast<real_t>(*iter) / (*maxIter - 1));
+  eta = MAX(eta, *eta0 * 1e-4);
+
+  unsigned long long int *n_clashes = tmp->n_clashes;
+  update_progress(*iter, *maxIter, eta, *Eq, *n_clashes);
+}
+
+// This is the class that does all the work
+template <typename real_t> class sce_gpu {
+public:
+  sce_gpu(const std::vector<real_t> &Y, const std::vector<uint64_t> &I,
+          const std::vector<uint64_t> &J, const std::vector<double> &P,
+          const std::vector<real_t> &weights, int n_workers,
+          const int device_id, const unsigned int seed)
+      : n_workers_(n_workers), nn_(weights.size()), ne_(P.size()),
+        nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
+        progress_callback_fn_(Eq_callback<real_t>),
+        rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), I_(I), J_(J),
+        Eq_host_(1.0), Eq_device_(1.0), qsum_(n_workers), qsum_total_host_(0.0),
+        qsum_total_device_(0.0), qcount_(n_workers), qcount_total_host_(0),
+        qcount_total_device_(0) {
+    // Initialise CUDA
+    CUDA_CALL(cudaSetDevice(device_id));
+#ifdef USE_CUDA_PROFILER
+    CUDA_CALL(cudaProfilerStart());
+#endif
+
+    // Initialise tmp space for reductions on qsum and qcount
+    cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
+                           qsum_.data(), qsum_total_device_.data(),
+                           qsum_.size());
+    qsum_tmp_storage_.set_size(qsum_tmp_storage_bytes_);
+    cub::DeviceReduce::Sum(qcount_tmp_storage_.data(),
+                           qcount_tmp_storage_bytes_, qcount_.data(),
+                           qcount_total_device_.data(), qcount_.size());
+    qcount_tmp_storage_.set_size(qcount_tmp_storage_bytes_);
+
+    // Set up discrete RNG tables
+    node_table_ = set_device_table(weights);
+    edge_table_ = set_device_table(P);
+  }
+
+#ifdef USE_CUDA_PROFILER
+  ~sce_gpu() { CUDA_CALL_NOTHROW(cudaProfilerStop()); }
+#endif
+
+  // This runs the SCE loop on the device
+  void run_SCE(uint64_t maxIter, const int block_size, const int n_workers,
+               const uint64_t nRepuSamp, real_t eta0, const bool bInit) {
+    uint64_t iter_h = 0;
+    device_value<uint64_t> iter_d(iter_h);
+    unsigned long long int n_clashes_h = 0;
+    device_value<unsigned long long int> n_clashes_d(n_clashes_h);
+    kernel_ptrs<real_t> device_ptrs = get_device_ptrs();
+
+    // Set up a single iteration on a CUDA graph
+    const size_t block_count = (n_workers_ + block_size - 1) / block_size;
+    cuda_graph graph;
+    cuda_stream capture_stream, graph_stream;
+
+    // Set up pointers used for kernel parameters in graph
+    progress_callback_params_.Eq = &Eq_host_;
+    progress_callback_params_.nsq = &nsq_;
+    progress_callback_params_.qsum = &qsum_total_host_;
+    progress_callback_params_.qcount = &qcount_total_host_;
+    progress_callback_params_.eta0 = &eta0;
+    progress_callback_params_.n_clashes = &n_clashes_h;
+    progress_callback_params_.iter = &iter_h;
+    progress_callback_params_.maxIter = &maxIter;
+
+    // SCE updates kernel with workers, then updates Eq
+    // Start capture
+    capture_stream.capture_start();
+    iter_d.set_value_async(&iter_h, capture_stream.stream());
+    wtsneUpdateYKernel<real_t>
+        <<<block_count, block_size, 0, capture_stream.stream()>>>(
+            device_ptrs.rng, get_node_table(), get_edge_table(), device_ptrs.Y,
+            device_ptrs.I, device_ptrs.J, device_ptrs.Eq, device_ptrs.qsum,
+            device_ptrs.qcount, device_ptrs.nn, device_ptrs.ne, eta0, nRepuSamp,
+            device_ptrs.nsq, bInit, iter_d.data(), maxIter,
+            device_ptrs.n_workers, n_clashes_d.data());
+
+    cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
+                           qsum_.data(), qsum_total_device_.data(),
+                           qsum_.size(), capture_stream.stream());
+    cub::DeviceReduce::Sum(
+        qcount_tmp_storage_.data(), qcount_tmp_storage_bytes_, qcount_.data(),
+        qcount_total_device_.data(), qcount_.size(), capture_stream.stream());
+    qsum_total_device_.get_value_async(&qsum_total_host_,
+                                       capture_stream.stream());
+    qcount_total_device_.get_value_async(&qcount_total_host_,
+                                         capture_stream.stream());
+    n_clashes_d.get_value_async(&n_clashes_h, capture_stream.stream());
+
+    capture_stream.add_host_fn(progress_callback_fn_,
+                               (void *)&progress_callback_params_);
+    Eq_device_.set_value_async(&Eq_host_, capture_stream.stream());
+
+    capture_stream.capture_end(graph.graph());
+    // End capture
+
+    // Main SCE loop - run captured graph maxIter times
+    // NB: Here I have written the code so the kernel launch parameters (and all
+    // CUDA API calls) are able to use the same parameters each loop, mainly by
+    // using pointers to device memory, and two iter counters.
+    // The alternative would be to use cudaGraphExecKernelNodeSetParams to
+    // change the kernel launch parameters. See
+    // 0c369b209ef69d91016bedd41ea8d0775879f153
+    for (iter_h = 0; iter_h < maxIter; ++iter_h) {
+      graph.launch(graph_stream.stream());
+      if (iter_h % MAX(1, maxIter / 1000) == 0) {
+        check_interrupts();
+      }
+    }
+    graph_stream.sync();
+    std::cerr << std::endl << "Optimizing done" << std::endl;
+  }
+
+  // Copy result back to host
+  std::vector<real_t> get_embedding_result(const int cpu_threads) {
+    std::vector<real_t> Y_host(Y_.size());
+    Y_.get_array(Y_host);
+
+    // Strides need to be changed from column-major to row-major
+    std::vector<real_t> Y_restride(Y_host.size());
+#pragma omp parallel for num_threads(cpu_threads)
+    for (uint64_t i = 0; i < nn_; ++i) {
+      for (int j = 0; j < DIM; ++j) {
+        Y_restride[i * DIM + j] = Y_host[i + j * nn_];
+      }
+    }
+    return Y_restride;
+  }
+
+private:
+  template <typename T>
+  discrete_table_device<real_t> set_device_table(const std::vector<T> &probs) {
+    discrete_table<real_t, T> table(probs);
+    discrete_table_device<real_t> dev_table = {.F = table.F_table(),
+                                               .A = table.A_table()};
+    return dev_table;
+  }
+
+  discrete_table_ptrs<real_t> get_node_table() {
+    discrete_table_ptrs<real_t> device_node_table = {.K = node_table_.F.size(),
+                                                     .F = node_table_.F.data(),
+                                                     .A = node_table_.A.data()};
+    return device_node_table;
+  }
+
+  discrete_table_ptrs<real_t> get_edge_table() {
+    discrete_table_ptrs<real_t> device_edge_table = {.K = edge_table_.F.size(),
+                                                     .F = edge_table_.F.data(),
+                                                     .A = edge_table_.A.data()};
+    return device_edge_table;
+  }
+
+  kernel_ptrs<real_t> get_device_ptrs() {
+    kernel_ptrs<real_t> device_ptrs = {.rng = rng_state_.data(),
+                                       .Y = Y_.data(),
+                                       .I = I_.data(),
+                                       .J = J_.data(),
+                                       .Eq = Eq_device_.data(),
+                                       .qsum = qsum_.data(),
+                                       .qcount = qcount_.data(),
+                                       .nn = nn_,
+                                       .ne = ne_,
+                                       .nsq = nsq_,
+                                       .n_workers = n_workers_};
+    return device_ptrs;
+  }
+
+  // delete move and copy to avoid accidentally using them
+  sce_gpu(const sce_gpu &) = delete;
+  sce_gpu(sce_gpu &&) = delete;
+
+  int n_workers_;
+  uint64_t nn_;
+  uint64_t ne_;
+  real_t nsq_;
+
+  // CUDA types to run callback (Eq + progress) in the graph
+  cudaHostFn_t progress_callback_fn_;
+  callBackData_t<real_t> progress_callback_params_;
+
+  // Uniform draw tables
+  device_array<uint32_t> rng_state_;
+  discrete_table_device<real_t> node_table_;
+  discrete_table_device<real_t> edge_table_;
+
+  // Embedding
+  device_array<real_t> Y_;
+  // Sparse distance indexes
+  device_array<uint64_t> I_;
+  device_array<uint64_t> J_;
+
+  // Algorithm progress
+  real_t Eq_host_;
+  device_value<real_t> Eq_device_;
+  device_array<real_t> qsum_;
+  real_t qsum_total_host_;
+  device_value<real_t> qsum_total_device_;
+  device_array<uint64_t> qcount_;
+  uint64_t qcount_total_host_;
+  device_value<uint64_t> qcount_total_device_;
+
+  // cub space
+  size_t qsum_tmp_storage_bytes_;
+  size_t qcount_tmp_storage_bytes_;
+  device_array<void> qsum_tmp_storage_;
+  device_array<void> qcount_tmp_storage_;
+};
+
+// These two templates are explicitly instantiated here as the instantiation
+// in python_bindings.cpp is not seen by nvcc, leading to a unlinked function
+// when imported
+template std::vector<float>
+wtsne_gpu<float>(const std::vector<uint64_t> &, const std::vector<uint64_t> &,
+                 std::vector<float> &, std::vector<float> &, const float,
+                 const uint64_t, const int, const int, const uint64_t,
+                 const float, const bool, const int, const int,
+                 const unsigned int);
+template std::vector<double>
+wtsne_gpu<double>(const std::vector<uint64_t> &, const std::vector<uint64_t> &,
+                  std::vector<double> &, std::vector<double> &, const double,
+                  const uint64_t, const int, const int, const uint64_t,
+                  const double, const bool, const int, const int,
+                  const unsigned int);
+
+/****************************
+ * Main control function    *
+ ****************************/
+template <typename real_t>
+std::vector<real_t>
+wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
+          std::vector<real_t> &dists, std::vector<real_t> &weights,
+          const real_t perplexity, const uint64_t maxIter, const int block_size,
+          const int n_workers, const uint64_t nRepuSamp, const real_t eta0,
+          const bool bInit, const int cpu_threads, const int device_id,
+          const unsigned int seed) {
+  // Check input
+  std::vector<real_t> Y;
+  std::vector<double> P;
+  std::tie(Y, P) =
+      wtsne_init<real_t>(I, J, dists, weights, perplexity, cpu_threads, seed);
+
+  // This class sets up and manages all of the memory
+  sce_gpu<real_t> embedding(Y, I, J, P, weights, n_workers, device_id, seed);
+  // Run the algorithm
+  embedding.run_SCE(maxIter, block_size, n_workers, nRepuSamp, eta0, bInit);
+  // Get the result back
+  return embedding.get_embedding_result(cpu_threads);
 }

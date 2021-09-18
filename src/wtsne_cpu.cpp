@@ -8,119 +8,121 @@
 
 // Modified by John Lees
 
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_randist.h>
-
 #include "wtsne.hpp"
 
-std::vector<double> wtsne(std::vector<long long>& I,
-           std::vector<long long>& J,
-           std::vector<double>& P,
-           std::vector<double>& weights,
-           long long maxIter, 
-           long long workerCount, 
-           long long nRepuSamp,
-           double eta0,
-           bool bInit)
-{
-    // Check input
-    std::vector<double> Y = wtsne_init<double>(I, J, P, weights);
-    long long nn = weights.size();
-    long long ne = P.size();
+std::vector<double>
+wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
+      std::vector<double> &dists, std::vector<double> &weights,
+      const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
+      const double eta0, const bool bInit, const int n_workers,
+      const int n_threads, const unsigned int seed) {
+  // Check input
+  std::vector<double> Y, P;
+  std::tie(Y, P) =
+      wtsne_init<double>(I, J, dists, weights, perplexity, n_threads, seed);
+  uint64_t nn = weights.size();
+  uint64_t ne = P.size();
 
-    // Set up random number generation
-    const gsl_rng_type * gsl_T;
-    gsl_rng_env_setup();
-    gsl_T = gsl_rng_default;
-    gsl_rng * gsl_r_nn = gsl_rng_alloc(gsl_T);
-    gsl_rng * gsl_r_ne = gsl_rng_alloc(gsl_T);
-    gsl_rng_set(gsl_r_nn, 314159);
-    gsl_rng_set(gsl_r_ne, 271828);
+  // Set up random number generation
+  discrete_table<double> node_table(weights, n_threads);
+  discrete_table<double> edge_table(P, n_threads);
+  pRNG<double> rng_state(n_workers, std::vector<uint32_t>(1, seed));
 
-    gsl_ran_discrete_t * gsl_de = gsl_ran_discrete_preproc(ne, P.data());
-    gsl_ran_discrete_t * gsl_dn = gsl_ran_discrete_preproc(nn, weights.data());
+  // SNE algorithm
+  const double nsq = nn * (nn - 1);
+  double Eq = 1.0;
+  unsigned long long int n_clashes = 0;
+  for (uint64_t iter = 0; iter < maxIter; iter++) {
+    double eta = eta0 * (1 - (double)iter / maxIter);
+    eta = MAX(eta, eta0 * 1e-4);
+    double c = 1.0 / (Eq * nsq);
 
-    // SNE algorithm
-    const double nsq = nn * (nn-1);
-    double Eq = 1.0;
-    for (long long iter=0; iter<maxIter; iter++)
-    {
-        double eta = eta0 * (1-(double)iter/maxIter);
-        eta = MAX(eta, eta0 * 1e-4);
-        double c = 1.0 / (Eq * nsq);
+    double qsum = 0;
+    uint64_t qcount = 0;
 
-        double qsum = 0;
-        long long qcount = 0;
+    double attrCoef = (bInit && iter < maxIter / 10) ? 8 : 2;
+    double repuCoef = 2 * c / nRepuSamp * nsq;
+#pragma omp parallel for reduction(+ : qsum, qcount) num_threads(n_threads)
+    for (int worker = 0; worker < n_workers; worker++) {
+      std::vector<double> dY(DIM);
+      std::vector<double> Yk_read(DIM);
+      std::vector<double> Yl_read(DIM);
 
-        double attrCoef = (bInit && iter<maxIter/10) ? 8 : 2;
-        double repuCoef = 2 * c / nRepuSamp * nsq;
-        #pragma omp parallel for reduction(+:qsum,qcount)
-        for (long long worker=0; worker<workerCount; worker++)
-        {
-            std::vector<double> dY(DIM);
+      rng_state_t<double> &worker_rng = rng_state.state(worker);
+      uint64_t e = edge_table.discrete_draw(worker_rng) % ne;
+      uint64_t i = I[e];
+      uint64_t j = J[e];
 
-            long long e = gsl_ran_discrete(gsl_r_ne, gsl_de) % ne;
-            long long i = I[e];
-            long long j = J[e];
-
-            for (long long r=0; r<nRepuSamp+1; r++)
-            {   
-                // fprintf(stderr, "r: %d", r);
-                // fflush(stderr);
-                long long k, l;
-                if (r==0)
-                {
-                    k = i;
-                    l = j;
-                }
-                else
-                {
-                    k = gsl_ran_discrete(gsl_r_nn, gsl_dn) % nn;
-                    l = gsl_ran_discrete(gsl_r_nn, gsl_dn) % nn;
-                }
-                if (k == l) continue;
-
-                long long lk = k * DIM;
-                long long ll = l * DIM;
-                double dist2 = 0.0;
-                for (long long d=0; d<DIM; d++)
-                {
-                    dY[d] = Y[d+lk]-Y[d+ll];
-                    dist2 += dY[d] * dY[d];
-                }
-                double q = 1.0 / (1 + dist2);
-
-                double g;
-                if (r==0)
-                    g = -attrCoef * q;
-                else
-                    g = repuCoef * q * q;
-
-                for (long long d=0; d<DIM; d++)
-                {
-                    double gain = eta * g * dY[d];
-                    Y[d+lk] += gain;
-                    Y[d+ll] -= gain;
-                }
-                qsum += q;
-                qcount++;
-            }
+      for (uint64_t r = 0; r < nRepuSamp + 1; r++) {
+        uint64_t k, l;
+        if (r == 0) {
+          k = i;
+          l = j;
+        } else {
+          k = node_table.discrete_draw(worker_rng) % nn;
+          l = node_table.discrete_draw(worker_rng) % nn;
         }
-        Eq = (Eq * nsq + qsum) / (nsq + qcount);
-
-        if (iter % MAX(1,maxIter/1000)==0 || iter==maxIter-1)
-        {
-            fprintf(stderr, "%cOptimizing (CPU)\t eta=%f Progress: %.1lf%%, Eq=%.20f", 13, eta, (double)iter / maxIter * 100, 1.0/(c*nsq));
-            fflush(stderr);
+        if (k == l) {
+          continue;
         }
+
+        uint64_t lk = k * DIM;
+        uint64_t ll = l * DIM;
+        double dist2 = 0.0;
+        for (int d = 0; d < DIM; d++) {
+#pragma omp atomic read
+          Yk_read[d] = Y[d + lk];
+#pragma omp atomic read
+          Yl_read[d] = Y[d + ll];
+          dY[d] = Yk_read[d] - Yl_read[d];
+          dist2 += dY[d] * dY[d];
+        }
+        double q = 1.0 / (1 + dist2);
+
+        double g;
+        if (r == 0)
+          g = -attrCoef * q;
+        else
+          g = repuCoef * q * q;
+
+        bool overwrite = false;
+        for (int d = 0; d < DIM; d++) {
+          double gain = eta * g * dY[d];
+          double Yk_read_end, Yl_read_end;
+#pragma omp atomic capture
+          Yk_read_end = Y[d + lk] += gain;
+#pragma omp atomic capture
+          Yl_read_end = Y[d + ll] -= gain;
+          if (Yk_read_end != Yk_read[d] + gain ||
+              Yl_read_end != Yl_read[d] - gain) {
+            overwrite = true;
+            break;
+          }
+        }
+        if (!overwrite) {
+          qsum += q;
+          qcount++;
+        } else {
+          // Find another neighbour
+          for (int d = 0; d < DIM; d++) {
+#pragma omp atomic write
+            Y[d + lk] = Yk_read[d];
+#pragma omp atomic write
+            Y[d + ll] = Yl_read[d];
+          }
+#pragma omp atomic update
+          n_clashes++;
+          r--;
+        }
+      }
     }
-    std::cerr << std::endl << "Optimizing done" << std::endl;
+    Eq = (Eq * nsq + qsum) / (nsq + qcount);
+    update_progress(iter, maxIter, eta, Eq, n_clashes);
+    if (iter % MAX(1, maxIter / 1000) == 0) {
+      check_interrupts();
+    }
+  }
+  std::cerr << std::endl << "Optimizing done" << std::endl;
 
-    // Free memory from GSL functions
-    gsl_ran_discrete_free(gsl_de);
-    gsl_ran_discrete_free(gsl_dn);
-    gsl_rng_free(gsl_r_nn);
-    gsl_rng_free(gsl_r_ne);
-
-    return(Y);
+  return Y;
 }
