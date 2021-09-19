@@ -11,7 +11,7 @@ from .__init__ import __version__
 from .dists import pairSnpDists, accessoryDists, sketchlibDists
 from .sce import save_input, loadIJdist, runSCE, saveEmbedding
 from .clustering import runHDBSCAN
-from .plot import plotSCE
+from .plot import plotSCE, plotSCE_animation
 
 def get_options():
     import argparse
@@ -36,6 +36,7 @@ def get_options():
                         help='Work from pre-calculated distances')
 
     ioGroup = parser.add_argument_group('I/O options')
+    ioGroup.add_argument('--animate', default=False, action='store_true', help='Create an animation of the embedding process')
     ioGroup.add_argument('--labels', default=None, help='Sample labels for plotting (overrides DBSCAN clusters)')
     ioGroup.add_argument('--output', default="mandrake", type=str, help='Prefix for output files [default = "mandrake"]')
 
@@ -62,7 +63,7 @@ def get_options():
     sketchGroup.add_argument('--use-core', action='store_true', default=False, help="Use core distances")
     sketchGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances")
 
-    distGroup = parser.add_argument_group('Distance options')
+    distGroup = parser.add_mutually_exclusive_group(required=True)
     distGroup.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
     distGroup.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
 
@@ -79,6 +80,8 @@ def main():
     args = get_options()
 
     # Set n_workers to a sensible default
+    if not (isinstance(args.cpus, int) and (args.cpus > 0)):
+        raise ValueError("Invalid value for cpus")
     if (not args.use_gpu and args.n_workers < args.cpus)\
        or (args.use_gpu and args.n_workers < args.blockSize):
         sys.stderr.write("Number of workers less than number of available threads, "
@@ -87,6 +90,15 @@ def main():
             args.n_workers = args.blockSize
         else:
             args.n_workers = args.cpus
+
+    if args.kNN is not None:
+        if not (isinstance(args.kNN, int) and (args.kNN > 0)):
+            raise ValueError("Invalid value for kNN")
+        args.threshold = 0
+    elif args.threshold is not None:
+        if not (isinstance(args.threshold, float) and (args.threshold > 0) and (args.threshold <= 1)):
+            raise ValueError("Invalid value for threshold")
+        args.kNN = 0
 
     #***********************#
     #* Run seq -> distance *#
@@ -134,30 +146,31 @@ def main():
     #***********************#
     sys.stderr.write("Running SCE\n")
     SCE_opts = {'maxIter': args.maxIter,
-               'cpus': args.cpus,
-               'use_gpu': args.use_gpu,
-               'device_id': args.device_id,
-               'blockSize': args.blockSize,
-               'n_workers': args.n_workers,
-               'fp': args.fp,
-               'nRepuSamp': args.nRepuSamp,
-               'eta0': args.eta0,
-               'bInit': args.bInit,
-               'seed': args.seed}
+                'animate': args.animate,
+                'cpus': args.cpus,
+                'use_gpu': args.use_gpu,
+                'device_id': args.device_id,
+                'blockSize': args.blockSize,
+                'n_workers': args.n_workers,
+                'fp': args.fp,
+                'nRepuSamp': args.nRepuSamp,
+                'eta0': args.eta0,
+                'bInit': args.bInit,
+                'seed': args.seed}
     if args.no_preprocessing:
         SCE_opts['perplexity'] = -1
     else:
         SCE_opts['perplexity'] = args.perplexity
 
-    embedding = runSCE(I, J, dists, args.weight_file, names, SCE_opts)
-    saveEmbedding(embedding, args.output)
+    embedding_results, embedding_array = runSCE(I, J, dists, args.weight_file, names, SCE_opts)
+    saveEmbedding(embedding_array, args.output)
 
     #***********************#
     #* run HDBSCAN         *#
     #***********************#
     if args.labels == None:
         sys.stderr.write("Running clustering\n")
-        cluster_labels = runHDBSCAN(embedding)
+        cluster_labels = runHDBSCAN(embedding_array)
     else:
         label_file = pd.read_csv(args.labels, sep="\t", header=None, index_col=0)
         cluster_labels = list(label_file.loc[names][1].values)
@@ -166,7 +179,10 @@ def main():
     #* plot embedding      *#
     #***********************#
     sys.stderr.write("Drawing plots\n")
-    plotSCE(embedding, names, cluster_labels, args.output, not args.labels)
+    plotSCE(embedding_array, names, cluster_labels, args.output, not args.labels)
+    if embedding_results.animated():
+        sys.stderr.write("Creating animation\n")
+        plotSCE_animation(embedding_results, cluster_labels, args.output, not args.labels)
 
     sys.exit(0)
 

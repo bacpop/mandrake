@@ -10,11 +10,11 @@
 
 #include "wtsne.hpp"
 
-std::vector<double>
+std::shared_ptr<sce_results<double>>
 wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       std::vector<double> &dists, std::vector<double> &weights,
       const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
-      const double eta0, const bool bInit, animate<double> &animation,
+      const double eta0, const bool bInit, const bool animated,
       const int n_workers, const int n_threads, const unsigned int seed) {
   // Check input
   std::vector<double> Y, P;
@@ -22,6 +22,9 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       wtsne_init<double>(I, J, dists, weights, perplexity, n_threads, seed);
   uint64_t nn = weights.size();
   uint64_t ne = P.size();
+
+  // Setup output
+  std::shared_ptr<sce_results<double>> results = std::make_shared<sce_results<double>>(animated);
 
   // Set up random number generation
   discrete_table<double> node_table(weights, n_threads);
@@ -32,6 +35,7 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   const double nsq = nn * (nn - 1);
   double Eq = 1.0;
   unsigned long long int n_clashes = 0;
+  results->add_frame(Eq, Y); // starting positions
   for (uint64_t iter = 0; iter < maxIter; iter++) {
     double eta = eta0 * (1 - (double)iter / maxIter);
     eta = MAX(eta, eta0 * 1e-4);
@@ -120,10 +124,11 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
     if (iter % MAX(1, maxIter / 1000) == 0) {
       check_interrupts();
       update_progress(iter, maxIter, eta, Eq, n_clashes);
-      animation.add_frame(Eq, Y);
+      results->add_frame(Eq, Y);
     }
   }
+  results->add_result(Y);
   std::cerr << std::endl << "Optimizing done" << std::endl;
 
-  return Y;
+  return results;
 }

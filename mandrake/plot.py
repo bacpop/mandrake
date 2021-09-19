@@ -4,8 +4,10 @@
 '''Methods for making plots of embeddings'''
 
 import sys
+import collections
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -13,6 +15,7 @@ import matplotlib as mpl
 mpl.use('Agg')
 mpl.rcParams.update({'font.size': 18})
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 def plotSCE(embedding, names, labels, output_prefix, dbscan=True):
     if dbscan:
@@ -120,3 +123,42 @@ def plotSCE_static(embedding, labels, output_prefix, dbscan=True):
     plt.ylabel('SCE dimension 2')
     plt.savefig(output_prefix + ".embedding.png")
     plt.close()
+
+def plotSCE_animation(results, labels, output_prefix, dbscan=True):
+    pt_scale = 7
+    unique_labels = set(labels)
+    rng = np.random.default_rng(1)
+    style_dict = collections.defaultdict(dict)
+    for k in unique_labels:
+        if k == -1 and dbscan:
+            style_dict['ptsize'][k] = 1 * pt_scale
+            style_dict['col'][k] = 'k'
+            style_dict['mec'][k] = None
+            style_dict['mew'][k] = 0
+        else:
+            style_dict['ptsize'][k] = 2 * pt_scale
+            style_dict['col'][k] = tuple(rng.uniform(size=3))
+            style_dict['mec'][k] = 'k'
+            style_dict['mew'][k] = 0.2 * pt_scale
+
+    fig, ax = plt.subplots()
+    ims = []
+    for frame in tqdm(range(results.n_frames()), unit="frames"):
+        embedding = np.array(results.get_embedding_frame(frame)).reshape(-1, 2)
+        animated = True if frame > 0 else False
+        for k in unique_labels:
+            class_member_mask = (labels == k)
+            xy = embedding[class_member_mask]
+            im, = ax.plot(xy[:, 0], xy[:, 1], '.',
+                      color=style_dict['col'][k],
+                      markersize=style_dict['ptsize'][k],
+                      mec=style_dict['mec'][k],
+                      mew=style_dict['mew'][k],
+                      animated=animated)
+        ims.append([im])
+
+    ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
+                                    repeat=False)
+    writer = animation.FFMpegWriter(
+        fps=15, metadata=dict(artist='Me'), bitrate=1800)
+    ani.save(output_prefix + ".embedding_animation.mp4", writer=writer)

@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <random>
 #include <stdio.h>
 #include <string.h>
@@ -30,7 +31,7 @@
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
-#include "animate.hpp"
+#include "sce_results.hpp"
 #include "uniform_discrete.hpp"
 
 #ifndef DIM
@@ -200,11 +201,11 @@ inline void update_progress(const uint64_t iter, const uint64_t maxIter,
 
 // Function prototypes
 // in wtsne_cpu.cpp
-std::vector<double>
+std::shared_ptr<sce_results<double>>
 wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       std::vector<double> &dists, std::vector<double> &weights,
       const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
-      const double eta0, const bool bInit, const int n_workers,
+      const double eta0, const bool bInit, const bool animated, const int n_workers,
       const int n_threads, const unsigned int seed);
 // in wtsne_gpu.cu
 template <typename real_t>

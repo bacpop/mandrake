@@ -7,12 +7,22 @@ PYBIND11_MODULE(SCE, m) {
   m.doc() = "Stochastic cluster embedding";
   m.attr("version") = VERSION_INFO;
 
+  // Animation class
+  py::class_<sce_results<double>, std::shared_ptr<sce_results<double>>>(m, "sce_result")
+    .def(py::init<const bool>())
+    .def("animated", &sce_results<double>::is_animated)
+    .def("n_frames", &sce_results<double>::n_frames)
+    .def("get_eq", &sce_results<double>::get_eq)
+    .def("get_embedding", &sce_results<double>::get_embedding)
+    .def("get_embedding_frame", &sce_results<double>::get_embedding_frame, py::arg("frame"));
+
   // Exported functions
   m.def("wtsne", &wtsne, py::return_value_policy::take_ownership,
         "Run stochastic cluster embedding", py::arg("I_vec"), py::arg("J_vec"),
-        py::arg("dist_vec"), py::arg("weights"), py::arg("perplexity"),
-        py::arg("maxIter"), py::arg("nRepuSamp") = 5, py::arg("eta0") = 1,
-        py::arg("bInit") = 0, py::arg("n_workers") = 128,
+        py::arg("dist_vec"), py::arg("weights"),
+        py::arg("perplexity"), py::arg("maxIter"), py::arg("nRepuSamp") = 5,
+        py::arg("eta0") = 1, py::arg("bInit") = 0, py::arg("animated"),
+        py::arg("n_workers") = 128,
         py::arg("n_threads") = 1, py::arg("seed") = 1);
 
   m.def("pairsnp", &pairsnp, py::return_value_policy::take_ownership,
