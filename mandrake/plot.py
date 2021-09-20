@@ -13,7 +13,6 @@ import plotly.graph_objects as go
 
 import matplotlib as mpl
 mpl.use('Agg')
-mpl.rcParams.update({'font.size': 18})
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
@@ -124,6 +123,11 @@ def plotSCE_static(embedding, labels, output_prefix, dbscan=True):
     plt.savefig(output_prefix + ".embedding.png")
     plt.close()
 
+def norm_and_centre(array):
+    for dimension in range(2):
+        array[:, dimension] = array[:, dimension] - np.mean(array[:, dimension])
+        array[:, dimension] = array[:, dimension]/np.max(array[:, dimension])
+
 def plotSCE_animation(results, labels, output_prefix, dbscan=True):
     pt_scale = 7
     unique_labels = set(labels)
@@ -141,11 +145,19 @@ def plotSCE_animation(results, labels, output_prefix, dbscan=True):
             style_dict['mec'][k] = 'k'
             style_dict['mew'][k] = 0.2 * pt_scale
 
+    plt.figure(figsize=(11, 8), dpi=160, facecolor='w', edgecolor='k')
     fig, ax = plt.subplots()
+    ax.set_xlabel('SCE dimension 1')
+    ax.set_ylabel('SCE dimension 2')
+    if dbscan:
+        ax.set_title('HDBSCAN – estimated number of spatial clusters: %d' % (len(unique_labels) - 1))
+
     ims = []
-    for frame in tqdm(range(results.n_frames()), unit="frames"):
+    for frame in tqdm(range(0, results.n_frames(), 5), unit="frames"):
         embedding = np.array(results.get_embedding_frame(frame)).reshape(-1, 2)
+        norm_and_centre(embedding)
         animated = True if frame > 0 else False
+        frame_ims = []
         for k in unique_labels:
             class_member_mask = (labels == k)
             xy = embedding[class_member_mask]
@@ -155,10 +167,14 @@ def plotSCE_animation(results, labels, output_prefix, dbscan=True):
                       mec=style_dict['mec'][k],
                       mew=style_dict['mew'][k],
                       animated=animated)
-        ims.append([im])
+            frame_ims.append(im)
+        ims.append(frame_ims)
 
     ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
                                     repeat=False)
     writer = animation.FFMpegWriter(
-        fps=15, metadata=dict(artist='Me'), bitrate=1800)
-    ani.save(output_prefix + ".embedding_animation.mp4", writer=writer)
+        fps=15, metadata=dict(title='mandrake animation'), bitrate=-1)
+    progress_callback = lambda i, n: sys.stderr.write('Saving frame ' + str(i) + ' of ' + str(len(ims)) + '\r')
+    ani.save(output_prefix + ".embedding_animation.mp4", writer=writer, dpi=320, progress_callback=progress_callback)
+    progress_callback(len(ims), len(ims))
+    sys.stderr.write("\n")
