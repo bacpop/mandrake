@@ -187,7 +187,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
     ProgressMeter dist_progress(progress_blocks, true);
     int progress = 0;
 
-#pragma omp parallel for schedule(dynamic, 5) reduction(+:len) num_threads(n_threads)  private (j)
+#pragma omp parallel for schedule(dynamic, 5) reduction(+:len) num_threads(n_threads)
   for (uint64_t i = 0; i < n_seqs; i++) {
 
     std::vector<int> comp_snps(n_seqs);
