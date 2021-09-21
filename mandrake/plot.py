@@ -14,6 +14,7 @@ import plotly.graph_objects as go
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.animation as animation
 
 def plotSCE(embedding, names, labels, output_prefix, dbscan=True):
@@ -98,7 +99,7 @@ def plotSCE_static(embedding, labels, output_prefix, dbscan=True):
     else:
         pt_scale = 7
 
-    plt.figure(figsize=(11, 8), dpi= 160, facecolor='w', edgecolor='k')
+    plt.figure(figsize=(11, 11), dpi= 160, facecolor='w', edgecolor='k')
     rng = np.random.default_rng(1)
     for k in unique_labels:
         if k == -1 and dbscan:
@@ -123,8 +124,21 @@ def plotSCE_static(embedding, labels, output_prefix, dbscan=True):
     plt.savefig(output_prefix + ".embedding.png")
     plt.close()
 
+def plotSCE_hex(embedding, output_prefix):
+    plt.figure(figsize=(11, 11), dpi= 160, facecolor='w', edgecolor='k')
+    ax = plt.subplot()
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    hb = ax.hexbin(embedding[:, 0], embedding[:, 1], mincnt=1, gridsize=50, cmap='inferno')
+    cbar = plt.colorbar(hb, cax=cax)
+    cbar.set_label('Samples')
+    ax.set_title('Embedding density')
+    ax.set_xlabel('SCE dimension 1')
+    ax.set_ylabel('SCE dimension 2')
+    plt.savefig(output_prefix + ".embedding_density.pdf")
+
 def norm_and_centre(array):
-    for dimension in range(2):
+    for dimension in range(len(array.shape)):
         array[:, dimension] = array[:, dimension] - np.mean(array[:, dimension])
         array[:, dimension] = array[:, dimension]/np.max(array[:, dimension])
 

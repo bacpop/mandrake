@@ -11,7 +11,7 @@ from .__init__ import __version__
 from .dists import pairSnpDists, accessoryDists, sketchlibDists
 from .sce import save_input, loadIJdist, runSCE, saveEmbedding
 from .clustering import runHDBSCAN
-from .plot import plotSCE, plotSCE_animation
+from .plot import plotSCE, plotSCE_animation, plotSCE_hex
 
 def get_options():
     import argparse
@@ -180,6 +180,7 @@ def main():
     #***********************#
     sys.stderr.write("Drawing plots\n")
     plotSCE(embedding_array, names, cluster_labels, args.output, not args.labels)
+    plotSCE_hex(embedding_array, args.output)
     if embedding_results.animated():
         sys.stderr.write("Creating animation\n")
         plotSCE_animation(embedding_results, cluster_labels, args.output, not args.labels)
