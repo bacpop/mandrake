@@ -35,7 +35,7 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   const double nsq = nn * (nn - 1);
   double Eq = 1.0;
   unsigned long long int n_clashes = 0;
-  results->add_frame(Eq, Y); // starting positions
+  results->add_frame(0, Eq, Y); // starting positions
   for (uint64_t iter = 0; iter < maxIter; iter++) {
     double eta = eta0 * (1 - (double)iter / maxIter);
     eta = MAX(eta, eta0 * 1e-4);
@@ -124,7 +124,7 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
     if (iter % MAX(1, maxIter / 1000) == 0) {
       check_interrupts();
       update_progress(iter, maxIter, eta, Eq, n_clashes);
-      results->add_frame(Eq, Y);
+      results->add_frame(iter, Eq, Y);
     }
   }
   results->add_result(Y);

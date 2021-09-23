@@ -159,23 +159,30 @@ def plotSCE_animation(results, labels, output_prefix, dbscan=True):
             style_dict['mec'][k] = 'k'
             style_dict['mew'][k] = 0.2 * pt_scale
 
-    plt.figure(figsize=(11, 8), dpi=160, facecolor='w', edgecolor='k')
-    fig, ax = plt.subplots()
-    ax.set_xlabel('SCE dimension 1')
-    ax.set_ylabel('SCE dimension 2')
+    plt.figure(figsize=(13, 11), dpi=160, facecolor='w', edgecolor='k')
+    fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 1]})
+    ax1.set_xlabel('SCE dimension 1')
+    ax1.set_ylabel('SCE dimension 2')
     if dbscan:
-        ax.set_title('HDBSCAN – estimated number of spatial clusters: %d' % (len(unique_labels) - 1))
+        ax1.set_title('HDBSCAN – estimated number of spatial clusters: %d' % (len(unique_labels) - 1))
+    ax2.set_xlabel('Iteration')
+    ax2.set_ylabel('Eq')
+    ax2.set_ylim(bottom=0)
 
     ims = []
+    iter_series, eq_series = results.get_eq()
+    plt.tight_layout()
     for frame in tqdm(range(0, results.n_frames(), 5), unit="frames"):
+        animated = True if frame > 0 else False
+        eq_im, = ax2.plot(iter_series[0:frame], eq_series[0:frame], color='cornflowerblue', lw=1, animated=animated)
+        frame_ims = [eq_im]
+
         embedding = np.array(results.get_embedding_frame(frame)).reshape(-1, 2)
         norm_and_centre(embedding)
-        animated = True if frame > 0 else False
-        frame_ims = []
         for k in unique_labels:
             class_member_mask = (labels == k)
             xy = embedding[class_member_mask]
-            im, = ax.plot(xy[:, 0], xy[:, 1], '.',
+            im, = ax1.plot(xy[:, 0], xy[:, 1], '.',
                       color=style_dict['col'][k],
                       markersize=style_dict['ptsize'][k],
                       mec=style_dict['mec'][k],
