@@ -43,7 +43,6 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   std::vector<boost::dynamic_bitset<>> C_snps;
   std::vector<boost::dynamic_bitset<>> G_snps;
   std::vector<boost::dynamic_bitset<>> T_snps;
-  std::string consensus;
 
   while (true) {
     l = kseq_read(seq);
@@ -161,13 +160,9 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
         break;
       }
     }
-    // As.runOptimize();
     A_snps.push_back(As);
-    // Cs.runOptimize();
     C_snps.push_back(Cs);
-    // Gs.runOptimize();
     G_snps.push_back(Gs);
-    // Ts.runOptimize();
     T_snps.push_back(Ts);
 
     n_seqs++;
@@ -198,14 +193,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
     std::vector<int> comp_snps(n_seqs);
     boost::dynamic_bitset<> res(seq_length);
 
-    size_t start;
-    if (knn < 0) {
-      start = i + 1;
-    } else {
-      start = 0;
-    }
-
-    for (uint64_t j = start; j < n_seqs; j++) {
+    for (uint64_t j = 0; j < n_seqs; j++) {
 
       res = A_snps[i] & A_snps[j];
       res |= C_snps[i] & C_snps[j];
@@ -225,13 +213,10 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
       std::vector<int> s_comp = comp_snps;
       std::sort(s_comp.begin(), s_comp.end());
       dist = s_comp[knn + 1];
-      start = 0;
-    } else {
-      start = i + 1;
     }
 
     // output distances
-    for (size_t j = start; j < n_seqs; j++) {
+    for (size_t j = 0; j < n_seqs; j++) {
       if ((dist == -1) || (comp_snps[j] <= dist)) {
         rows[i].push_back(i);
         cols[i].push_back(j);

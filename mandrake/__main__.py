@@ -113,9 +113,9 @@ def main():
                                     args.cpus)
         elif (args.accessory is not None):
             I, J, dists, names = accessoryDists(args.accessory,
-                                                args.sparse,
                                                 args.kNN,
-                                                args.threshold)
+                                                args.threshold,
+                                                args.cpus)
         elif (args.sketches is not None):
             # sketches
             dist_col = 0
