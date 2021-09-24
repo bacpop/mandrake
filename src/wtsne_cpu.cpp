@@ -24,7 +24,7 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   uint64_t ne = P.size();
 
   // Setup output
-  std::shared_ptr<sce_results<double>> results = std::make_shared<sce_results<double>>(animated);
+  std::shared_ptr<sce_results<double>> results = std::make_shared<sce_results<double>>(animated, maxIter);
 
   // Set up random number generation
   discrete_table<double> node_table(weights, n_threads);

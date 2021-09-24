@@ -172,7 +172,7 @@ def plotSCE_animation(results, labels, output_prefix, dbscan=True):
     ims = []
     iter_series, eq_series = results.get_eq()
     plt.tight_layout()
-    for frame in tqdm(range(0, results.n_frames(), 5), unit="frames"):
+    for frame in tqdm(range(results.n_frames()), unit="frames"):
         animated = True if frame > 0 else False
         eq_im, = ax2.plot(iter_series[0:frame], eq_series[0:frame], color='cornflowerblue', lw=1, animated=animated)
         frame_ims = [eq_im]

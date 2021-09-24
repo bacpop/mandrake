@@ -9,7 +9,7 @@ PYBIND11_MODULE(SCE, m) {
 
   // Animation class
   py::class_<sce_results<double>, std::shared_ptr<sce_results<double>>>(m, "sce_result")
-    .def(py::init<const bool>())
+    .def(py::init<const bool, const uint64_t>())
     .def("animated", &sce_results<double>::is_animated)
     .def("n_frames", &sce_results<double>::n_frames)
     .def("get_eq", &sce_results<double>::get_eq)
