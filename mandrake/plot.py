@@ -13,11 +13,13 @@ import plotly.graph_objects as go
 
 import matplotlib as mpl
 mpl.use('Agg')
+#mpl.rcParams.update({'font.size': 8})
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.animation as animation
 
-def plotSCE(embedding, names, labels, output_prefix, dbscan=True):
+# Interactive HTML plot using plotly
+def plotSCE_html(embedding, names, labels, output_prefix, dbscan=True):
     if dbscan:
         not_noise = labels != -1
         not_noise_list = list(np.where(not_noise)[0])
@@ -80,71 +82,36 @@ def plotSCE(embedding, names, labels, output_prefix, dbscan=True):
         )
 
     fig.write_html(output_prefix + '.embedding.html')
-    # needs separate library for static image
-    try:
-        fig.write_image(output_prefix + ".embedding.png", engine="auto", width=1000, height=1000, scale=3)
-    except ValueError as e:
-        sys.stderr.write("Need to install orca ('plotly-orca') or kaleido "
-        "('python-kaleido') to draw png image output\n")
-        sys.stderr.write("Falling back to matplotlib\n")
-    plotSCE_static(embedding, labels, output_prefix, dbscan=dbscan)
 
-# Fallback function if kaledio or orca are missing
-def plotSCE_static(embedding, labels, output_prefix, dbscan=True):
-    # Black removed and is used for noise instead.
-    unique_labels = set(labels)
-
-    if embedding.shape[0] > 10000:
-        pt_scale = 1
-    else:
-        pt_scale = 7
-
-    plt.figure(figsize=(8, 8), dpi=320, facecolor='w', edgecolor='k')
-    rng = np.random.default_rng(1)
-    for k in unique_labels:
-        if k == -1 and dbscan:
-            ptsize = 1 * pt_scale
-            col = 'k'
-            mec = None
-            mew = 0
-        else:
-            ptsize = 2 * pt_scale
-            col = tuple(rng.uniform(size=3))
-            mec = 'k'
-            mew = 0.2 * pt_scale
-        class_member_mask = (labels == k)
-        xy = embedding[class_member_mask]
-        plt.plot(xy[:, 0], xy[:, 1], '.', color=col, markersize=ptsize, mec=mec, mew=mew)
-
-    # plot output
-    if dbscan:
-        plt.title('HDBSCAN – estimated number of spatial clusters: %d' % (len(unique_labels) - 1))
-    plt.xlabel('SCE dimension 1')
-    plt.ylabel('SCE dimension 2')
-    plt.savefig(output_prefix + ".embedding_static.png")
-    plt.close()
-
+# Hexagon density plot to see overplotting
 def plotSCE_hex(embedding, output_prefix):
-    plt.figure(figsize=(11, 11), dpi= 160, facecolor='w', edgecolor='k')
+    # Set up figure with scale bar
+    plt.figure(figsize=(8, 8), dpi=320, facecolor='w', edgecolor='k')
     ax = plt.subplot()
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-    hb = ax.hexbin(embedding[:, 0], embedding[:, 1], mincnt=1, gridsize=50, cmap='inferno')
+
+    # Hex plot
+    hb = ax.hexbin(embedding[:, 0], embedding[:, 1],
+                   mincnt=1, gridsize=50, cmap='inferno')
+
+    # Colour bar
     cbar = plt.colorbar(hb, cax=cax)
     cbar.set_label('Samples')
+
+    # Draw the plot
     ax.set_title('Embedding density')
     ax.set_xlabel('SCE dimension 1')
     ax.set_ylabel('SCE dimension 2')
     plt.savefig(output_prefix + ".embedding_density.pdf")
 
-def norm_and_centre(array):
-    means = np.mean(array, axis=0)
-    array -= means
-    scales = 0.5 * (np.amax(array, axis=0) - np.amin(array, axis=0))
-    array /= scales
-
-def plotSCE_animation(results, labels, output_prefix, dbscan=True):
-    pt_scale = 7
+# Matplotlib static plot, and animation if available
+def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
+    # Set the style by group
+    if embedding.shape[0] > 10000:
+        pt_scale = 1
+    else:
+        pt_scale = 7
     unique_labels = set(labels)
     rng = np.random.default_rng(1)
     style_dict = collections.defaultdict(dict)
@@ -160,46 +127,90 @@ def plotSCE_animation(results, labels, output_prefix, dbscan=True):
             style_dict['mec'][k] = 'k'
             style_dict['mew'][k] = 0.2 * pt_scale
 
-    plt.figure(figsize=(13, 11), dpi=160, facecolor='w', edgecolor='k')
-    fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 1]})
-    ax1.set_xlabel('SCE dimension 1')
-    ax1.set_ylabel('SCE dimension 2')
+    # Static figure is a scatter plot, drawn by class
+    plt.figure(figsize=(8, 8), dpi=320, facecolor='w', edgecolor='k')
+    for k in unique_labels:
+        class_member_mask = (labels == k)
+        xy = embedding[class_member_mask]
+        plt.plot(xy[:, 0], xy[:, 1], '.',
+                 color=style_dict['col'][k],
+                 markersize=style_dict['ptsize'][k],
+                 mec=style_dict['mec'][k],
+                 mew=style_dict['mew'][k])
+
+    # plot output
     if dbscan:
-        ax1.set_title('HDBSCAN – estimated number of spatial clusters: %d' % (len(unique_labels) - 1))
-    ax2.set_xlabel('Iteration')
-    ax2.set_ylabel('Eq')
-    ax2.set_ylim(bottom=0)
+        plt.title('HDBSCAN – estimated number of spatial clusters: %d' % (len(unique_labels) - 1))
+    plt.xlabel('SCE dimension 1')
+    plt.ylabel('SCE dimension 2')
+    plt.savefig(output_prefix + ".embedding_static.png")
+    plt.close()
 
-    ims = []
-    iter_series, eq_series = results.get_eq()
-    plt.tight_layout()
-    for frame in tqdm(range(results.n_frames()), unit="frames"):
-        animated = True if frame > 0 else False
-        eq_im, = ax2.plot(iter_series[0:(frame+1)], eq_series[0:(frame+1)],
-                          color='cornflowerblue', lw=1, animated=animated)
-        frame_ims = [eq_im]
+    # Make animation
+    if results.animated():
+        sys.stderr.write("Creating animation\n")
+        plt.figure(figsize=(13, 11), dpi=160, facecolor='w', edgecolor='k')
+        fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 1]})
+        ax1.set_xlabel('SCE dimension 1')
+        ax1.set_ylabel('SCE dimension 2')
+        if dbscan:
+            ax1.set_title('HDBSCAN – estimated number of spatial clusters: %d' % (len(unique_labels) - 1))
+        ax2.set_xlabel('Iteration')
+        ax2.set_ylabel('Eq')
+        ax2.set_ylim(bottom=0)
 
-        embedding = np.array(results.get_embedding_frame(frame)).reshape(-1, 2)
-        norm_and_centre(embedding)
-        for k in unique_labels:
-            class_member_mask = (labels == k)
-            xy = embedding[class_member_mask]
-            im, = ax1.plot(xy[:, 0], xy[:, 1], '.',
-                      color=style_dict['col'][k],
-                      markersize=style_dict['ptsize'][k],
-                      mec=style_dict['mec'][k],
-                      mew=style_dict['mew'][k],
-                      animated=animated)
-            frame_ims.append(im)
-        ims.append(frame_ims)
+        ims = []
+        iter_series, eq_series = results.get_eq()
+        plt.tight_layout()
+        for frame in tqdm(range(results.n_frames()), unit="frames"):
+            animated = True if frame > 0 else False
 
-    ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
-                                    repeat=False)
-    writer = animation.FFMpegWriter(
-        fps=20, metadata=dict(title='mandrake animation'), bitrate=-1)
-    progress_callback = \
-      lambda i, n: sys.stderr.write('Saving frame ' + str(i) + ' of ' + str(len(ims)) + '\r')
-    ani.save(output_prefix + ".embedding_animation.mp4", writer=writer,
-             dpi=320, progress_callback=progress_callback)
-    progress_callback(len(ims), len(ims))
-    sys.stderr.write("\n")
+            # Eq plot at bottom, for current frame
+            eq_im, = ax2.plot(iter_series[0:(frame+1)], eq_series[0:(frame+1)],
+                              color='cornflowerblue', lw=1, animated=animated)
+            frame_ims = [eq_im]
+
+            # Scatter plot at top, for current frame
+            embedding = np.array(results.get_embedding_frame(frame)).reshape(-1, 2)
+            _norm_and_centre(embedding)
+            for k in unique_labels:
+                class_member_mask = (labels == k)
+                xy = embedding[class_member_mask]
+                im, = ax1.plot(xy[:, 0], xy[:, 1], '.',
+                          color=style_dict['col'][k],
+                          markersize=style_dict['ptsize'][k],
+                          mec=style_dict['mec'][k],
+                          mew=style_dict['mew'][k],
+                          animated=animated)
+                frame_ims.append(im)
+            ims.append(frame_ims)
+
+        # Write the animation (list of lists) to an mp4
+        ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
+                                        repeat=False)
+        writer = animation.FFMpegWriter(
+            fps=20, metadata=dict(title='mandrake animation'), bitrate=-1)
+        progress_callback = \
+          lambda i, n: sys.stderr.write('Saving frame ' + str(i) + ' of ' + str(len(ims)) + '\r')
+        ani.save(output_prefix + ".embedding_animation.mp4", writer=writer,
+                dpi=320, progress_callback=progress_callback)
+        progress_callback(len(ims), len(ims))
+        sys.stderr.write("\n")
+
+# Internal functions
+
+# Transforms the provided array to normalise and centre it
+def _norm_and_centre(array):
+    # scale 1
+    scales = 0.5*(np.amax(array, axis=0) - np.amin(array, axis=0))
+    array /= scales
+    means = np.mean(array, axis=0)
+    array -= means
+    # scale 2
+    #means = np.mean(array, axis=0)
+    #array -= means
+    #scales = np.std(array, axis=0) - np.amin(array, axis=0)
+    #array /= scales
+    # scale 3
+    #means = np.mean(array, axis=0)
+    #array -= means
