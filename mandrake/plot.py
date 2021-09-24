@@ -82,7 +82,7 @@ def plotSCE(embedding, names, labels, output_prefix, dbscan=True):
     fig.write_html(output_prefix + '.embedding.html')
     # needs separate library for static image
     try:
-        fig.write_image(output_prefix + ".embedding.png", engine="auto")
+        fig.write_image(output_prefix + ".embedding.png", engine="auto", width=1000, height=1000, scale=3)
     except ValueError as e:
         sys.stderr.write("Need to install orca ('plotly-orca') or kaleido "
         "('python-kaleido') to draw png image output\n")
@@ -99,7 +99,7 @@ def plotSCE_static(embedding, labels, output_prefix, dbscan=True):
     else:
         pt_scale = 7
 
-    plt.figure(figsize=(11, 11), dpi= 160, facecolor='w', edgecolor='k')
+    plt.figure(figsize=(8, 8), dpi=320, facecolor='w', edgecolor='k')
     rng = np.random.default_rng(1)
     for k in unique_labels:
         if k == -1 and dbscan:
@@ -138,9 +138,10 @@ def plotSCE_hex(embedding, output_prefix):
     plt.savefig(output_prefix + ".embedding_density.pdf")
 
 def norm_and_centre(array):
-    for dimension in range(len(array.shape)):
-        array[:, dimension] = array[:, dimension] - np.mean(array[:, dimension])
-        array[:, dimension] = array[:, dimension]/np.max(array[:, dimension])
+    means = np.mean(array, axis=0)
+    array -= means
+    scales = 0.5 * (np.amax(array, axis=0) - np.amin(array, axis=0))
+    array /= scales
 
 def plotSCE_animation(results, labels, output_prefix, dbscan=True):
     pt_scale = 7
@@ -174,7 +175,8 @@ def plotSCE_animation(results, labels, output_prefix, dbscan=True):
     plt.tight_layout()
     for frame in tqdm(range(results.n_frames()), unit="frames"):
         animated = True if frame > 0 else False
-        eq_im, = ax2.plot(iter_series[0:frame], eq_series[0:frame], color='cornflowerblue', lw=1, animated=animated)
+        eq_im, = ax2.plot(iter_series[0:(frame+1)], eq_series[0:(frame+1)],
+                          color='cornflowerblue', lw=1, animated=animated)
         frame_ims = [eq_im]
 
         embedding = np.array(results.get_embedding_frame(frame)).reshape(-1, 2)
@@ -194,8 +196,10 @@ def plotSCE_animation(results, labels, output_prefix, dbscan=True):
     ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
                                     repeat=False)
     writer = animation.FFMpegWriter(
-        fps=15, metadata=dict(title='mandrake animation'), bitrate=-1)
-    progress_callback = lambda i, n: sys.stderr.write('Saving frame ' + str(i) + ' of ' + str(len(ims)) + '\r')
-    ani.save(output_prefix + ".embedding_animation.mp4", writer=writer, dpi=320, progress_callback=progress_callback)
+        fps=20, metadata=dict(title='mandrake animation'), bitrate=-1)
+    progress_callback = \
+      lambda i, n: sys.stderr.write('Saving frame ' + str(i) + ' of ' + str(len(ims)) + '\r')
+    ani.save(output_prefix + ".embedding_animation.mp4", writer=writer,
+             dpi=320, progress_callback=progress_callback)
     progress_callback(len(ims), len(ims))
     sys.stderr.write("\n")
