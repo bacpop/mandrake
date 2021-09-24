@@ -3,9 +3,7 @@
 
 '''Sketchlib functions for database construction'''
 
-import os
 import sys
-import subprocess
 import numpy as np
 
 import h5py

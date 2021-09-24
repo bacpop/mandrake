@@ -87,7 +87,7 @@ def plotSCE(embedding, names, labels, output_prefix, dbscan=True):
         sys.stderr.write("Need to install orca ('plotly-orca') or kaleido "
         "('python-kaleido') to draw png image output\n")
         sys.stderr.write("Falling back to matplotlib\n")
-        plotSCE_static(embedding, labels, output_prefix, dbscan=dbscan)
+    plotSCE_static(embedding, labels, output_prefix, dbscan=dbscan)
 
 # Fallback function if kaledio or orca are missing
 def plotSCE_static(embedding, labels, output_prefix, dbscan=True):
@@ -121,7 +121,7 @@ def plotSCE_static(embedding, labels, output_prefix, dbscan=True):
         plt.title('HDBSCAN – estimated number of spatial clusters: %d' % (len(unique_labels) - 1))
     plt.xlabel('SCE dimension 1')
     plt.ylabel('SCE dimension 2')
-    plt.savefig(output_prefix + ".embedding.png")
+    plt.savefig(output_prefix + ".embedding_static.png")
     plt.close()
 
 def plotSCE_hex(embedding, output_prefix):
