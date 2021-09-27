@@ -24,8 +24,12 @@ public:
     }
   }
 
+  bool is_sample_frame(const uint64_t iter) {
+    return make_animation_ && sample_it_ != sample_points_.cend() && iter >= *sample_it_;
+  }
+
   void add_frame(const uint64_t iter, const real_t Eq, const std::vector<real_t> &embedding) {
-    if (make_animation_ && sample_it_ != sample_points_.cend() && iter >= *sample_it_) {
+    if (is_sample_frame(iter)) {
       iter_series_.push_back(iter * n_workers_);
       eq_series_.push_back(Eq);
       embedding_series_.push_back(embedding);

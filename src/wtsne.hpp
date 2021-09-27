@@ -214,5 +214,5 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           std::vector<real_t> &dists, std::vector<real_t> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
           const int n_workers, const uint64_t nRepuSamp, const real_t eta0,
-          const bool bInit, const int cpu_threads, const int device_id,
+          const bool bInit, const bool animated, const int cpu_threads, const int device_id,
           const unsigned int seed);

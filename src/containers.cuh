@@ -154,6 +154,18 @@ public:
     CUDA_CALL(cudaMemcpy(data_, src, size_ * sizeof(T), cudaMemcpyDefault));
   }
 
+  // Special functions for working with streams/graphs
+  // (prefer above functions unless using these)
+  void get_array_async(T *value, cudaStream_t stream) const {
+    CUDA_CALL(cudaMemcpyAsync((void *)value, data_, sizeof(T) * size_,
+                              cudaMemcpyDefault, stream));
+  }
+
+  void set_array_async(const T *value, cudaStream_t stream) {
+    CUDA_CALL(cudaMemcpyAsync(data_, (void *)value, sizeof(T) * size_,
+                              cudaMemcpyDefault, stream));
+  }
+
   T *data() { return data_; }
 
   size_t size() const { return size_; }
