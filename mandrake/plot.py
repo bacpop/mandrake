@@ -151,12 +151,11 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
     # Make animation
     if results.animated():
         sys.stderr.write("Creating animation\n")
-        plt.figure(figsize=(13, 14.7), dpi=320, facecolor='w', edgecolor='k')
+        plt.figure(facecolor='w', edgecolor='k')
         fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 1]})
+        fig.set_size_inches(6, 8, True)
         ax1.set_xlabel('SCE dimension 1')
         ax1.set_ylabel('SCE dimension 2')
-        if dbscan:
-            ax1.set_title('HDBSCAN – estimated number of spatial clusters: %d' % (len(unique_labels) - 1))
         ax2.set_xlabel('Iteration')
         ax2.set_ylabel('Eq')
         ax2.set_ylim(bottom=0)
@@ -169,7 +168,7 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
 
             # Eq plot at bottom, for current frame
             eq_im, = ax2.plot(iter_series[0:(frame+1)], eq_series[0:(frame+1)],
-                              color='cornflowerblue', lw=1, animated=animated)
+                              color='cornflowerblue', lw=2, animated=animated)
             frame_ims = [eq_im]
 
             # Scatter plot at top, for current frame
