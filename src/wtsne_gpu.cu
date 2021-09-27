@@ -112,10 +112,9 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
           // Reset values
 #pragma unroll
           for (int d = 0; d < DIM; d++) {
-            Y[k + d * nn] = Yk_read[d];
-            Y[l + d * nn] = Yl_read[d];
+            atomicAdd((real_t *)Y + k + d * nn, -gain);
+            atomicAdd((real_t *)Y + l + d * nn, gain);
           }
-          __threadfence();
           atomicAdd(clash_cnt, 1ULL);
           r--;
         }
