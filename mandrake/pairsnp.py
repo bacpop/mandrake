@@ -5,7 +5,6 @@
 from a multiple sequence file"""
 
 import sys, os
-import numpy as np
 
 # C++ extensions
 sys.path.insert(0, os.path.dirname(__file__) + "/../build/lib.linux-x86_64-3.8")

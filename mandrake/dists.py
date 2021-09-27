@@ -5,7 +5,6 @@
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import csc_matrix, coo_matrix
 from sklearn.neighbors import kneighbors_graph
 
 # C++ extensions

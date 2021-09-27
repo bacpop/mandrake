@@ -110,6 +110,8 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
     # Set the style by group
     if embedding.shape[0] > 10000:
         pt_scale = 1
+    elif embedding.shape[0] > 1000:
+        pt_scale = 3
     else:
         pt_scale = 7
     unique_labels = set(labels)
@@ -149,7 +151,7 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
     # Make animation
     if results.animated():
         sys.stderr.write("Creating animation\n")
-        plt.figure(figsize=(13, 11), dpi=160, facecolor='w', edgecolor='k')
+        plt.figure(figsize=(13, 14.7), dpi=320, facecolor='w', edgecolor='k')
         fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 1]})
         ax1.set_xlabel('SCE dimension 1')
         ax1.set_ylabel('SCE dimension 2')
@@ -201,16 +203,7 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
 
 # Transforms the provided array to normalise and centre it
 def _norm_and_centre(array):
-    # scale 1
-    scales = 0.5*(np.amax(array, axis=0) - np.amin(array, axis=0))
-    array /= scales
     means = np.mean(array, axis=0)
     array -= means
-    # scale 2
-    #means = np.mean(array, axis=0)
-    #array -= means
-    #scales = np.std(array, axis=0) - np.amin(array, axis=0)
-    #array /= scales
-    # scale 3
-    #means = np.mean(array, axis=0)
-    #array -= means
+    scales = np.std(array, axis=0)
+    array /= scales

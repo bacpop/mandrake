@@ -7,8 +7,8 @@ const int n_sample_frames = 400;
 
 template <typename real_t> class sce_results {
 public:
-  sce_results(const bool make_animation, const uint64_t max_iter)
-    : make_animation_(make_animation), sample_points_(n_sample_frames - 1), sample_it_(sample_points_.cbegin()), iter_series_(),
+  sce_results(const bool make_animation, const size_t n_workers, const uint64_t max_iter)
+    : make_animation_(make_animation), n_workers_(n_workers), sample_points_(n_sample_frames - 1), sample_it_(sample_points_.cbegin()), iter_series_(),
     eq_series_(), embedding_series_() {
       sample_points_[0] = 0;
       for (size_t i = 1; i < sample_points_.size(); ++i) {
@@ -19,14 +19,14 @@ public:
   void add_result(const uint64_t iter, const real_t Eq, std::vector<real_t> &embedding) {
     embedding_series_.push_back(std::move(embedding));
     if (make_animation_) {
-      iter_series_.push_back(iter);
+      iter_series_.push_back(iter * n_workers_);
       eq_series_.push_back(Eq);
     }
   }
 
   void add_frame(const uint64_t iter, const real_t Eq, const std::vector<real_t> &embedding) {
     if (make_animation_ && sample_it_ != sample_points_.cend() && iter >= *sample_it_) {
-      iter_series_.push_back(iter);
+      iter_series_.push_back(iter * n_workers_);
       eq_series_.push_back(Eq);
       embedding_series_.push_back(embedding);
       sample_it_++;
@@ -53,6 +53,7 @@ public:
 
 private:
   bool make_animation_;
+  size_t n_workers_;
   std::vector<uint64_t> sample_points_;
   std::vector<uint64_t>::const_iterator sample_it_;
   std::vector<uint64_t> iter_series_;
