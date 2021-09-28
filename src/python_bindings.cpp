@@ -7,7 +7,7 @@ PYBIND11_MODULE(SCE, m) {
   m.doc() = "Stochastic cluster embedding";
   m.attr("version") = VERSION_INFO;
 
-  // Animation class
+  // Results class (need to define here to be able to return this type)
   py::class_<sce_results<double>, std::shared_ptr<sce_results<double>>>(m, "sce_result")
     .def(py::init<const bool, const size_t, const uint64_t>())
     .def("animated", &sce_results<double>::is_animated)
@@ -15,6 +15,13 @@ PYBIND11_MODULE(SCE, m) {
     .def("get_eq", &sce_results<double>::get_eq)
     .def("get_embedding", &sce_results<double>::get_embedding)
     .def("get_embedding_frame", &sce_results<double>::get_embedding_frame, py::arg("frame"));
+  py::class_<sce_results<float>, std::shared_ptr<sce_results<float>>>(m, "sce_result")
+    .def(py::init<const bool, const size_t, const uint64_t>())
+    .def("animated", &sce_results<float>::is_animated)
+    .def("n_frames", &sce_results<float>::n_frames)
+    .def("get_eq", &sce_results<float>::get_eq)
+    .def("get_embedding", &sce_results<float>::get_embedding)
+    .def("get_embedding_frame", &sce_results<float>::get_embedding_frame, py::arg("frame"));
 
   // Exported functions
   m.def("wtsne", &wtsne, py::return_value_policy::take_ownership,
