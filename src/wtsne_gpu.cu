@@ -180,12 +180,14 @@ template <typename real_t> void CUDART_CB Eq_callback(void *data) {
 
   uint64_t *iter = tmp->iter;
   uint64_t *maxIter = tmp->maxIter;
-  real_t *eta0 = tmp->eta0;
-  real_t eta = *eta0 * (1 - static_cast<real_t>(*iter) / (*maxIter - 1));
-  eta = MAX(eta, *eta0 * 1e-4);
+  if (iter % MAX(1, maxIter / 1000) == 0) {
+    real_t *eta0 = tmp->eta0;
+    real_t eta = *eta0 * (1 - static_cast<real_t>(*iter) / (*maxIter - 1));
+    eta = MAX(eta, *eta0 * 1e-4);
 
-  unsigned long long int *n_clashes = tmp->n_clashes;
-  update_progress(*iter, *maxIter, eta, *Eq, *n_clashes);
+    unsigned long long int *n_clashes = tmp->n_clashes;
+    update_progress(*iter, *maxIter, eta, *Eq, *n_clashes);
+  }
 }
 
 // This is the class that does all the work
