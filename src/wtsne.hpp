@@ -209,7 +209,7 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       const int n_threads, const unsigned int seed);
 // in wtsne_gpu.cu
 template <typename real_t>
-std::vector<real_t>
+std::shared_ptr<sce_results<real_t>>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           std::vector<real_t> &dists, std::vector<real_t> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
