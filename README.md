@@ -7,7 +7,7 @@ Documentation available:
 
 You will need some dependencies, which you can install through `conda`:
 ```
-conda create -n mandrake python numpy pandas scipy scikit-learn hdbscan pp-sketchlib cmake pybind11 openmp matplotlib-base boost-cpp plotly ffmpeg
+conda create -n mandrake python numpy pandas scipy scikit-learn tqdm hdbscan pp-sketchlib cmake pybind11 openmp matplotlib-base boost-cpp plotly ffmpeg
 ```
 
 You can then clone this repository, and run:
