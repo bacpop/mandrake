@@ -67,8 +67,8 @@ def get_options():
 
     distGroup = parser.add_argument_group('Distance options')
     dist_me_Group = distGroup.add_mutually_exclusive_group(required=True)
-    distGroup.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
-    distGroup.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
+    dist_me_Group.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
+    dist_me_Group.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
 
     other = parser.add_argument_group('Other')
     other.add_argument('--seed', type=int, default=1, help='Seed for random number generation')
