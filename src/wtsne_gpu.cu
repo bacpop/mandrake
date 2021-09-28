@@ -103,15 +103,16 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
         }
 
         bool overwrite = false;
+        real_t gain[DIM];
 #pragma unroll
         for (int d = 0; d < DIM; d++) {
-          real_t gain = eta * g * dY[d];
+          real_t gain[d] = eta * g * dY[d];
           // The atomics below basically do
           // Y[d + lk] += gain;
           // Y[d + ll] -= gain;
           // But try again if another worker has written to the same location
-          if (atomicAdd((real_t *)Y + k + d * nn, gain) != Yk_read[d] ||
-              atomicAdd((real_t *)Y + l + d * nn, -gain) != Yl_read[d]) {
+          if (atomicAdd((real_t *)Y + k + d * nn, gain[d]) != Yk_read[d] ||
+              atomicAdd((real_t *)Y + l + d * nn, -gain[d]) != Yl_read[d]) {
             overwrite = true;
           }
         }
@@ -122,8 +123,8 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
           // Reset values
 #pragma unroll
           for (int d = 0; d < DIM; d++) {
-            atomicAdd((real_t *)Y + k + d * nn, -gain);
-            atomicAdd((real_t *)Y + l + d * nn, gain);
+            atomicAdd((real_t *)Y + k + d * nn, -gain[d]);
+            atomicAdd((real_t *)Y + l + d * nn, gain[d]);
           }
           atomicAdd(clash_cnt, 1ULL);
           r--;
@@ -298,16 +299,16 @@ public:
         check_interrupts();
       }
       if (results->is_sample_frame(iter_h)) {
-        update_frames(results, graph_stream, copy_stream, curr_iter, curr_Eq);
+        update_frames(results, graph_stream, copy_stream, curr_iter, curr_Eq, iter_h, Eq_host_);
       }
     }
     graph_stream.sync();
 
     if (results->n_frames() > 0) {
       // Save penultimate frame
-      update_frames(results, graph_stream, copy_stream, curr_iter, curr_Eq);
+      update_frames(results, graph_stream, copy_stream, curr_iter, curr_Eq, maxIter, Eq_host_);
       // Save final frame
-      copy_stream.sync()
+      copy_stream.sync();
       results->add_frame(maxIter, Eq_host_, Y_host_);
     }
     std::cerr << std::endl << "Optimizing done" << std::endl;
@@ -371,15 +372,16 @@ private:
 
   void update_frames(std::shared_ptr<sce_results<real_t>> results,
                      cuda_stream& kernel_stream, cuda_stream& copy_stream,
-                     uint64_t& curr_iter, real_t& curr_Eq) {
+                     uint64_t& curr_iter, real_t& curr_Eq,
+                     uint64_t next_iter, real_t next_Eq) {
     // Save the previous frame
     if (results->n_frames() > 0) {
-      copy_stream.sync()
+      copy_stream.sync();
       results->add_frame(curr_iter, curr_Eq, Y_host_);
     }
     // Start copying this frame
-    curr_Eq = Eq_host_;
-    curr_iter = iter_h;
+    curr_Eq = next_Eq;
+    curr_iter = next_iter;
     save_embedding_result(kernel_stream.stream(), copy_stream.stream());
   }
 
@@ -459,7 +461,7 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   std::tie(Y, P) =
       wtsne_init<real_t>(I, J, dists, weights, perplexity, cpu_threads, seed);
 
-  std::shared_ptr<sce_results<real_t>> results = std::make_shared<sce_results<double>>(animated, n_workers, maxIter);
+  std::shared_ptr<sce_results<real_t>> results = std::make_shared<sce_results<real_t>>(animated, n_workers, maxIter);
   // This class sets up and manages all of the memory
   sce_gpu<real_t> embedding(Y, I, J, P, weights, n_workers, device_id, seed);
   // Run the algorithm
