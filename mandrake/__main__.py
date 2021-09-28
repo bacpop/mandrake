@@ -40,6 +40,11 @@ def get_options():
     ioGroup.add_argument('--labels', default=None, help='Sample labels for plotting (overrides DBSCAN clusters)')
     ioGroup.add_argument('--output', default="mandrake", type=str, help='Prefix for output files [default = "mandrake"]')
 
+    distGroup = parser.add_argument_group('Distance options')
+    dist_me_Group = distGroup.add_mutually_exclusive_group()
+    dist_me_Group.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
+    dist_me_Group.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
+
     sceGroup = parser.add_argument_group('SCE options')
     sceGroup.add_argument('--no-preprocessing', default=False, action='store_true',
                                                      help="Turn off entropy pre-processing of distances")
@@ -64,11 +69,6 @@ def get_options():
     sketchGroup = parser.add_argument_group('Sketch options')
     sketchGroup.add_argument('--use-core', action='store_true', default=False, help="Use core distances")
     sketchGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances")
-
-    distGroup = parser.add_argument_group('Distance options')
-    dist_me_Group = distGroup.add_mutually_exclusive_group(required=True)
-    dist_me_Group.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
-    dist_me_Group.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
 
     other = parser.add_argument_group('Other')
     other.add_argument('--seed', type=int, default=1, help='Seed for random number generation')
@@ -102,6 +102,8 @@ def main():
         if not (isinstance(args.threshold, float) and (args.threshold > 0) and (args.threshold <= 1)):
             raise ValueError("Invalid value for threshold")
         args.kNN = 0
+    elif args.distances is None:
+        raise ValueError("Must provide one of --kNN or --threshold (unless using --distances)")
 
     #***********************#
     #* Run seq -> distance *#
