@@ -43,6 +43,8 @@ def get_options():
     sceGroup = parser.add_argument_group('SCE options')
     sceGroup.add_argument('--no-preprocessing', default=False, action='store_true',
                                                      help="Turn off entropy pre-processing of distances")
+    sceGroup.add_argument('--no-clustering', default=False, action='store_true',
+                                                     help="Turn off HDBSCAN clustering after SCE")
     sceGroup.add_argument('--perplexity', default=15, type=float, help="Perplexity for distance to similarity "
                                                                             "conversion [default = 15]")
     sceGroup.add_argument('--weight-file', default=None, help="Weights for samples")
@@ -63,7 +65,8 @@ def get_options():
     sketchGroup.add_argument('--use-core', action='store_true', default=False, help="Use core distances")
     sketchGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances")
 
-    distGroup = parser.add_mutually_exclusive_group(required=True)
+    distGroup = parser.add_argument_group('Distance options')
+    dist_me_Group = distGroup.add_mutually_exclusive_group(required=True)
     distGroup.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
     distGroup.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
 
@@ -168,7 +171,9 @@ def main():
     #***********************#
     #* run HDBSCAN         *#
     #***********************#
-    if args.labels == None:
+    if args.no_clustering:
+        cluster_labels = [-1] * embedding_array.shape[0]
+    elif args.labels == None:
         sys.stderr.write("Running clustering\n")
         cluster_labels = runHDBSCAN(embedding_array)
     else:
