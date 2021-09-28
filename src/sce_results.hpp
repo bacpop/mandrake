@@ -24,7 +24,7 @@ public:
     }
   }
 
-  bool is_sample_frame(const uint64_t iter) {
+  bool is_sample_frame(const uint64_t iter) const {
     return make_animation_ && sample_it_ != sample_points_.cend() && iter >= *sample_it_;
   }
 

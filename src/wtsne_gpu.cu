@@ -106,7 +106,7 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
         real_t gain[DIM];
 #pragma unroll
         for (int d = 0; d < DIM; d++) {
-          real_t gain[d] = eta * g * dY[d];
+          gain[d] = eta * g * dY[d];
           // The atomics below basically do
           // Y[d + lk] += gain;
           // Y[d + ll] -= gain;
@@ -228,6 +228,8 @@ public:
   ~sce_gpu() { CUDA_CALL_NOTHROW(cudaProfilerStop()); }
 #endif
 
+  real_t current_Eq() const { return Eq_host_; }
+
   // This runs the SCE loop on the device
   void run_SCE(std::shared_ptr<sce_results<real_t>> results,
                uint64_t maxIter, const int block_size, const int n_workers,
@@ -315,9 +317,7 @@ public:
   }
 
   // Copy result back to host
-  real_t get_Eq() const { return Eq_host_; }
-
-  std::vector<real_t> get_embedding_result() {
+  std::vector<real_t>& get_embedding_result() {
     cuda_stream stream;
     save_embedding_result(stream.stream(), stream.stream());
     stream.sync();
@@ -467,6 +467,6 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   // Run the algorithm
   embedding.run_SCE(results, maxIter, block_size, n_workers, nRepuSamp, eta0, bInit);
   // Get the result back
-  results->add_result(maxIter, embedding.get_Eq(), embedding.get_embedding_result());
+  results->add_result(maxIter, embedding.current_Eq(), embedding.get_embedding_result());
   return results;
 }
