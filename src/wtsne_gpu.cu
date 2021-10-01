@@ -163,6 +163,7 @@ template <typename real_t> struct callBackData_t {
   real_t *qsum;
   uint64_t *qcount;
   real_t *eta0;
+  int *n_write;
   unsigned long long int *n_clashes;
   uint64_t *iter;
   uint64_t *maxIter;
@@ -185,8 +186,9 @@ template <typename real_t> void CUDART_CB Eq_callback(void *data) {
     real_t eta = *eta0 * (1 - static_cast<real_t>(*iter) / (*maxIter - 1));
     eta = MAX(eta, *eta0 * 1e-4);
 
+    int *n_write = tmp->n_write;
     unsigned long long int *n_clashes = tmp->n_clashes;
-    update_progress(*iter, *maxIter, eta, *Eq, *n_clashes);
+    update_progress(*iter, *maxIter, eta, *Eq, *n_write, *n_clashes);
   }
 }
 
@@ -240,6 +242,7 @@ public:
 
     uint64_t iter_h = 0;
     device_value<uint64_t> iter_d(iter_h);
+    const int write_per_worker = n_workers * (nRepuSamp + 1);
     unsigned long long int n_clashes_h = 0;
     device_value<unsigned long long int> n_clashes_d(n_clashes_h);
     kernel_ptrs<real_t> device_ptrs = get_device_ptrs();
@@ -260,6 +263,7 @@ public:
     progress_callback_params_.qsum = &qsum_total_host_;
     progress_callback_params_.qcount = &qcount_total_host_;
     progress_callback_params_.eta0 = &eta0;
+    progress_callback_params_.n_write = &write_per_worker;
     progress_callback_params_.n_clashes = &n_clashes_h;
     progress_callback_params_.iter = &iter_h;
     progress_callback_params_.maxIter = &maxIter;

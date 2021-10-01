@@ -32,6 +32,7 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   pRNG<double> rng_state(n_workers, std::vector<uint32_t>(1, seed));
 
   // SNE algorithm
+  const int write_per_worker = n_workers * (nRepuSamp + 1);
   const double nsq = nn * (nn - 1);
   double Eq = 1.0;
   unsigned long long int n_clashes = 0;
@@ -127,7 +128,7 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
     results->add_frame(iter, Eq, Y);
     if (iter % MAX(1, maxIter / 1000) == 0) {
       check_interrupts();
-      update_progress(iter, maxIter, eta, Eq, n_clashes);
+      update_progress(iter, maxIter, eta, Eq, write_per_worker, n_clashes);
     }
   }
   const auto end = std::chrono::steady_clock::now();
