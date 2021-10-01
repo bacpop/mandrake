@@ -8,6 +8,7 @@ import numpy as np
 
 import h5py
 
+
 def get_kmer_sizes(dbPrefix):
     """Get kmers lengths from existing database
 
@@ -32,6 +33,7 @@ def get_kmer_sizes(dbPrefix):
     db_kmer_sizes.sort()
     return list(db_kmer_sizes)
 
+
 def get_seqs_in_db(dbname):
     """Return an array with the sequences in the passed database
 
@@ -49,5 +51,3 @@ def get_seqs_in_db(dbname):
         seqs.append(sample_name)
 
     return seqs
-
-
