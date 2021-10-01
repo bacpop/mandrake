@@ -76,7 +76,6 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
         uint64_t lk = k * DIM;
         uint64_t ll = l * DIM;
         double dist2 = 0.0;
-#pragma GCC unroll 2
         for (int d = 0; d < DIM; d++) {
 #pragma omp atomic read
           Yk_read[d] = Y[d + lk];
@@ -95,7 +94,6 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
 
         bool overwrite = false;
         double gain[DIM];
-#pragma GCC unroll 2
         for (int d = 0; d < DIM; d++) {
           gain[d] = eta * g * dY[d];
           double Yk_read_end, Yl_read_end;
@@ -113,7 +111,6 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           qcount++;
         } else {
           // Find another neighbour
-#pragma GCC unroll 2
           for (int d = 0; d < DIM; d++) {
 #pragma omp atomic update
             Y[d + lk] = Y[d + lk] - gain[d];
