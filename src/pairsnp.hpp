@@ -1,3 +1,6 @@
+#pragma once
+
+#include <chrono>
 #include <iostream>
 #include <stdio.h>
 #include <string>
