@@ -103,31 +103,21 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
         }
 
         bool overwrite = false;
-        real_t gain[DIM];
 #pragma unroll
         for (int d = 0; d < DIM; d++) {
-          gain[d] = eta * g * dY[d];
+          real_t gain = eta * g * dY[d];
           // The atomics below basically do
           // Y[d + lk] += gain;
           // Y[d + ll] -= gain;
-          // But try again if another worker has written to the same location
-          if (atomicAdd((real_t *)Y + k + d * nn, gain[d]) != Yk_read[d] ||
-              atomicAdd((real_t *)Y + l + d * nn, -gain[d]) != Yl_read[d]) {
+          if (atomicAdd((real_t *)Y + k + d * nn, gain) != Yk_read[d] ||
+              atomicAdd((real_t *)Y + l + d * nn, -gain) != Yl_read[d]) {
             overwrite = true;
           }
         }
-        if (!overwrite) {
-          qsum_local += q;
-          qcount_local++;
-        } else {
-          // Reset values
-#pragma unroll
-          for (int d = 0; d < DIM; d++) {
-            atomicAdd((real_t *)Y + k + d * nn, -gain[d]);
-            atomicAdd((real_t *)Y + l + d * nn, gain[d]);
-          }
+        qsum_local += q;
+        qcount_local++;
+        if (overwrite) {
           atomicAdd(clash_cnt, 1ULL);
-          r--;
         }
       }
     }
