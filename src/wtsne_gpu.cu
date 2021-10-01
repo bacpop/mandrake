@@ -91,7 +91,6 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
           dY[d] = Yk_read[d] - Yl_read[d];
           dist2 += dY[d] * dY[d];
         }
-        __threadfence();
 
         real_t q = one / (1 + dist2);
 
