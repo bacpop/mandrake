@@ -236,6 +236,8 @@ public:
   void run_SCE(std::shared_ptr<sce_results<real_t>> results,
                uint64_t maxIter, const int block_size, const int n_workers,
                const uint64_t nRepuSamp, real_t eta0, const bool bInit) {
+    using namespace std::literals;
+
     uint64_t iter_h = 0;
     device_value<uint64_t> iter_d(iter_h);
     unsigned long long int n_clashes_h = 0;
@@ -297,6 +299,7 @@ public:
     // 0c369b209ef69d91016bedd41ea8d0775879f153
     real_t curr_Eq = Eq_host_;
     uint64_t curr_iter = iter_h;
+    const auto start = std::chrono::steady_clock::now();
     for (iter_h = 0; iter_h < maxIter; ++iter_h) {
       graph.launch(graph_stream.stream());
       if (iter_h % MAX(1, maxIter / 1000) == 0) {
@@ -307,6 +310,7 @@ public:
       }
     }
     graph_stream.sync();
+    const auto end = std::chrono::steady_clock::now();
 
     if (results->n_frames() > 0) {
       // Save penultimate frame
@@ -315,7 +319,7 @@ public:
       copy_stream.sync();
       results->add_frame(maxIter, Eq_host_, Y_host_);
     }
-    std::cerr << std::endl << "Optimizing done" << std::endl;
+    std::cerr << std::endl << "Optimizing done in " << (end - start) / 1s << "s" << std::endl;
   }
 
   // Copy result back to host
@@ -463,11 +467,13 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   std::tie(Y, P) =
       wtsne_init<real_t>(I, J, dists, weights, perplexity, cpu_threads, seed);
 
-  std::shared_ptr<sce_results<real_t>> results = std::make_shared<sce_results<real_t>>(animated, n_workers, maxIter);
-  // This class sets up and manages all of the memory
+  // These classes set up and manage all of the memory
+  auto results = std::make_shared<sce_results<real_t>>(animated, n_workers, maxIter);
   sce_gpu<real_t> embedding(Y, I, J, P, weights, n_workers, device_id, seed);
+
   // Run the algorithm
   embedding.run_SCE(results, maxIter, block_size, n_workers, nRepuSamp, eta0, bInit);
+
   // Get the result back
   results->add_result(maxIter, embedding.current_Eq(), embedding.get_embedding_result());
   return results;

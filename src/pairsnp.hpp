@@ -29,6 +29,9 @@ KSEQ_INIT(gzFile, gzread)
 inline std::tuple<std::vector<uint64_t>, std::vector<uint64_t>,
                   std::vector<double>, std::vector<std::string>>
 pairsnp(const char *fasta, int n_threads, int dist, int knn) {
+  using namespace std::literals;
+  const auto start = std::chrono::steady_clock::now();
+
   // open filename and initialise kseq
   int l;
   gzFile fp = gzopen(fasta, "r");
@@ -231,6 +234,9 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   std::vector<double> distances_all = combine_vectors(distances, len);
   std::vector<uint64_t> rows_all = combine_vectors(rows, len);
   std::vector<uint64_t> cols_all = combine_vectors(cols, len);
+
+  const auto end = std::chrono::steady_clock::now();
+  std::cerr << "SNP distances took " << (end - start) / 1s << "s" << std::endl;
 
   return std::make_tuple(rows_all, cols_all, distances_all, seq_names);
 }

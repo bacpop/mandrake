@@ -133,7 +133,7 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
     }
   }
   const auto end = std::chrono::steady_clock::now();
-  std::cout << "Preprocessing " << n_samples
+  std::cerr << "Preprocessing " << n_samples
             << " samples with perplexity = " << perplexity << " took "
             << (end - start) / 1ms << "ms" << std::endl;
   return P;
