@@ -201,7 +201,7 @@ public:
         nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
         progress_callback_fn_(Eq_callback<real_t>),
         rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), Y_destride_(Y.size()),
-        Y_host_(Y.size()), I_(I), J_(J),
+        Y_host_(Y), I_(I), J_(J),
         Eq_host_(1.0), Eq_device_(1.0), qsum_(n_workers), qsum_total_host_(0.0),
         qsum_total_device_(0.0), qcount_(n_workers), qcount_total_host_(0),
         qcount_total_device_(0) {
@@ -243,6 +243,11 @@ public:
     unsigned long long int n_clashes_h = 0;
     device_value<unsigned long long int> n_clashes_d(n_clashes_h);
     kernel_ptrs<real_t> device_ptrs = get_device_ptrs();
+
+    // Save the starting positions
+    real_t curr_Eq = Eq_host_;
+    uint64_t curr_iter = iter_h;
+    results->add_frame(curr_iter, curr_Eq, Y_host_);
 
     // Set up a single iteration on a CUDA graph
     const size_t block_count = (n_workers_ + block_size - 1) / block_size;
@@ -297,8 +302,6 @@ public:
     // The alternative would be to use cudaGraphExecKernelNodeSetParams to
     // change the kernel launch parameters. See
     // 0c369b209ef69d91016bedd41ea8d0775879f153
-    real_t curr_Eq = Eq_host_;
-    uint64_t curr_iter = iter_h;
     const auto start = std::chrono::steady_clock::now();
     for (iter_h = 0; iter_h < maxIter; ++iter_h) {
       graph.launch(graph_stream.stream());
@@ -372,6 +375,7 @@ private:
     static const size_t block_size = 128;
     static const size_t block_count = (Y_.size() + block_size - 1) / block_size;
     destride_embedding<real_t><<<block_count, block_size, 0, destride_stream>>>(Y_.data(), Y_destride_.data(), Y_.size(), nn_);
+    destride_stream.sync();
 
     Y_destride_.get_array_async(Y_host_.data(), copy_stream);
   }
