@@ -232,7 +232,7 @@ public:
 
     uint64_t iter_h = 0;
     device_value<uint64_t> iter_d(iter_h);
-    const int write_per_worker = n_workers * (nRepuSamp + 1);
+    int write_per_worker = n_workers * (nRepuSamp + 1);
     unsigned long long int n_clashes_h = 0;
     device_value<unsigned long long int> n_clashes_d(n_clashes_h);
     kernel_ptrs<real_t> device_ptrs = get_device_ptrs();
