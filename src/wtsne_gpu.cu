@@ -28,7 +28,7 @@ template <typename real_t>
 KERNEL void destride_embedding(real_t* Y_interleaved, real_t* Y_blocked, size_t size, size_t n_samples) {
   for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < size;
     idx += blockDim.x * gridDim.x) {
-    int i = idx / n_samples;
+    int i = idx / DIM;
     int j = idx % DIM;
     Y_blocked[i * DIM + j] = Y_interleaved[i + j * n_samples];
   }
