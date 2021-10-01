@@ -1,7 +1,12 @@
 # mandrake
+
+<!-- badges: start -->
+[![Documentation Status](https://readthedocs.org/projects/mandrake/badge/?version=latest)](https://mandrake.readthedocs.io/)
+<!-- badges: end -->
+
 Fast visualisation of the population structure of pathogens using Stochastic Cluster Embedding
 
-Documentation available: 
+Documentation available at: https://mandrake.readthedocs.io/en/latest/
 
 ## Installation
 
@@ -47,4 +52,4 @@ Other useful arguments include:
 - `--animate` produce a video of the optimisation
 - `--use-gpu` use a GPU for the run. Make sure to increase `--n-workers`.
 
-See the documentation for more details.
+See the [documentation](https://mandrake.readthedocs.io/en/latest/) for more details.
