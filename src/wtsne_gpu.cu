@@ -328,7 +328,7 @@ public:
   // Copy result back to host
   std::vector<real_t>& get_embedding_result() {
     cuda_stream stream;
-    save_embedding_result(stream.stream(), stream.stream());
+    save_embedding_result(stream, stream);
     stream.sync();
     return Y_host_;
   }
@@ -371,13 +371,13 @@ private:
     return device_ptrs;
   }
 
-  void save_embedding_result(cudaStream_t destride_stream, cudaStream_t copy_stream) {
+  void save_embedding_result(cuda_stream& destride_stream, cuda_stream& copy_stream) {
     static const size_t block_size = 128;
     static const size_t block_count = (Y_.size() + block_size - 1) / block_size;
-    destride_embedding<real_t><<<block_count, block_size, 0, destride_stream>>>(Y_.data(), Y_destride_.data(), Y_.size(), nn_);
+    destride_embedding<real_t><<<block_count, block_size, 0, destride_stream.stream()>>>(Y_.data(), Y_destride_.data(), Y_.size(), nn_);
     destride_stream.sync();
 
-    Y_destride_.get_array_async(Y_host_.data(), copy_stream);
+    Y_destride_.get_array_async(Y_host_.data(), copy_stream.stream());
   }
 
   void update_frames(std::shared_ptr<sce_results<real_t>> results,
@@ -392,7 +392,7 @@ private:
     // Start copying this frame
     curr_Eq = next_Eq;
     curr_iter = next_iter;
-    save_embedding_result(kernel_stream.stream(), copy_stream.stream());
+    save_embedding_result(kernel_stream, copy_stream);
   }
 
   // delete move and copy to avoid accidentally using them
