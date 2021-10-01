@@ -24,7 +24,8 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   uint64_t ne = P.size();
 
   // Setup output
-  auto results = std::make_shared<sce_results<double>>(animated, n_workers, maxIter);
+  auto results =
+      std::make_shared<sce_results<double>>(animated, n_workers, maxIter);
 
   // Set up random number generation
   discrete_table<double> node_table(weights, n_threads);
@@ -134,7 +135,8 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   const auto end = std::chrono::steady_clock::now();
 
   results->add_result(maxIter, Eq, Y);
-  std::cerr << std::endl << "Optimizing done in " << (end - start) / 1s << "s" << std::endl;
+  std::cerr << std::endl
+            << "Optimizing done in " << (end - start) / 1s << "s" << std::endl;
 
   return results;
 }

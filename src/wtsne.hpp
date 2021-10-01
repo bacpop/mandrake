@@ -196,7 +196,8 @@ inline void update_progress(const uint64_t iter, const uint64_t maxIter,
   fprintf(
       stderr,
       "%cOptimizing\t Progress: %.1lf%%, eta=%.4f, Eq=%.10f, clashes=%.1lf%%",
-      13, (real_t)iter / maxIter * 100, eta, Eq, (real_t)n_clashes / (iter * write_per_it) * 100);
+      13, (real_t)iter / maxIter * 100, eta, Eq,
+      (real_t)n_clashes / (iter * write_per_it) * 100);
   fflush(stderr);
 }
 
@@ -206,8 +207,8 @@ std::shared_ptr<sce_results<double>>
 wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       std::vector<double> &dists, std::vector<double> &weights,
       const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
-      const double eta0, const bool bInit, const bool animated, const int n_workers,
-      const int n_threads, const unsigned int seed);
+      const double eta0, const bool bInit, const bool animated,
+      const int n_workers, const int n_threads, const unsigned int seed);
 // in wtsne_gpu.cu
 template <typename real_t>
 std::shared_ptr<sce_results<real_t>>
@@ -215,5 +216,5 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           std::vector<real_t> &dists, std::vector<real_t> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
           const int n_workers, const uint64_t nRepuSamp, const real_t eta0,
-          const bool bInit, const bool animated, const int cpu_threads, const int device_id,
-          const unsigned int seed);
+          const bool bInit, const bool animated, const int cpu_threads,
+          const int device_id, const unsigned int seed);

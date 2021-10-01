@@ -25,9 +25,10 @@
  ****************************/
 
 template <typename real_t>
-KERNEL void destride_embedding(real_t* Y_interleaved, real_t* Y_blocked, size_t size, size_t n_samples) {
+KERNEL void destride_embedding(real_t *Y_interleaved, real_t *Y_blocked,
+                               size_t size, size_t n_samples) {
   for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < size;
-    idx += blockDim.x * gridDim.x) {
+       idx += blockDim.x * gridDim.x) {
     int i = idx / DIM;
     int j = idx % DIM;
     Y_blocked[i * DIM + j] = Y_interleaved[i + j * n_samples];
@@ -191,9 +192,9 @@ public:
       : n_workers_(n_workers), nn_(weights.size()), ne_(P.size()),
         nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
         progress_callback_fn_(Eq_callback<real_t>),
-        rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y), Y_destride_(Y.size()),
-        Y_host_(Y), I_(I), J_(J),
-        Eq_host_(1.0), Eq_device_(1.0), qsum_(n_workers), qsum_total_host_(0.0),
+        rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y),
+        Y_destride_(Y.size()), Y_host_(Y), I_(I), J_(J), Eq_host_(1.0),
+        Eq_device_(1.0), qsum_(n_workers), qsum_total_host_(0.0),
         qsum_total_device_(0.0), qcount_(n_workers), qcount_total_host_(0),
         qcount_total_device_(0) {
     // Initialise CUDA
@@ -224,8 +225,8 @@ public:
   real_t current_Eq() const { return Eq_host_; }
 
   // This runs the SCE loop on the device
-  void run_SCE(std::shared_ptr<sce_results<real_t>> results,
-               uint64_t maxIter, const int block_size, const int n_workers,
+  void run_SCE(std::shared_ptr<sce_results<real_t>> results, uint64_t maxIter,
+               const int block_size, const int n_workers,
                const uint64_t nRepuSamp, real_t eta0, const bool bInit) {
     using namespace std::literals;
 
@@ -302,7 +303,8 @@ public:
         check_interrupts();
       }
       if (results->is_sample_frame(iter_h)) {
-        update_frames(results, graph_stream, copy_stream, curr_iter, curr_Eq, iter_h, Eq_host_);
+        update_frames(results, graph_stream, copy_stream, curr_iter, curr_Eq,
+                      iter_h, Eq_host_);
       }
     }
     graph_stream.sync();
@@ -310,16 +312,19 @@ public:
 
     if (results->n_frames() > 0) {
       // Save penultimate frame
-      update_frames(results, graph_stream, copy_stream, curr_iter, curr_Eq, maxIter, Eq_host_);
+      update_frames(results, graph_stream, copy_stream, curr_iter, curr_Eq,
+                    maxIter, Eq_host_);
       // Save final frame
       copy_stream.sync();
       results->add_frame(maxIter, Eq_host_, Y_host_);
     }
-    std::cerr << std::endl << "Optimizing done in " << (end - start) / 1s << "s" << std::endl;
+    std::cerr << std::endl
+              << "Optimizing done in " << (end - start) / 1s << "s"
+              << std::endl;
   }
 
   // Copy result back to host
-  std::vector<real_t>& get_embedding_result() {
+  std::vector<real_t> &get_embedding_result() {
     cuda_stream stream;
     save_embedding_result(stream, stream);
     stream.sync();
@@ -364,19 +369,22 @@ private:
     return device_ptrs;
   }
 
-  void save_embedding_result(cuda_stream& destride_stream, cuda_stream& copy_stream) {
+  void save_embedding_result(cuda_stream &destride_stream,
+                             cuda_stream &copy_stream) {
     static const size_t block_size = 128;
     static const size_t block_count = (Y_.size() + block_size - 1) / block_size;
-    destride_embedding<real_t><<<block_count, block_size, 0, destride_stream.stream()>>>(Y_.data(), Y_destride_.data(), Y_.size(), nn_);
+    destride_embedding<real_t>
+        <<<block_count, block_size, 0, destride_stream.stream()>>>(
+            Y_.data(), Y_destride_.data(), Y_.size(), nn_);
     destride_stream.sync();
 
     Y_destride_.get_array_async(Y_host_.data(), copy_stream.stream());
   }
 
   void update_frames(std::shared_ptr<sce_results<real_t>> results,
-                     cuda_stream& kernel_stream, cuda_stream& copy_stream,
-                     uint64_t& curr_iter, real_t& curr_Eq,
-                     uint64_t next_iter, real_t next_Eq) {
+                     cuda_stream &kernel_stream, cuda_stream &copy_stream,
+                     uint64_t &curr_iter, real_t &curr_Eq, uint64_t next_iter,
+                     real_t next_Eq) {
     // Save the previous frame
     if (results->n_frames() > 0) {
       copy_stream.sync();
@@ -456,8 +464,8 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           std::vector<real_t> &dists, std::vector<real_t> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
           const int n_workers, const uint64_t nRepuSamp, const real_t eta0,
-          const bool bInit, const bool animated, const int cpu_threads, const int device_id,
-          const unsigned int seed) {
+          const bool bInit, const bool animated, const int cpu_threads,
+          const int device_id, const unsigned int seed) {
   // Check input
   std::vector<real_t> Y;
   std::vector<double> P;
@@ -465,13 +473,16 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       wtsne_init<real_t>(I, J, dists, weights, perplexity, cpu_threads, seed);
 
   // These classes set up and manage all of the memory
-  auto results = std::make_shared<sce_results<real_t>>(animated, n_workers, maxIter);
+  auto results =
+      std::make_shared<sce_results<real_t>>(animated, n_workers, maxIter);
   sce_gpu<real_t> embedding(Y, I, J, P, weights, n_workers, device_id, seed);
 
   // Run the algorithm
-  embedding.run_SCE(results, maxIter, block_size, n_workers, nRepuSamp, eta0, bInit);
+  embedding.run_SCE(results, maxIter, block_size, n_workers, nRepuSamp, eta0,
+                    bInit);
 
   // Get the result back
-  results->add_result(maxIter, embedding.current_Eq(), embedding.get_embedding_result());
+  results->add_result(maxIter, embedding.current_Eq(),
+                      embedding.get_embedding_result());
   return results;
 }
