@@ -225,7 +225,7 @@ public:
         cudaHostRegister(&Eq_host_, sizeof(real_t), cudaHostRegisterDefault));
     CUDA_CALL_NOTHROW(cudaHostRegister(&qsum_total_host_, sizeof(real_t),
                                        cudaHostRegisterDefault));
-    CUDA_CALL_NOTHROW(cudaHostRegister(&qsum_total_host_, sizeof(uint64_t),
+    CUDA_CALL_NOTHROW(cudaHostRegister(&qcount_total_host_, sizeof(uint64_t),
                                        cudaHostRegisterDefault));
   }
 
@@ -234,7 +234,7 @@ public:
     CUDA_CALL_NOTHROW(cudaHostUnregister(Y_host_.data()));
     CUDA_CALL_NOTHROW(cudaHostUnregister(&Eq_host_));
     CUDA_CALL_NOTHROW(cudaHostUnregister(&qsum_total_host_));
-    CUDA_CALL_NOTHROW(cudaHostUnregister(&qsum_total_host_));
+    CUDA_CALL_NOTHROW(cudaHostUnregister(&qcount_total_host_));
 #ifdef USE_CUDA_PROFILER
     CUDA_CALL_NOTHROW(cudaProfilerStop());
 #endif
