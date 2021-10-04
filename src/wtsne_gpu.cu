@@ -266,8 +266,8 @@ public:
     cuda_stream capture_stream, copy_stream, graph_stream;
 
     // Pin host memory
-    CUDA_CALL_NOTHROW(
-        cudaHostRegister(&n_clashes_h, sizeof(unsigned long long int)));
+    CUDA_CALL_NOTHROW(cudaHostRegister(
+        &n_clashes_h, sizeof(unsigned long long int), cudaHostRegisterDefault));
 
     // Set up pointers used for kernel parameters in graph
     progress_callback_params_.Eq = &Eq_host_;
