@@ -1,4 +1,7 @@
 # mandrake
+
+[![Build and run tests](https://github.com/johnlees/mandrake/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/johnlees/mandrake/actions/workflows/python-package-conda.yml)
+
 Fast visualisation of the population structure of pathogens using Stochastic Cluster Embedding
 
 Documentation available: 
