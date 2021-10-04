@@ -218,11 +218,15 @@ public:
     edge_table_ = set_device_table(P);
 
     // Pin host memory
+    CUDA_CALL_NOTHROW(cudaHostRegister(Y_host_.data(),
+                                       Y_host_.size() * sizeof(real_t),
+                                       cudaHostRegisterDefault));
     CUDA_CALL_NOTHROW(
-        cudaHostRegister(Y_host_.data(), Y_host_.size() * sizeof(real_t)));
-    CUDA_CALL_NOTHROW(cudaHostRegister(&Eq_host_, sizeof(real_t)));
-    CUDA_CALL_NOTHROW(cudaHostRegister(&qsum_total_host_, sizeof(real_t)));
-    CUDA_CALL_NOTHROW(cudaHostRegister(&qsum_total_host_, sizeof(uint64_t)));
+        cudaHostRegister(&Eq_host_, sizeof(real_t), cudaHostRegisterDefault));
+    CUDA_CALL_NOTHROW(cudaHostRegister(&qsum_total_host_, sizeof(real_t),
+                                       cudaHostRegisterDefault));
+    CUDA_CALL_NOTHROW(cudaHostRegister(&qsum_total_host_, sizeof(uint64_t),
+                                       cudaHostRegisterDefault));
   }
 
   ~sce_gpu() {
