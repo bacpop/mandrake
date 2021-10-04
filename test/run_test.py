@@ -11,12 +11,12 @@ import SCE
 print(SCE.version)
 
 sys.stderr.write("Extracting example datasets\n")
-if not os.path.isfile("data/listeria.h5"):
-    subprocess.run("bzip2 -d -c listeria.h5.bz2 > listeria.h5", shell=True, check=True)
-if not os.path.isfile("data/sub5k_hiv_refs_prrt_trim.fas"):
-    subprocess.run("bzip2 -d -c sub5k_hiv_refs_prrt_trim.fas.bz2 > sub5k_hiv_refs_prrt_trim.fas", shell=True, check=True)
-if not os.path.isfile("data/gene_presence_absence.Rtab"):
-    subprocess.run("bzip2 -d -c gene_presence_absence.Rtab.bz2 > gene_presence_absence.Rtab", shell=True, check=True)
+if not os.path.isfile("listeria.h5"):
+    subprocess.run("bzip2 -d -c data/listeria.h5.bz2 > listeria.h5", shell=True, check=True)
+if not os.path.isfile("sub5k_hiv_refs_prrt_trim.fas"):
+    subprocess.run("bzip2 -d -c data/sub5k_hiv_refs_prrt_trim.fas.bz2 > sub5k_hiv_refs_prrt_trim.fas", shell=True, check=True)
+if not os.path.isfile("gene_presence_absence.Rtab"):
+    subprocess.run("bzip2 -d -c data/gene_presence_absence.Rtab.bz2 > gene_presence_absence.Rtab", shell=True, check=True)
 
 if os.environ.get("MANDRAKE_PYTHON"):
     python_cmd = os.environ.get("MANDRAKE_PYTHON")
