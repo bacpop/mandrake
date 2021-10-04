@@ -34,8 +34,8 @@ sys.stderr.write("Re-running with different SCE options\n")
 subprocess.run(python_cmd + " ../mandrake-runner.py --sketches listeria.h5 --kNN 50 --cpus 2 --maxIter 10000000", shell=True, check=True)
 subprocess.run(python_cmd + " ../mandrake-runner.py --distances mandrake.npz --maxIter 10000000 --eta0 2 --bInit 1 --perplexity 5", shell=True, check=True)
 subprocess.run(python_cmd + " ../mandrake-runner.py --distances mandrake.npz --maxIter 10000000 --animate --output animation", shell=True, check=True)
-subprocess.run(python_cmd + " ../mandrake-runner.py --distances mandrake.npz --maxIter 10000000 --labels labels.txt", shell=True, check=True)
-subprocess.run(python_cmd + " ../mandrake-runner.py --distances mandrake.npz --maxIter 10000000 --weights weights.txt", shell=True, check=True)
+subprocess.run(python_cmd + " ../mandrake-runner.py --distances mandrake.npz --maxIter 10000000 --labels data/labels.txt", shell=True, check=True)
+subprocess.run(python_cmd + " ../mandrake-runner.py --distances mandrake.npz --maxIter 10000000 --weights data/weights.txt", shell=True, check=True)
 
 # test updating order is correct
 sys.stderr.write("Processing can be turned off\n")
