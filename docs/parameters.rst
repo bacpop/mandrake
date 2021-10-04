@@ -4,6 +4,14 @@ SCE parameters
 The options for the SCE algorithm are explained below, other options are
 explained in :doc:`input`, :doc:`animation` and :doc:`parallelisation`.
 
+The progress bar shows the percentage complete, the current learning rate :math:`\eta`,
+the divergence :math:`Eq` (and clash rate, see :doc:`parallelisation`).::
+
+    Optimizing	 Progress: 99.9%, eta=0.0010, Eq=0.0547636151, clashes=0.1%
+    Optimizing done in 20s
+
+The algorithm should be run until :math:`Eq` stabilises.
+
 SCE options::
 
   --perplexity PERPLEXITY
