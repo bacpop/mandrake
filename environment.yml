@@ -1,0 +1,24 @@
+name: sce_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+  - r
+dependencies:
+  - pip
+  - numpy
+  - scipy
+  - pandas
+  - scikit-learn
+  - plotly
+  - matplotlib-base
+  - hdbscan
+  - h5py
+  - pp-sketchlib >=1.7.0
+  - pybind11
+  - zlib
+  - cmake >= 3.19
+  - boost-cpp
+  - libgomp
+  - tqdm
+  - ffmpeg
