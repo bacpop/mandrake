@@ -16,6 +16,9 @@ mandrake is primarily a visualisation tool. To determine clusters robustly, we
 would recommend a model-based method such as `fastbaps <https://github.com/gtonkinhill/fastbaps>`__
 or `poppunk <https://github.com/johnlees/PopPUNK>`__.
 
+To understand local embeddings better, we would recommend the following
+excellent guide: https://distill.pub/2016/misread-tsne/.
+
 It can take as input:
 
 - Assembly or read data (using `sketchlib <https://github.com/johnlees/pp-sketchlib>`__).
@@ -47,12 +50,13 @@ mandrake is very fast, and can be used on millions of input samples.
 
    self
    installation.rst
-   overview.rst
+   examples.rst
+   parameters.rst
    input.rst
    plots.rst
    web.rst
    animation.rst
-   gpus.rst
+   parallelisation.rst
    citing.rst
 
 * :ref:`genindex`
