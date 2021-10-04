@@ -24,7 +24,7 @@ It can take as input:
 
 Runs the following steps:
 
-1. Distance calculation, and sparsification to k nearest neighbours, or using a threshold.
+1. Distance calculation, and sparsification to :math:`k` nearest neighbours, or using a threshold.
 2. Conversion of distances to conditional probabilities at the specified perplexity.
 3. A modified version of `stochastic cluster embedding <https://arxiv.org/abs/2108.08003>`__.
 4. HDBSCAN on the embedding, or labelling with provided categories.
@@ -54,9 +54,6 @@ mandrake is very fast, and can be used on millions of input samples.
    animation.rst
    gpus.rst
    citing.rst
-
-Indices and tables
-==================
 
 * :ref:`genindex`
 * :ref:`search`
