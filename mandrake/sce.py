@@ -12,7 +12,7 @@ import pandas as pd
 # C++ extensions
 sys.path.insert(0, os.path.dirname(__file__) + '/../build/lib.linux-x86_64-3.9')
 sys.path.insert(0, os.path.dirname(__file__) + '/../build/lib.macosx-10.9-x86_64-3.9')
-from SCE import wtsne, sce_result
+from SCE import wtsne
 try:
     from SCE import wtsne_gpu_fp64, wtsne_gpu_fp32
     gpu_fn_available = True
@@ -62,29 +62,29 @@ def runSCE(I, J, dists, weight_file, names, SCE_opts):
         elif SCE_opts['fp'] == 32:
             wtsne_gpu = wtsne_gpu_fp32
         wtsne_call = partial(wtsne_gpu,
-                             perplexity = SCE_opts['perplexity'],
-                             maxIter = maxIter,
-                             blockSize = SCE_opts['blockSize'],
-                             n_workers = SCE_opts['n_workers'],
-                             nRepuSamp = SCE_opts['nRepuSamp'],
-                             eta0 = SCE_opts['eta0'],
-                             bInit = SCE_opts['bInit'],
-                             animated = SCE_opts['animate'],
-                             cpu_threads = SCE_opts['cpus'],
-                             device_id = SCE_opts['device_id'],
-                             seed = SCE_opts['seed'])
+                             perplexity=SCE_opts['perplexity'],
+                             maxIter=maxIter,
+                             blockSize=SCE_opts['blockSize'],
+                             n_workers=SCE_opts['n_workers'],
+                             nRepuSamp=SCE_opts['nRepuSamp'],
+                             eta0=SCE_opts['eta0'],
+                             bInit=SCE_opts['bInit'],
+                             animated=SCE_opts['animate'],
+                             cpu_threads=SCE_opts['cpus'],
+                             device_id=SCE_opts['device_id'],
+                             seed=SCE_opts['seed'])
     else:
         sys.stderr.write("Running on CPU\n")
         wtsne_call = partial(wtsne,
-                             perplexity = SCE_opts['perplexity'],
-                             maxIter = maxIter,
-                             nRepuSamp = SCE_opts['nRepuSamp'],
-                             eta0 = SCE_opts['eta0'],
-                             bInit = SCE_opts['bInit'],
-                             animated = SCE_opts['animate'],
-                             n_workers = SCE_opts['n_workers'],
-                             n_threads = SCE_opts['cpus'],
-                             seed = SCE_opts['seed'])
+                             perplexity=SCE_opts['perplexity'],
+                             maxIter=maxIter,
+                             nRepuSamp=SCE_opts['nRepuSamp'],
+                             eta0=SCE_opts['eta0'],
+                             bInit=SCE_opts['bInit'],
+                             animated=SCE_opts['animate'],
+                             n_workers=SCE_opts['n_workers'],
+                             n_threads=SCE_opts['cpus'],
+                             seed=SCE_opts['seed'])
 
     # Run embedding with C++ extension
     embedding_result = wtsne_call(I, J, dists, weights)
