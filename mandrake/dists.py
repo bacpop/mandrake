@@ -5,11 +5,12 @@
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import csc_matrix, coo_matrix
 from sklearn.neighbors import kneighbors_graph
 
 # C++ extensions
 import sys, os
+sys.path.insert(0, os.path.dirname(__file__) + '/../build/lib.linux-x86_64-3.9')
+sys.path.insert(0, os.path.dirname(__file__) + '/../build/lib.macosx-10.9-x86_64-3.9')
 import pp_sketchlib
 
 from .pairsnp import runPairsnp

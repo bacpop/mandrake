@@ -4,10 +4,6 @@
 #include <cstdint>
 #include <cstdio>
 
-inline uint64_t square_to_condensed(uint64_t i, uint64_t j, uint64_t n) {
-  return (n * i - ((i * (i + 1)) >> 1) + j - 1 - i);
-}
-
 class ProgressMeter {
 public:
   ProgressMeter(size_t total, bool percent = false)

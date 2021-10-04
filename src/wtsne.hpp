@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <random>
 #include <stdio.h>
 #include <string.h>
@@ -30,6 +31,7 @@
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
+#include "sce_results.hpp"
 #include "uniform_discrete.hpp"
 
 #ifndef DIM
@@ -131,7 +133,7 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
     }
   }
   const auto end = std::chrono::steady_clock::now();
-  std::cout << "Preprocessing " << n_samples
+  std::cerr << "Preprocessing " << n_samples
             << " samples with perplexity = " << perplexity << " took "
             << (end - start) / 1ms << "ms" << std::endl;
   return P;
@@ -189,30 +191,30 @@ inline void check_interrupts() {
 template <typename real_t>
 inline void update_progress(const uint64_t iter, const uint64_t maxIter,
                             const real_t eta, const real_t Eq,
+                            const int write_per_it,
                             const unsigned long long int n_clashes) {
-  if (iter % MAX(1, maxIter / 1000) == 0 || iter == maxIter - 1) {
-    fprintf(
-        stderr,
-        "%cOptimizing\t Progress: %.1lf%%, eta=%.4f, Eq=%.10f, clashes=%.1e",
-        13, (real_t)iter / maxIter * 100, eta, Eq, (real_t)n_clashes);
-    fflush(stderr);
-  }
+  fprintf(
+      stderr,
+      "%cOptimizing\t Progress: %.1lf%%, eta=%.4f, Eq=%.10f, clashes=%.1lf%%",
+      13, (real_t)iter / maxIter * 100, eta, Eq,
+      (real_t)n_clashes / (iter * write_per_it) * 100);
+  fflush(stderr);
 }
 
 // Function prototypes
 // in wtsne_cpu.cpp
-std::vector<double>
+std::shared_ptr<sce_results<double>>
 wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       std::vector<double> &dists, std::vector<double> &weights,
       const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
-      const double eta0, const bool bInit, const int n_workers,
-      const int n_threads, const unsigned int seed);
+      const double eta0, const bool bInit, const bool animated,
+      const int n_workers, const int n_threads, const unsigned int seed);
 // in wtsne_gpu.cu
 template <typename real_t>
-std::vector<real_t>
+std::shared_ptr<sce_results<real_t>>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           std::vector<real_t> &dists, std::vector<real_t> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,
           const int n_workers, const uint64_t nRepuSamp, const real_t eta0,
-          const bool bInit, const int cpu_threads, const int device_id,
-          const unsigned int seed);
+          const bool bInit, const bool animated, const int cpu_threads,
+          const int device_id, const unsigned int seed);

@@ -10,12 +10,12 @@
 
 #include "wtsne.hpp"
 
-std::vector<double>
+std::shared_ptr<sce_results<double>>
 wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       std::vector<double> &dists, std::vector<double> &weights,
       const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
-      const double eta0, const bool bInit, const int n_workers,
-      const int n_threads, const unsigned int seed) {
+      const double eta0, const bool bInit, const bool animated,
+      const int n_workers, const int n_threads, const unsigned int seed) {
   // Check input
   std::vector<double> Y, P;
   std::tie(Y, P) =
@@ -23,15 +23,24 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   uint64_t nn = weights.size();
   uint64_t ne = P.size();
 
+  // Setup output
+  auto results =
+      std::make_shared<sce_results<double>>(animated, n_workers, maxIter);
+
   // Set up random number generation
   discrete_table<double> node_table(weights, n_threads);
   discrete_table<double> edge_table(P, n_threads);
   pRNG<double> rng_state(n_workers, std::vector<uint32_t>(1, seed));
 
   // SNE algorithm
+  const int write_per_worker = n_workers * (nRepuSamp + 1);
   const double nsq = nn * (nn - 1);
   double Eq = 1.0;
   unsigned long long int n_clashes = 0;
+  results->add_frame(0, Eq, Y); // starting positions
+
+  using namespace std::literals;
+  const auto start = std::chrono::steady_clock::now();
   for (uint64_t iter = 0; iter < maxIter; iter++) {
     double eta = eta0 * (1 - (double)iter / maxIter);
     eta = MAX(eta, eta0 * 1e-4);
@@ -86,17 +95,17 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           g = repuCoef * q * q;
 
         bool overwrite = false;
+        double gain[DIM];
         for (int d = 0; d < DIM; d++) {
-          double gain = eta * g * dY[d];
+          gain[d] = eta * g * dY[d];
           double Yk_read_end, Yl_read_end;
 #pragma omp atomic capture
-          Yk_read_end = Y[d + lk] += gain;
+          Yk_read_end = Y[d + lk] += gain[d];
 #pragma omp atomic capture
-          Yl_read_end = Y[d + ll] -= gain;
-          if (Yk_read_end != Yk_read[d] + gain ||
-              Yl_read_end != Yl_read[d] - gain) {
+          Yl_read_end = Y[d + ll] -= gain[d];
+          if (Yk_read_end != Yk_read[d] + gain[d] ||
+              Yl_read_end != Yl_read[d] - gain[d]) {
             overwrite = true;
-            break;
           }
         }
         if (!overwrite) {
@@ -105,10 +114,10 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
         } else {
           // Find another neighbour
           for (int d = 0; d < DIM; d++) {
-#pragma omp atomic write
-            Y[d + lk] = Yk_read[d];
-#pragma omp atomic write
-            Y[d + ll] = Yl_read[d];
+#pragma omp atomic update
+            Y[d + lk] = Y[d + lk] - gain[d];
+#pragma omp atomic update
+            Y[d + ll] = Y[d + ll] + gain[d];
           }
 #pragma omp atomic update
           n_clashes++;
@@ -117,12 +126,17 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       }
     }
     Eq = (Eq * nsq + qsum) / (nsq + qcount);
-    update_progress(iter, maxIter, eta, Eq, n_clashes);
+    results->add_frame(iter, Eq, Y);
     if (iter % MAX(1, maxIter / 1000) == 0) {
       check_interrupts();
+      update_progress(iter, maxIter, eta, Eq, write_per_worker, n_clashes);
     }
   }
-  std::cerr << std::endl << "Optimizing done" << std::endl;
+  const auto end = std::chrono::steady_clock::now();
 
-  return Y;
+  results->add_result(maxIter, Eq, Y);
+  std::cerr << std::endl
+            << "Optimizing done in " << (end - start) / 1s << "s" << std::endl;
+
+  return results;
 }

@@ -5,7 +5,6 @@
 from a multiple sequence file"""
 
 import sys, os
-import numpy as np
 
 # C++ extensions
 sys.path.insert(0, os.path.dirname(__file__) + "/../build/lib.linux-x86_64-3.8")
@@ -54,16 +53,6 @@ def runPairsnp(msaFile, kNN=None, threshold=None, threads=1):
     # run some checks on the parameters
     if not os.path.isfile(msaFile):
         raise ValueError("MSA file does not exist!")
-    if kNN is not None:
-        if not (isinstance(kNN, int) and (kNN > 0)):
-            raise ValueError("invalid value for kNN!")
-    else:
-        kNN = -1
-    if threshold is not None:
-        if not (isinstance(threshold, float) and (threshold > 0) and (threshold <= 1)):
-            raise ValueError("invalid value for threshold!")
-    if not (isinstance(threads, int) and (threads > 0)):
-        raise ValueError("invalid value for threads!")
 
     # determine the max snp distance and alignment length
     with open(msaFile, "r") as infile:
