@@ -1,6 +1,11 @@
 Installation
 ============
 
+These instructions install a python command line interface to mandrake. If you
+are not comfortable with using the terminal, or just want to have a quick look,
+try our `web version <https://gtonkinhill.github.io/mandrake-web/>`__
+(and see documenation on :doc:`web`).
+
 Installing with conda (recommended)
 -----------------------------------
 .. important::
