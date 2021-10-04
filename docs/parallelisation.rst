@@ -26,7 +26,9 @@ to use GPUs. You can choose a GPU with the ``--device-id`` flag, or the ``CUDA_V
 environment variable (in which case keep device ID as the default; this is how
 some HPCs set the GPU).
 
-You can change the block size for the SCE process with ``--blockSize`` (this
+The float precision on GPUs can be set with ``--fp``, 32 for single precision,
+64 for double precision. On 'consumer' GPUs, using ``--fp 32`` will likely be
+faster. You can also change the block size for the SCE process with ``--blockSize`` (this
 should be a multiple of 32, and likely one of 32, 64, 128 or 256). The default is
 128, and you probably don't need to change this unless you are interested in CUDA.
 
