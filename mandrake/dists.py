@@ -20,14 +20,14 @@ def accessoryDists(accessory_file, kNN, threshold, cpus):
     acc_mat = pd.read_csv(accessory_file, sep="\t", header=0, index_col=0)
     names = list(acc_mat.columns)
 
-    if kNN is None:
+    if kNN is None or kNN == 0:
         kNN = len(names)
 
-    sp = kneighbors_graph(X=acc_mat, n_neighbors=kNN, 
+    sp = kneighbors_graph(X=acc_mat, n_neighbors=kNN,
         metric = 'jaccard', mode = 'distance',
         include_self=False, n_jobs=cpus).tocoo()
 
-    if threshold is not None:
+    if threshold is not None and threshold > 0:
         index = []
         for i, d in enumerate(sp.data):
             if d<threshold:
