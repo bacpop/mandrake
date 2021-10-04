@@ -39,22 +39,3 @@ SCE options::
 - ``--no-clustering`` turns off the HDBSCAN clustering if you don't want spatial clustering
   run on the embedding (which may stall when no structure has been found). This is
   implied if ``--labels`` have been provided.
-
-There are two additional parameters for the distances::
-
-  --threshold THRESHOLD
-                        Maximum distance to consider [default = None]
-  --kNN KNN             Number of k nearest neighbours to keep when sparsifying the distance
-                        matrix.
-
-Rather than using a full (dense) matrix of all pairwise distances, mandrake uses
-a sparse matrix, ignoring large distances. This uses significantly less memory without
-affecting results.
-
-``--kNN`` sets the number of distances to keep for each sample, which will be the
-:math:`k` closest. Set :math:`k` to a number smaller than the number of samples.
-Memory use grows linearly with :math:`k`. Setting :math:`k` too small will miss global
-structure in the data.
-
-``--threshold`` instead picks a maximum distance that is considered meaningful, and
-larger distances will be removed from the input.
