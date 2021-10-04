@@ -33,4 +33,4 @@ jobs:
         PATH=$CONDA/bin/bin:$PATH
         source $CONDA/bin/activate base
         $CONDA/bin/python -m pip install --no-deps --ignore-installed .
-        cd test && $CONDA/bin/python run_test.py
+        cd test && export MANDRAKE_PYTHON=$CONDA/bin/python && $CONDA/bin/python run_test.py
