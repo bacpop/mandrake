@@ -21,7 +21,7 @@ def accessoryDists(accessory_file, kNN, threshold, cpus):
     if kNN is None or kNN == 0:
         kNN = len(names)
 
-    sp = kneighbors_graph(X=acc_mat, n_neighbors=kNN,
+    sp = kneighbors_graph(X=acc_mat.T, n_neighbors=kNN,
                           metric='jaccard', mode='distance',
                           include_self=False, n_jobs=cpus).tocoo()
 
