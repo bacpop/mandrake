@@ -55,7 +55,8 @@ def runSCE(I, J, dists, weight_file, names, SCE_opts):
                 "Names in weights do not match sequences - using equal weights\n")
         else:
             intersecting_samples = weights_in.index.intersection(names)
-            weights = weights_in.loc[intersecting_samples]
+            weights = weights_in.loc[intersecting_samples] # pandas df
+            weights = weights[1].values # to get as numpy vector
     weights = list(weights)
 
     # Set up function call with either CPU or GPU
