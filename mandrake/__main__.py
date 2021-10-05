@@ -45,6 +45,7 @@ def get_options():
     dist_me_Group = distGroup.add_mutually_exclusive_group()
     dist_me_Group.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
     dist_me_Group.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
+    distGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances [default = use core]")
 
     sceGroup = parser.add_argument_group('SCE options')
     sceGroup.add_argument('--no-preprocessing', default=False, action='store_true',
@@ -68,8 +69,6 @@ def get_options():
     parallelGroup.add_argument('--blockSize', type=int, default=128, help='CUDA blockSize [default = 128]')
 
     sketchGroup = parser.add_argument_group('Sketch options')
-    sketchGroup.add_argument('--use-core', action='store_true', default=False, help="Use core distances")
-    sketchGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances")
 
     other = parser.add_argument_group('Other')
     other.add_argument('--seed', type=int, default=1, help='Seed for random number generation')
