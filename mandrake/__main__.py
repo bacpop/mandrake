@@ -5,6 +5,7 @@
 import sys
 import re
 import pandas as pd
+import numpy as np
 
 from .__init__ import __version__
 
@@ -173,11 +174,14 @@ def main():
     #***********************#
     #* run HDBSCAN         *#
     #***********************#
-    if args.no_clustering:
-        cluster_labels = [-1] * embedding_array.shape[0]
-    elif args.labels == None:
-        sys.stderr.write("Running clustering\n")
-        cluster_labels = runHDBSCAN(embedding_array)
+    dbscan = False
+    if args.labels == None:
+        if args.no_clustering:
+            cluster_labels = np.full((embedding_array.shape[0],), -1)
+        else:
+          sys.stderr.write("Running clustering\n")
+          cluster_labels = runHDBSCAN(embedding_array)
+          dbscan = True
     else:
         label_file = pd.read_csv(args.labels, sep="\t", header=None, index_col=0)
         cluster_labels = list(label_file.loc[names][1].values)
@@ -186,9 +190,9 @@ def main():
     #* plot embedding      *#
     #***********************#
     sys.stderr.write("Drawing plots\n")
-    plotSCE_html(embedding_array, names, cluster_labels, args.output, not args.labels)
+    plotSCE_html(embedding_array, names, cluster_labels, args.output, dbscan)
     plotSCE_hex(embedding_array, args.output)
-    plotSCE_mpl(embedding_array, embedding_results, cluster_labels, args.output, not args.labels)
+    plotSCE_mpl(embedding_array, embedding_results, cluster_labels, args.output, dbscan)
 
     sys.exit(0)
 
