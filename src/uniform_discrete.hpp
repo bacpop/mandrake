@@ -70,6 +70,9 @@ public:
         F[s] = static_cast<real_t>(1.0);
         continue;
       }
+      if (Bigs.size() == 0) {
+        throw std::runtime_error("Bigs stack has been emptied");
+      }
       real_t b = Bigs.top();
       Bigs.pop();
       A[s] = b;
@@ -97,6 +100,12 @@ public:
     /* Stacks have been emptied, and A and F have been filled */
     if (Smalls.size() != 0) {
       throw std::runtime_error("Smalls stack has not been emptied");
+    }
+#pragma omp parallel for schedule(static) num_threads(n_threads)
+    /* This is the Knuth convention */
+    for (uint64_t k = 0; k < K; ++k) {
+      F[k] += k;
+      F[k] /= K;
     }
   }
 
