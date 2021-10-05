@@ -109,11 +109,13 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
           // The atomics below basically do
           // Y[d + lk] += gain;
           // Y[d + ll] -= gain;
-          if (atomicAdd((real_t *)Y + k + d * nn, gain) != Yk_read[d] ||
-              atomicAdd((real_t *)Y + l + d * nn, -gain) != Yl_read[d]) {
-            overwrite = true;
-          }
+          bool overwrite_k =
+              (atomicAdd((real_t *)Y + k + d * nn, gain) != Yk_read[d]);
+          bool overwrite_d =
+              (atomicAdd((real_t *)Y + l + d * nn, -gain) != Yl_read[d]);
+          overwrite |= overwrite_k || overwrite_d;
         }
+
         qsum_local += q;
         qcount_local++;
         if (overwrite) {
@@ -216,11 +218,29 @@ public:
     // Set up discrete RNG tables
     node_table_ = set_device_table(weights);
     edge_table_ = set_device_table(P);
+
+    // Pin host memory
+    CUDA_CALL_NOTHROW(cudaHostRegister(Y_host_.data(),
+                                       Y_host_.size() * sizeof(real_t),
+                                       cudaHostRegisterDefault));
+    CUDA_CALL_NOTHROW(
+        cudaHostRegister(&Eq_host_, sizeof(real_t), cudaHostRegisterDefault));
+    CUDA_CALL_NOTHROW(cudaHostRegister(&qsum_total_host_, sizeof(real_t),
+                                       cudaHostRegisterDefault));
+    CUDA_CALL_NOTHROW(cudaHostRegister(&qcount_total_host_, sizeof(uint64_t),
+                                       cudaHostRegisterDefault));
   }
 
+  ~sce_gpu() {
+    // Unpin host memory
+    CUDA_CALL_NOTHROW(cudaHostUnregister(Y_host_.data()));
+    CUDA_CALL_NOTHROW(cudaHostUnregister(&Eq_host_));
+    CUDA_CALL_NOTHROW(cudaHostUnregister(&qsum_total_host_));
+    CUDA_CALL_NOTHROW(cudaHostUnregister(&qcount_total_host_));
 #ifdef USE_CUDA_PROFILER
-  ~sce_gpu() { CUDA_CALL_NOTHROW(cudaProfilerStop()); }
+    CUDA_CALL_NOTHROW(cudaProfilerStop());
 #endif
+  }
 
   real_t current_Eq() const { return Eq_host_; }
 
@@ -246,6 +266,12 @@ public:
     const size_t block_count = (n_workers_ + block_size - 1) / block_size;
     cuda_graph graph;
     cuda_stream capture_stream, copy_stream, graph_stream;
+
+    // Pin host memory
+    CUDA_CALL_NOTHROW(
+        cudaHostRegister(&iter_h, sizeof(uint64_t), cudaHostRegisterDefault));
+    CUDA_CALL_NOTHROW(cudaHostRegister(
+        &n_clashes_h, sizeof(unsigned long long int), cudaHostRegisterDefault));
 
     // Set up pointers used for kernel parameters in graph
     progress_callback_params_.Eq = &Eq_host_;
@@ -321,6 +347,10 @@ public:
     std::cerr << std::endl
               << "Optimizing done in " << (end - start) / 1s << "s"
               << std::endl;
+
+    // Unpin host memory
+    CUDA_CALL_NOTHROW(cudaHostUnregister(&iter_h));
+    CUDA_CALL_NOTHROW(cudaHostUnregister(&n_clashes_h));
   }
 
   // Copy result back to host

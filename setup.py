@@ -111,7 +111,7 @@ setup(
             'mandrake = mandrake.__main__:main'
             ]
     },
-    install_requires=['numpy'],
+    test_suite="test",
     ext_modules=[CMakeExtension('SCE')],
     cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False
