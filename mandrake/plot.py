@@ -192,7 +192,7 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
         writer = animation.FFMpegWriter(
             fps=20, metadata=dict(title='mandrake animation'), bitrate=-1)
         progress_callback = \
-          lambda i, n: sys.stderr.write('Saving frame ' + str(i) + ' of ' + str(len(ims)) + '\r')
+          lambda i, n: sys.stderr.write('Saving frame ' + str(i) + ' of ' + str(len(ims)) + '    \r')
         ani.save(output_prefix + ".embedding_animation.mp4", writer=writer,
                 dpi=320, progress_callback=progress_callback)
         progress_callback(len(ims), len(ims))
