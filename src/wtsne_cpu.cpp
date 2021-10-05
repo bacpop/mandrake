@@ -30,7 +30,8 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   // Set up random number generation
   discrete_table<double> node_table(weights, n_threads);
   discrete_table<double> edge_table(P, n_threads);
-  pRNG<double> rng_state(n_workers, std::vector<uint32_t>(1, seed));
+  pRNG<double> rng_state(
+      n_workers, xoshiro_initial_seed<double>(static_cast<uint32_t>(seed)));
 
   // SNE algorithm
   const int write_per_worker = n_workers * (nRepuSamp + 1);

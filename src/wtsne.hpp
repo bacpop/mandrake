@@ -164,7 +164,8 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   normalise_vector(weights, true, n_threads);
 
   // Set starting Y0
-  pRNG<real_t> rng_state(n_threads, std::vector<uint32_t>(1, seed));
+  pRNG<real_t> rng_state(
+      n_threads, xoshiro_initial_seed<real_t>(static_cast<uint32_t>(seed)));
   rng_state.long_jump(); // Independent RNG from SCE algorithm
   std::vector<real_t> Y(nn * DIM);
 #pragma omp parallel for schedule(static) num_threads(n_threads)
