@@ -28,7 +28,7 @@ If you are having conflict issues with conda, our advice would be:
 
 - Remove and reinstall miniconda.
 - Never install anything in the base environment
-- Create a new environment for mandrake with ``conda create -n mandrake_env poppunk``
+- Create a new environment for mandrake with ``conda create -n mandrake_env mandrake``
 
 conda-forge also has some helpful tips: https://conda-forge.org/docs/user/tipsandtricks.html
 

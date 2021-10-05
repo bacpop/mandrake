@@ -49,13 +49,14 @@ def loadIJdist(npzfilename):
 def runSCE(I, J, dists, weight_file, names, SCE_opts):
     weights = np.ones((len(names)))
     if weight_file:
-        weights_in = pd.read_csv(weights, sep="\t", header=None, index_col=0)
-        if (weights_in.index.symmetric_difference(names)):
+        weights_in = pd.read_csv(weight_file, sep="\t", header=None, index_col=0)
+        if (len(weights_in.index.symmetric_difference(names)) > 0):
             sys.stderr.write(
                 "Names in weights do not match sequences - using equal weights\n")
         else:
             intersecting_samples = weights_in.index.intersection(names)
-            weights = weights_in.loc[intersecting_samples]
+            weights = weights_in.loc[intersecting_samples] # pandas df
+            weights = weights[1].values # to get as numpy vector
     weights = list(weights)
 
     # Set up function call with either CPU or GPU

@@ -1,6 +1,7 @@
-# mandrake
+# mandrake <img src='docs/images/mandragora.png' align="right" height="139" />
 
 <!-- badges: start -->
+[![Build and run tests](https://github.com/johnlees/mandrake/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/johnlees/mandrake/actions/workflows/python-package-conda.yml)
 [![Documentation Status](https://readthedocs.org/projects/mandrake/badge/?version=latest)](https://mandrake.readthedocs.io/)
 <!-- badges: end -->
 
@@ -8,11 +9,15 @@ Fast visualisation of the population structure of pathogens using Stochastic Clu
 
 Documentation available at: https://mandrake.readthedocs.io/en/latest/
 
-## Installation
+## Installation (briefly)
+
+See https://mandrake.readthedocs.io/en/latest/installation.html for more details.
 
 You will need some dependencies, which you can install through `conda`:
 ```
-conda create -n mandrake python numpy pandas scipy scikit-learn tqdm hdbscan pp-sketchlib cmake pybind11 openmp matplotlib-base boost-cpp plotly ffmpeg
+conda create -n mandrake_env python
+conda env update -n mandrake_env --file environment.yml
+conda activate mandrake_env
 ```
 
 You can then clone this repository, and run:

@@ -36,18 +36,18 @@ def plotSCE_html(embedding, names, labels, output_prefix, dbscan=True):
     random_colour_map = {}
     rng = np.random.default_rng(1)
     for label in pd.unique(plot_df['Label']):
-      # Alternative approach with hsl representation
-      # from hsluv import hsluv_to_hex ## outside of loop
-      # hue = rng.uniform(0, 360)
-      # saturation = rng.uniform(60, 100)
-      # luminosity = rng.uniform(50, 90)
-      # random_colour_map[label] = hsluv_to_hex([hue, saturation, luminosity])
+        # Alternative approach with hsl representation
+        # from hsluv import hsluv_to_hex ## outside of loop
+        # hue = rng.uniform(0, 360)
+        # saturation = rng.uniform(60, 100)
+        # luminosity = rng.uniform(50, 90)
+        # random_colour_map[label] = hsluv_to_hex([hue, saturation, luminosity])
 
-      # Random in rbg seems to give better contrast
-      rgb = rng.integers(low=0, high=255, size=3)
-      random_colour_map[label] = ",".join(["rgb(" + str(rgb[0]),
-                                             str(rgb[1]),
-                                             str(rgb[2]) + ")"])
+        # Random in rbg seems to give better contrast
+        rgb = rng.integers(low=0, high=255, size=3)
+        random_colour_map[label] = ",".join(["rgb(" + str(rgb[0]),
+                                              str(rgb[1]),
+                                              str(rgb[2]) + ")"])
 
     # Plot clustered points
     fig = px.scatter(plot_df, x="SCE dimension 1", y="SCE dimension 2",
