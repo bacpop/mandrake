@@ -266,6 +266,8 @@ public:
     cuda_stream capture_stream, copy_stream, graph_stream;
 
     // Pin host memory
+    CUDA_CALL_NOTHROW(
+        cudaHostRegister(&iter_h, sizeof(uint64_t), cudaHostRegisterDefault));
     CUDA_CALL_NOTHROW(cudaHostRegister(
         &n_clashes_h, sizeof(unsigned long long int), cudaHostRegisterDefault));
 
@@ -345,6 +347,7 @@ public:
               << std::endl;
 
     // Unpin host memory
+    CUDA_CALL_NOTHROW(cudaHostUnregister(&iter_h));
     CUDA_CALL_NOTHROW(cudaHostUnregister(&n_clashes_h));
   }
 
