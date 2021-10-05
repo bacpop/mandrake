@@ -1,4 +1,4 @@
-# mandrake <img src='docs/images/mandrake.png' align="right" height="139" />
+# mandrake <img src='docs/images/mandragora.png' align="right" height="139" />
 
 <!-- badges: start -->
 [![Build and run tests](https://github.com/johnlees/mandrake/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/johnlees/mandrake/actions/workflows/python-package-conda.yml)
