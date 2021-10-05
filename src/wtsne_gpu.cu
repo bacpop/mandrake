@@ -109,11 +109,13 @@ KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
           // The atomics below basically do
           // Y[d + lk] += gain;
           // Y[d + ll] -= gain;
-          if (atomicAdd((real_t *)Y + k + d * nn, gain) != Yk_read[d] ||
-              atomicAdd((real_t *)Y + l + d * nn, -gain) != Yl_read[d]) {
-            overwrite = true;
-          }
+          bool overwrite_k =
+              (atomicAdd((real_t *)Y + k + d * nn, gain) != Yk_read[d]);
+          bool overwrite_d =
+              (atomicAdd((real_t *)Y + l + d * nn, -gain) != Yl_read[d]);
+          overwrite |= overwrite_k || overwrite_d;
         }
+
         qsum_local += q;
         qcount_local++;
         if (overwrite) {
