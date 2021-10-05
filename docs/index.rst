@@ -1,7 +1,7 @@
 mandrake's documentation
 ====================================
 
-.. image:: images/mandrake.png
+.. image:: images/mandragora.png
    :alt:  mandrake (stochastic cluster embedding with genetic distances)
    :align: center
 
