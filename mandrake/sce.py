@@ -101,6 +101,15 @@ def runSCE(I, J, dists, weight_file, names, SCE_opts):
 def saveEmbedding(embedding, output_prefix):
     np.savetxt(output_prefix + ".embedding.txt", embedding)
 
+
+def write_dot(embedding, labels, output_prefix):
+    with open(output_prefix + ".embedding.dot", 'w') as dot_file:
+        dot_file.write("graph G { ")
+        for row, label in zip(embedding, labels):
+            dot_file.write('"' + label + '"' +
+                           '[x='+str(5*float(row[0]))+',y='+str(5*float(row[1]))+']; ')
+        dot_file.write("}\n")
+
 # Internal functions
 
 

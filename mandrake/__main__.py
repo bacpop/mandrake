@@ -10,8 +10,8 @@ import numpy as np
 from .__init__ import __version__
 
 from .dists import pairSnpDists, accessoryDists, sketchlibDists
-from .sce import save_input, loadIJdist, runSCE, saveEmbedding
-from .clustering import runHDBSCAN
+from .sce import save_input, loadIJdist, runSCE, saveEmbedding, write_dot
+from .clustering import runHDBSCAN, write_hdbscan_clusters
 from .plot import plotSCE_html, plotSCE_mpl, plotSCE_hex
 
 def get_options():
@@ -169,6 +169,7 @@ def main():
 
     embedding_results, embedding_array = runSCE(I, J, dists, args.weight_file, names, SCE_opts)
     saveEmbedding(embedding_array, args.output)
+    write_dot(embedding_array, names, args.output)
 
     #***********************#
     #* run HDBSCAN         *#
@@ -178,9 +179,10 @@ def main():
         if args.no_clustering:
             cluster_labels = np.full((embedding_array.shape[0],), -1)
         else:
+          dbscan = True
           sys.stderr.write("Running clustering\n")
           cluster_labels = runHDBSCAN(embedding_array)
-          dbscan = True
+          write_hdbscan_clusters(cluster_labels, names, args.output)
     else:
         label_file = pd.read_csv(args.labels, sep="\t", header=None, index_col=0)
         cluster_labels = list(label_file.loc[names][1].values)
