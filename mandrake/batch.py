@@ -32,7 +32,7 @@ def get_options():
     aGroup = parser.add_argument_group('Distance options')
     aGroup.add_argument(
         '--kNN', help='Number of nearest neighbours to keep', type=int, required=True)
-    aGroup.add_argument('--random-adj', help='Use random adjustments',
+    aGroup.add_argument('--adj-random', help='Use random adjustments',
                         default=False, action='store_true')
     aGroup.add_argument('--use-accessory', action='store_true',
                         default=False, help="Use accessory distances [default = use core]")
@@ -41,7 +41,7 @@ def get_options():
     pGroup.add_argument('--cpus', help='Number of threads for parallelisation (int)',
                         type=int,
                         default=1)
-    pGroup.add_argument('--gpu-dist', help='Use GPU for distance calculations',
+    pGroup.add_argument('--use-gpu', help='Use GPU for distance calculations',
                         default=False,
                         action='store_true')
     pGroup.add_argument('--device-id', help='GPU device ID (int)',
@@ -57,8 +57,11 @@ def main():
 
     names = get_seqs_in_db(sketch_db + ".h5")
     batches = []
-    names_per_batch = names // args.n_batches
-    n_big_batches = names % args.n_batches
+    names_per_batch = len(names) // args.n_batches
+    n_big_batches = len(names) % args.n_batches
+    if names_per_batch < args.kNN:
+        raise ValueError("kNN must be smaller than the samples per batch")
+
     start = 0
     for batch_idx in range(args.n_batches):
         if batch_idx < n_big_batches:
@@ -66,7 +69,7 @@ def main():
         else:
             end = start + names_per_batch
         batches.append(names[start:end])
-        start = end + 1
+        start = end
 
     kmers = get_kmer_sizes(sketch_db + ".h5")
     if (len(kmers) == 1):
@@ -78,8 +81,9 @@ def main():
         dist_col = 1
 
     sys.stderr.write("Batch 1 of " + str(len(batches)) + "\n")
+    ref_names = batches[0]
     rrDense = pp_sketchlib.queryDatabase(
-        sketch_db, sketch_db, batches[0], batches[0], kmers, args.adj_random,
+        sketch_db, sketch_db, ref_names, ref_names, kmers, args.adj_random,
         jaccard, args.cpus, args.use_gpu, args.device_id
     )
     if jaccard:
@@ -90,10 +94,9 @@ def main():
             pp_sketchlib.longToSquare(rrDense[:, [dist_col]], args.cpus),
             0,
             args.kNN)
-    n_ref = len(batches[0])
 
     for batch_idx, batch in enumerate(batches[1:]):
-        sys.stderr.write("Batch " + str(batch_idx) + " of " + str(len(batches)) + "\n")
+        sys.stderr.write("Batch " + str(batch_idx + 2) + " of " + str(len(batches)) + "\n")
         qqDense = pp_sketchlib.queryDatabase(
           sketch_db, sketch_db, batch, batch, kmers, args.adj_random,
           jaccard, args.cpus, args.use_gpu, args.device_id
@@ -105,12 +108,13 @@ def main():
         qqSquare[qqSquare < epsilon] = epsilon
 
         qrDense = pp_sketchlib.queryDatabase(
-          sketch_db, sketch_db, batches[0], batch, kmers, args.adj_random,
+          sketch_db, sketch_db, ref_names, batch, kmers, args.adj_random,
           jaccard, args.cpus, args.use_gpu, args.device_id
         )
         if jaccard:
             qrDense = 1 - qrDense
 
+        n_ref = len(ref_names)
         n_query = len(batch)
         qrRect = qrDense[:, [dist_col]].reshape(n_query, n_ref).T
         qrRect[qrRect < epsilon] = epsilon
@@ -118,7 +122,7 @@ def main():
         row, col, data = \
             extend((row, col, data), qqSquare, qrRect, args.kNN, args.cpus)
 
-        n_ref += n_query
+        ref_names += batch
 
     save_input(row, col, data, names, args.output)
 
