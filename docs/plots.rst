@@ -50,3 +50,20 @@ in each region of the plot, divided into small tesselating hexagons:
 .. image:: images/hiv5k_embedding_density.png
    :alt:  hexbin density view of the embedding
    :align: center
+
+Microreact output
+-----------------
+You can also view your clusters in `microreact <https://microreact.org/upload>`__,
+which will also let you combine the embedding visualisation with a tree, interactively.
+
+Upload the ``mandrake.embedding.dot`` file. If you ran HDBSCAN clustering there
+will also be ``mandrake.hdbscan_clusters.csv`` file you can include to colour the
+points with.
+
+If you used your own ``--labels``, these can be used, as long as they
+are formatted as a Microreact-compliant .csv file:
+
+- comma separated
+- with a header
+- sample names have column header 'id'
+- append `__autocolour` to column headers you wish to colour points by
