@@ -10,8 +10,8 @@ import numpy as np
 from .__init__ import __version__
 
 from .dists import pairSnpDists, accessoryDists, sketchlibDists
-from .sce import save_input, loadIJdist, runSCE, saveEmbedding
-from .clustering import runHDBSCAN
+from .sce import save_input, loadIJdist, runSCE, saveEmbedding, write_dot
+from .clustering import runHDBSCAN, write_hdbscan_clusters
 from .plot import plotSCE_html, plotSCE_mpl, plotSCE_hex
 
 def get_options():
@@ -37,14 +37,16 @@ def get_options():
                         help='Work from pre-calculated distances')
 
     ioGroup = parser.add_argument_group('I/O options')
-    ioGroup.add_argument('--animate', default=False, action='store_true', help='Create an animation of the embedding process')
-    ioGroup.add_argument('--labels', default=None, help='Sample labels for plotting (overrides DBSCAN clusters)')
     ioGroup.add_argument('--output', default="mandrake", type=str, help='Prefix for output files [default = "mandrake"]')
+    ioGroup.add_argument('--labels', default=None, help='Sample labels for plotting (overrides DBSCAN clusters)')
+    ioGroup.add_argument('--no-html-labels', default=False, action='store_true', help='Turn off hover labels on html output (for large datasets)')
+    ioGroup.add_argument('--animate', default=False, action='store_true', help='Create an animation of the embedding process')
 
     distGroup = parser.add_argument_group('Distance options')
     dist_me_Group = distGroup.add_mutually_exclusive_group()
     dist_me_Group.add_argument('--threshold', default=None, type=float, help='Maximum distance to consider [default = None]')
     dist_me_Group.add_argument('--kNN', default=None, type=int, help='Number of k nearest neighbours to keep when sparsifying the distance matrix.')
+    distGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances [default = use core]")
 
     sceGroup = parser.add_argument_group('SCE options')
     sceGroup.add_argument('--no-preprocessing', default=False, action='store_true',
@@ -66,10 +68,6 @@ def get_options():
                                help="Run SCE on the GPU. If this fails, the CPU will be used [default = False]")
     parallelGroup.add_argument('--device-id', type=int, default=0, help="GPU ID to use")
     parallelGroup.add_argument('--blockSize', type=int, default=128, help='CUDA blockSize [default = 128]')
-
-    sketchGroup = parser.add_argument_group('Sketch options')
-    sketchGroup.add_argument('--use-core', action='store_true', default=False, help="Use core distances")
-    sketchGroup.add_argument('--use-accessory', action='store_true', default=False, help="Use accessory distances")
 
     other = parser.add_argument_group('Other')
     other.add_argument('--seed', type=int, default=1, help='Seed for random number generation')
@@ -170,6 +168,7 @@ def main():
 
     embedding_results, embedding_array = runSCE(I, J, dists, args.weight_file, names, SCE_opts)
     saveEmbedding(embedding_array, args.output)
+    write_dot(embedding_array, names, args.output)
 
     #***********************#
     #* run HDBSCAN         *#
@@ -179,9 +178,10 @@ def main():
         if args.no_clustering:
             cluster_labels = np.full((embedding_array.shape[0],), -1)
         else:
+          dbscan = True
           sys.stderr.write("Running clustering\n")
           cluster_labels = runHDBSCAN(embedding_array)
-          dbscan = True
+          write_hdbscan_clusters(cluster_labels, names, args.output)
     else:
         label_file = pd.read_csv(args.labels, sep="\t", header=None, index_col=0)
         cluster_labels = list(label_file.loc[names][1].values)
@@ -190,9 +190,11 @@ def main():
     #* plot embedding      *#
     #***********************#
     sys.stderr.write("Drawing plots\n")
-    plotSCE_html(embedding_array, names, cluster_labels, args.output, dbscan)
+    plotSCE_html(embedding_array, names, cluster_labels, args.output,
+      not args.no_html_labels, dbscan)
     plotSCE_hex(embedding_array, args.output)
-    plotSCE_mpl(embedding_array, embedding_results, cluster_labels, args.output, dbscan)
+    plotSCE_mpl(embedding_array, embedding_results, cluster_labels,
+      args.output, dbscan)
 
     sys.exit(0)
 

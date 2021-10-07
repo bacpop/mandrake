@@ -35,6 +35,7 @@ sys.stderr.write("Processing can be turned off\n")
 # This won't necessarily work
 # subprocess.run(python_cmd + " ../mandrake-runner.py --sketches listeria.h5 --kNN 50 --maxIter 10000000 --no-preprocessing", shell=True, check=True)
 subprocess.run(python_cmd + " ../mandrake-runner.py --sketches listeria.h5 --kNN 50 --maxIter 1000000 --no-clustering", shell=True, check=True)
+subprocess.run(python_cmd + " ../mandrake-runner.py --sketches listeria.h5 --kNN 50 --maxIter 1000000 --no-html-labels", shell=True, check=True)
 
 sys.stderr.write("Re-running with different SCE options\n")
 subprocess.run(python_cmd + " ../mandrake-runner.py --sketches listeria.h5 --kNN 50 --cpus 2 --maxIter 1000000", shell=True, check=True)

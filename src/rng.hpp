@@ -233,21 +233,21 @@ size_t stride_copy(T dest, U src, size_t at, size_t stride) {
 }
 
 template <typename real_t>
-device_array<uint32_t> load_rng(const size_t n_state, const unsigned int seed) {
+device_array<uint32_t> load_rng(const size_t n_threads, const unsigned int seed) {
   pRNG<real_t> rng_state(
-      n_state, xoshiro_initial_seed<real_t>(static_cast<uint32_t>(seed)));
+      n_threads, xoshiro_initial_seed<real_t>(static_cast<uint32_t>(seed)));
   const size_t rng_len = rng_state_t<real_t>::size();
-  std::vector<uint32_t> rng_i(n_state * rng_len); // Interleaved RNG state
-  for (size_t i = 0; i < n_state; ++i) {
+  std::vector<uint32_t> rng_i(n_threads * rng_len); // Interleaved RNG state
+  for (size_t i = 0; i < n_threads; ++i) {
     // Interleave RNG state
     rng_state_t<real_t> p_rng = rng_state.state(i);
     size_t rng_offset = i;
     for (size_t j = 0; j < rng_len; ++j) {
-      rng_offset = stride_copy(rng_i.data(), p_rng[j], rng_offset, n_state);
+      rng_offset = stride_copy(rng_i.data(), p_rng[j], rng_offset, n_threads);
     }
   }
   // H -> D copies
-  device_array<uint32_t> d_rng(n_state * rng_len);
+  device_array<uint32_t> d_rng(n_threads * rng_len);
   d_rng.set_array(rng_i);
   return d_rng;
 }
