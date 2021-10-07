@@ -3,6 +3,7 @@
 
 '''Methods for calculating distances from sequence input'''
 
+import re
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import kneighbors_graph
@@ -49,17 +50,39 @@ def pairSnpDists(alignment, threshold, kNN, cpus):
 def sketchlibDists(sketch_db, dist_col, kNN, threshold, cpus, use_gpu, device_id):
     names = get_seqs_in_db(sketch_db + ".h5")
     kmers = get_kmer_sizes(sketch_db + ".h5")
-    I, J, dists = pp_sketchlib.queryDatabaseSparse(sketch_db,
-                                                   sketch_db,
-                                                   names,
+
+    sketchlib_version = re.search(r"(\d+)\.(\d+)\.(\d+)", pp_sketchlib.version)
+    if sketchlib_version and int(sketchlib_version.group(1)) >= 2:
+        # v2 of sketchlib supports 'true' sparse query which reduces distance
+        # matrix on the fly
+        if (len(kmers) == 1):
+            jaccard = True
+        else:
+            jaccard = False
+        if threshold > 0:
+            raise ValueError("Use kNN with --sketches")
+        I, J, dists = pp_sketchlib.querySelfSparse(sketch_db,
                                                    names,
                                                    kmers,
                                                    True,
-                                                   threshold,
+                                                   jaccard,
                                                    kNN,
-                                                   dist_col == 0,
-                                                   cpus,
-                                                   use_gpu,
-                                                   device_id)
+                                                   dist_col,
+                                                   cpus)
+    else:
+        # older versions of sketchlib do a dense query then sparsify the
+        # return. Ok for smaller data, but runs out of memory on big datasets
+        I, J, dists = pp_sketchlib.queryDatabaseSparse(sketch_db,
+                                                      sketch_db,
+                                                      names,
+                                                      names,
+                                                      kmers,
+                                                      True,
+                                                      threshold,
+                                                      kNN,
+                                                      dist_col == 0,
+                                                      cpus,
+                                                      use_gpu,
+                                                      device_id)
 
     return I, J, dists, names
