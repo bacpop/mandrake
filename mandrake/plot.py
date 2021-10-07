@@ -19,7 +19,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.animation as animation
 
 # Interactive HTML plot using plotly
-def plotSCE_html(embedding, names, labels, output_prefix, dbscan=True):
+def plotSCE_html(embedding, names, labels, output_prefix, hover_labels=True, dbscan=True):
     if dbscan:
         not_noise = labels != -1
         not_noise_list = list(np.where(not_noise)[0])
@@ -51,7 +51,7 @@ def plotSCE_html(embedding, names, labels, output_prefix, dbscan=True):
 
     # Plot clustered points
     fig = px.scatter(plot_df, x="SCE dimension 1", y="SCE dimension 2",
-                     hover_name='names',
+                     hover_name='names' if hover_labels else None,
                      color='Label',
                      color_discrete_map=random_colour_map,
                      render_mode='webgl')
@@ -59,8 +59,8 @@ def plotSCE_html(embedding, names, labels, output_prefix, dbscan=True):
     fig.update_traces(marker=dict(size=10,
                              line=dict(width=2,
                                        color='DarkSlateGrey')),
-                      text=plot_df['names'],
-                      hoverinfo="text",
+                      text=plot_df['names'] if hover_labels else None,
+                      hoverinfo='text' if hover_labels else None,
                       opacity=1.0,
                       selector=dict(mode='markers'))
     if dbscan:
@@ -70,8 +70,8 @@ def plotSCE_html(embedding, names, labels, output_prefix, dbscan=True):
                 mode='markers',
                 x=embedding[labels == -1, 0],
                 y=embedding[labels == -1, 1],
-                text=[names[i] for i in list(np.where(labels == -1)[0])],
-                hoverinfo="text",
+                text=[names[i] for i in list(np.where(labels == -1)[0])] if hover_labels else None,
+                hoverinfo='text' if hover_labels else None,
                 opacity=0.5,
                 marker=dict(
                     color='black',

@@ -37,9 +37,10 @@ def get_options():
                         help='Work from pre-calculated distances')
 
     ioGroup = parser.add_argument_group('I/O options')
-    ioGroup.add_argument('--animate', default=False, action='store_true', help='Create an animation of the embedding process')
-    ioGroup.add_argument('--labels', default=None, help='Sample labels for plotting (overrides DBSCAN clusters)')
     ioGroup.add_argument('--output', default="mandrake", type=str, help='Prefix for output files [default = "mandrake"]')
+    ioGroup.add_argument('--labels', default=None, help='Sample labels for plotting (overrides DBSCAN clusters)')
+    ioGroup.add_argument('--no-html-labels', default=False, action='store_true', help='Turn off hover labels on html output (for large datasets)')
+    ioGroup.add_argument('--animate', default=False, action='store_true', help='Create an animation of the embedding process')
 
     distGroup = parser.add_argument_group('Distance options')
     dist_me_Group = distGroup.add_mutually_exclusive_group()
@@ -191,7 +192,7 @@ def main():
     #* plot embedding      *#
     #***********************#
     sys.stderr.write("Drawing plots\n")
-    plotSCE_html(embedding_array, names, cluster_labels, args.output, dbscan)
+    plotSCE_html(embedding_array, names, cluster_labels, args.output, args.no_html_labels, dbscan)
     plotSCE_hex(embedding_array, args.output)
     plotSCE_mpl(embedding_array, embedding_results, cluster_labels, args.output, dbscan)
 
