@@ -192,9 +192,11 @@ def main():
     #* plot embedding      *#
     #***********************#
     sys.stderr.write("Drawing plots\n")
-    plotSCE_html(embedding_array, names, cluster_labels, args.output, args.no_html_labels, dbscan)
+    plotSCE_html(embedding_array, names, cluster_labels, args.output,
+      not args.no_html_labels, dbscan)
     plotSCE_hex(embedding_array, args.output)
-    plotSCE_mpl(embedding_array, embedding_results, cluster_labels, args.output, dbscan)
+    plotSCE_mpl(embedding_array, embedding_results, cluster_labels,
+      args.output, dbscan)
 
     sys.exit(0)
 
