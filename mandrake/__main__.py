@@ -69,8 +69,6 @@ def get_options():
     parallelGroup.add_argument('--device-id', type=int, default=0, help="GPU ID to use")
     parallelGroup.add_argument('--blockSize', type=int, default=128, help='CUDA blockSize [default = 128]')
 
-    sketchGroup = parser.add_argument_group('Sketch options')
-
     other = parser.add_argument_group('Other')
     other.add_argument('--seed', type=int, default=1, help='Seed for random number generation')
     other.add_argument('--fp', type=int, choices=[32, 64], default=64,
