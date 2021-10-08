@@ -93,12 +93,26 @@ def main():
         else:
             args.n_workers = args.cpus
 
-    if args.kNN is not None:
-        if not (isinstance(args.kNN, int) and (args.kNN > 0)):
+    #***********************#
+    #* Check kNN/threshold *#
+    #***********************#
+    # NB: for all methods
+    # - kNN and threshold are mutually exclusive
+    # - values of <= 0 are used to signify missing (i.e. use other value)
+    # - kNN must be between 1 and n_seqs - 1
+    # - threshold must be a proportion in (0, 1]
+    if args.kNN is not None and args.threshold is not None:
+        raise ValueError("Set only one of --kNN or --threshold")
+    elif args.kNN is not None:
+        if args.kNN < 0:
             raise ValueError("Invalid value for kNN")
+        kNN = args.kNN
+        threshold = -1
     elif args.threshold is not None:
-        if not (isinstance(args.threshold, float) and (args.threshold > 0) and (args.threshold <= 1)):
+        if args.threshold <= 0 or args.threshold > 1:
             raise ValueError("Invalid value for threshold")
+        kNN = -1
+        threshold = args.threshold
     elif args.distances is None:
         raise ValueError("Must provide one of --kNN or --threshold (unless using --distances)")
 
@@ -110,28 +124,24 @@ def main():
 
         if (args.alignment is not None):
             I, J, dists, names = pairSnpDists(args.alignment,
-                                    args.threshold,
-                                    args.kNN,
-                                    args.cpus)
+                                              threshold,
+                                              kNN,
+                                              args.cpus)
         elif (args.accessory is not None):
             I, J, dists, names = accessoryDists(args.accessory,
-                                                args.kNN,
-                                                args.threshold,
+                                                kNN,
+                                                threshold,
                                                 args.cpus)
         elif (args.sketches is not None):
             # sketches
-            if args.kNN is not None:
-                args.threshold = 0
-            elif args.threshold is not None:
-                args.kNN = 0                
             dist_col = 0
             if args.use_accessory:
                 dist_col = 1
             args.sketches = re.sub(r"\.h5$", "", args.sketches)
             I, J, dists, names = sketchlibDists(args.sketches,
                                         dist_col,
-                                        args.kNN,
-                                        args.threshold,
+                                        kNN,
+                                        threshold,
                                         args.cpus,
                                         args.use_gpu,
                                         args.device_id)

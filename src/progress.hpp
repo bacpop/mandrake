@@ -39,7 +39,7 @@ public:
     count_ = count;
     if (percent_) {
       double progress = count_ / static_cast<double>(total_);
-      // progress = progress > 1 ? 1 : progress;
+      progress = progress > 1 ? 1 : progress;
       fprintf(stderr, "%cProgress: %.1lf%%", 13, progress * 100);
     } else {
       size_t progress = count_ <= total_ ? count_ : total_;

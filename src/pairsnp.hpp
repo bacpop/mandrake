@@ -32,6 +32,10 @@ KSEQ_INIT(gzFile, gzread)
 inline std::tuple<std::vector<uint64_t>, std::vector<uint64_t>,
                   std::vector<double>, std::vector<std::string>>
 pairsnp(const char *fasta, int n_threads, int dist, int knn) {
+  if (knn > 0 && dist > 0) {
+    throw std::runtime_error("Specify only one of knn or dist");
+  }
+
   using namespace std::literals;
   const auto start = std::chrono::steady_clock::now();
 
@@ -175,6 +179,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   }
   kseq_destroy(seq);
   gzclose(fp);
+  knn = knn >= n_seqs ? n_seqs - 1 : knn;
 
   // Set up progress meter
   static const uint64_t n_progress_ticks = 1000;
@@ -213,10 +218,11 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
 
       // if using knn find the distance needed
       int row_dist_cutoff = dist;
-      if (knn >= 0) {
+      if (knn > 0) {
         std::vector<int> s_comp = comp_snps;
         std::sort(s_comp.begin(), s_comp.end());
-        row_dist_cutoff = s_comp[knn + 1];
+        row_dist_cutoff =
+            s_comp[knn]; // knn is 1-indexed, so self will be ignored
       }
 
       // output distances

@@ -57,7 +57,7 @@ def runPairsnp(msaFile, kNN=None, threshold=None, threads=1):
         name, seq = next(read_fasta(infile))
         seq_len = len(seq)
 
-    if threshold is not None:
+    if threshold > 0:
         dist = int(threshold * seq_len) + 1
     else:
         dist = -1
