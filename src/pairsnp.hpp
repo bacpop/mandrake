@@ -223,7 +223,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
 
       // output distances
       for (size_t j = 0; j < n_seqs; j++) {
-        if ((row_dist_cutoff == -1) || (comp_snps[j] <= row_dist_cutoff)) {
+        if ((row_dist_cutoff < 0) || (comp_snps[j] <= row_dist_cutoff)) {
           rows[i].push_back(i);
           cols[i].push_back(j);
           distances[i].push_back(comp_snps[j]);

@@ -72,6 +72,9 @@ def sketchlibDists(sketch_db, dist_col, kNN, threshold, cpus, use_gpu, device_id
     else:
         # older versions of sketchlib do a dense query then sparsify the
         # return. Ok for smaller data, but runs out of memory on big datasets
+        # sketchlib API needs positive int for threshold
+        if threshold < 0:
+            threshold = 0
         I, J, dists = pp_sketchlib.queryDatabaseSparse(sketch_db,
                                                       sketch_db,
                                                       names,
