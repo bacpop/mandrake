@@ -27,10 +27,8 @@
 #include <omp.h>
 #endif
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
 
+#include "progress.hpp"
 #include "sce_results.hpp"
 #include "uniform_discrete.hpp"
 
@@ -180,26 +178,6 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   }
 
   return std::make_tuple(Y, P);
-}
-
-// Check for keyboard interrupt from python
-inline void check_interrupts() {
-  if (PyErr_CheckSignals() != 0) {
-    throw py::error_already_set();
-  }
-}
-
-template <typename real_t>
-inline void update_progress(const uint64_t iter, const uint64_t maxIter,
-                            const real_t eta, const real_t Eq,
-                            const int write_per_it,
-                            const unsigned long long int n_clashes) {
-  fprintf(
-      stderr,
-      "%cOptimizing\t Progress: %.1lf%%, eta=%.4f, Eq=%.10f, clashes=%.1lf%%",
-      13, (real_t)iter / maxIter * 100, eta, Eq,
-      (real_t)n_clashes / (iter * write_per_it) * 100);
-  fflush(stderr);
 }
 
 // Function prototypes
