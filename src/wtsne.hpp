@@ -1,12 +1,3 @@
-/*
- ============================================================================
- Author      : Zhirong Yang
- Copyright   : Copyright by Zhirong Yang. All rights are reserved.
- Description : Stochastic Optimization for t-SNE
- ============================================================================
- */
-
-// Modified by John Lees
 #pragma once
 
 #include <algorithm>
@@ -26,7 +17,6 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-
 
 #include "progress.hpp"
 #include "sce_results.hpp"

@@ -9,10 +9,6 @@
 #include "kseq.h"
 #include "progress.hpp"
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
 #include <boost/dynamic_bitset.hpp>
 
 template <typename T>

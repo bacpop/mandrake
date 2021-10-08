@@ -1,4 +1,5 @@
-# Copyright 2019 John Lees
+## 2021 John Lees, Gerry Tonkin-Hill, Zhirong Yang
+## See LICENSE files
 
 '''Main control function for mandrake'''
 

@@ -1,4 +1,5 @@
-// 2020 John Lees and Gerry Tonkin-Hill
+// 2021 John Lees, Gerry Tonkin-Hill, Zhirong Yang
+// See LICENSE files
 
 #include "pairsnp.hpp"
 #include "wtsne.hpp"
