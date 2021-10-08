@@ -20,7 +20,7 @@ def accessoryDists(accessory_file, kNN, threshold, cpus):
     names = list(acc_mat.columns)
 
     if kNN <= 0:
-        kNN = len(names)
+        kNN = len(names) - 1
 
     sp = kneighbors_graph(X=acc_mat.T, n_neighbors=kNN,
                           metric='jaccard', mode='distance',
