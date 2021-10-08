@@ -120,7 +120,7 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
     if not isinstance(labels, np.ndarray):
         labels = np.array(labels, dtype="object")
 
-    rng = np.random.default_rng(1)
+    rng = np.random.default_rng(seed=42)
     style_dict = defaultdict(dict)
     for k in unique_labels:
         if k == -1 and dbscan:
