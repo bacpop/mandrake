@@ -99,7 +99,6 @@ def main():
     elif args.threshold is not None:
         if not (isinstance(args.threshold, float) and (args.threshold > 0) and (args.threshold <= 1)):
             raise ValueError("Invalid value for threshold")
-        args.kNN = 0
     elif args.distances is None:
         raise ValueError("Must provide one of --kNN or --threshold (unless using --distances)")
 
@@ -123,6 +122,8 @@ def main():
             # sketches
             if args.kNN is not None:
                 args.threshold = 0
+            elif args.threshold is not None:
+                args.kNN = 0                
             dist_col = 0
             if args.use_accessory:
                 dist_col = 1
