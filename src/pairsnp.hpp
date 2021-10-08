@@ -175,7 +175,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   }
   kseq_destroy(seq);
   gzclose(fp);
-  knn = knn >= n_seqs ? n_seqs - 1 : knn;
+  knn = knn >= (long)n_seqs ? n_seqs - 1 : knn;
 
   // Set up progress meter
   static const uint64_t n_progress_ticks = 1000;
