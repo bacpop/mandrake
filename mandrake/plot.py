@@ -4,7 +4,7 @@
 '''Methods for making plots of embeddings'''
 
 import sys
-import collections
+from collections import defaultdict
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -109,14 +109,19 @@ def plotSCE_hex(embedding, output_prefix):
 def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
     # Set the style by group
     if embedding.shape[0] > 10000:
-        pt_scale = 1
+        pt_scale = 1.5
     elif embedding.shape[0] > 1000:
         pt_scale = 3
     else:
         pt_scale = 7
+
+    # If labels are strings
     unique_labels = set(labels)
+    if not isinstance(labels, np.ndarray):
+        labels = np.array(labels, dtype="object")
+
     rng = np.random.default_rng(1)
-    style_dict = collections.defaultdict(dict)
+    style_dict = defaultdict(dict)
     for k in unique_labels:
         if k == -1 and dbscan:
             style_dict['ptsize'][k] = 1 * pt_scale
