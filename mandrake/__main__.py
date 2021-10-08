@@ -96,7 +96,6 @@ def main():
     if args.kNN is not None:
         if not (isinstance(args.kNN, int) and (args.kNN > 0)):
             raise ValueError("Invalid value for kNN")
-        # args.threshold = 0
     elif args.threshold is not None:
         if not (isinstance(args.threshold, float) and (args.threshold > 0) and (args.threshold <= 1)):
             raise ValueError("Invalid value for threshold")
@@ -122,6 +121,8 @@ def main():
                                                 args.cpus)
         elif (args.sketches is not None):
             # sketches
+            if args.kNN is not None:
+                args.threshold = 0
             dist_col = 0
             if args.use_accessory:
                 dist_col = 1
