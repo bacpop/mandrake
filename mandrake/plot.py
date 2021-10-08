@@ -131,8 +131,8 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
         else:
             style_dict['ptsize'][k] = 2 * pt_scale
             style_dict['col'][k] = tuple(rng.uniform(size=3))
-            style_dict['mec'][k] = 'k'
-            style_dict['mew'][k] = 0.2 * pt_scale
+            style_dict['mec'][k] = 'k' if embedding.shape[0] <= 10000 else None
+            style_dict['mew'][k] = 0.2 * pt_scale if embedding.shape[0] <= 10000 else 0
 
     # Static figure is a scatter plot, drawn by class
     plt.figure(figsize=(8, 8), dpi=320, facecolor='w', edgecolor='k')
