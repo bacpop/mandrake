@@ -96,7 +96,7 @@ def main():
     if args.kNN is not None:
         if not (isinstance(args.kNN, int) and (args.kNN > 0)):
             raise ValueError("Invalid value for kNN")
-        args.threshold = 0
+        # args.threshold = 0
     elif args.threshold is not None:
         if not (isinstance(args.threshold, float) and (args.threshold > 0) and (args.threshold <= 1)):
             raise ValueError("Invalid value for threshold")

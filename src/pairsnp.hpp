@@ -177,7 +177,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   gzclose(fp);
 
   // Set up progress meter
-  uint64_t dist_rows = n_seqs * n_seqs;
+  uint64_t dist_rows = n_seqs;
   static const int progressBitshift = 10;
   uint64_t progress_blocks = 1 << progressBitshift;
   uint64_t update_every = dist_rows >> progressBitshift;
@@ -196,6 +196,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
 #pragma omp parallel for schedule(static) reduction(+:len) num_threads(n_threads)
   for (uint64_t i = 0; i < n_seqs; i++) {
 
+    int local_dist = dist;
     std::vector<int> comp_snps(n_seqs);
     boost::dynamic_bitset<> res(seq_length);
 
@@ -207,29 +208,30 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
       res |= T_snps[i] & T_snps[j];
 
       comp_snps[j] = seq_length - res.count();
-      if (((i * n_seqs) + j) % update_every == 0) {
-#pragma omp atomic
-        progress++;
-        dist_progress.tick(1);
-      }
     }
 
     // if using knn find the distance needed
     if (knn >= 0) {
       std::vector<int> s_comp = comp_snps;
       std::sort(s_comp.begin(), s_comp.end());
-      dist = s_comp[knn + 1];
+      local_dist = s_comp[knn + 1];
     }
 
     // output distances
     for (size_t j = 0; j < n_seqs; j++) {
-      if ((dist == -1) || (comp_snps[j] <= dist)) {
+      if ((local_dist == -1) || (comp_snps[j] <= local_dist)) {
         rows[i].push_back(i);
         cols[i].push_back(j);
         distances[i].push_back(comp_snps[j]);
       }
     }
     len += distances[i].size();
+
+      if (i % update_every == 0) {
+#pragma omp atomic
+        progress++;
+        dist_progress.tick(1);
+      }
   }
   dist_progress.finalise();
 
