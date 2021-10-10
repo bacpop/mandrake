@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef> // size_t
 #include <cstdint>
@@ -151,20 +152,33 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   normalise_vector(P, true, n_threads);
   normalise_vector(weights, true, n_threads);
 
-  // Set starting Y0
+  // Set starting Y0 (on hypersphere)
+  // See https://en.wikipedia.org/wiki/N-sphere#Spherical_coordinates
   pRNG<real_t> rng_state(
       n_threads, xoshiro_initial_seed<real_t>(static_cast<uint32_t>(seed)));
   rng_state.long_jump(); // Independent RNG from SCE algorithm
   std::vector<real_t> Y(nn * DIM);
 #pragma omp parallel for schedule(static) num_threads(n_threads)
-  for (uint64_t coor = 0; coor < nn * DIM; ++coor) {
+  for (uint64_t i = 0; i < nn; ++i) {
 #ifdef _OPENMP
     const int thread_idx = omp_get_thread_num();
 #else
     static const int thread_idx = 1;
 #endif
     rng_state_t<real_t> &thread_rng_state = rng_state.state(thread_idx);
-    Y[coor] = unif_rand(thread_rng_state) * static_cast<real_t>(1e-4);
+    real_t r = static_cast<real_t>(1e-4) * unif_rand(thread_rng_state);
+    std::array<real_t, DIM> theta;
+    for (int d = 0; d < DIM; ++d) {
+      theta[d] = 2.0 * M_PI * unif_rand(thread_rng_state);
+      if (d == DIM - 1) {
+        Y[i * DIM + d] = r;
+      } else {
+        Y[i * DIM + d] = r * std::cos(theta[d]);
+      }
+      for (int t_it = d - 1; t_it >=0; --t_it) {
+        Y[i * DIM + d] *= std::sin(theta[t_it]);
+      }
+    }
   }
 
   return std::make_tuple(Y, P);
