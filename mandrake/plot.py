@@ -34,8 +34,8 @@ def plotSCE_html(embedding, names, labels, output_prefix, hover_labels=True, dbs
                                 'Label': [str(x) for x in labels]})
 
     random_colour_map = {}
-    rng = np.random.default_rng(1)
-    for label in pd.unique(plot_df['Label']):
+    rng = np.random.default_rng(seed=42)
+    for label in sorted(pd.unique(plot_df['Label'])):
         # Alternative approach with hsl representation
         # from hsluv import hsluv_to_hex ## outside of loop
         # hue = rng.uniform(0, 360)
@@ -122,7 +122,7 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
 
     rng = np.random.default_rng(seed=42)
     style_dict = defaultdict(dict)
-    for k in unique_labels:
+    for k in sorted(unique_labels):
         if k == -1 and dbscan:
             style_dict['ptsize'][k] = 1 * pt_scale
             style_dict['col'][k] = 'k'
