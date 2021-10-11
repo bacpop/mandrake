@@ -4,6 +4,30 @@
 #include <cstdint>
 #include <cstdio>
 
+#include <pybind11/pybind11.h>
+
+// Check for keyboard interrupt from python
+inline void check_interrupts() {
+  if (PyErr_CheckSignals() != 0) {
+    throw pybind11::error_already_set();
+  }
+}
+
+// Simple callback
+template <typename real_t>
+inline void update_progress(const uint64_t iter, const uint64_t maxIter,
+                            const real_t eta, const real_t Eq,
+                            const int write_per_it,
+                            const unsigned long long int n_clashes) {
+  fprintf(
+      stderr,
+      "%cOptimizing\t Progress: %.1lf%%, eta=%.4f, Eq=%.10f, clashes=%.1lf%%",
+      13, (real_t)iter / maxIter * 100, eta, Eq,
+      (real_t)n_clashes / (iter * write_per_it) * 100);
+  fflush(stderr);
+}
+
+// Managed class
 class ProgressMeter {
 public:
   ProgressMeter(size_t total, bool percent = false)

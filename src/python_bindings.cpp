@@ -1,7 +1,11 @@
-// 2020 John Lees and Gerry Tonkin-Hill
+// 2021 John Lees, Gerry Tonkin-Hill, Zhirong Yang
+// See LICENSE files
 
 #include "pairsnp.hpp"
 #include "wtsne.hpp"
+
+#include <pybind11/stl.h>
+namespace py = pybind11;
 
 PYBIND11_MODULE(SCE, m) {
   m.doc() = "Stochastic cluster embedding";

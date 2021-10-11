@@ -1,12 +1,5 @@
-/*
- ============================================================================
- Author      : Zhirong Yang
- Copyright   : Copyright by Zhirong Yang. All rights are reserved.
- Description : Stochastic Optimization for t-SNE
- ============================================================================
- */
-
-// Modified by John Lees
+// 2021 John Lees, Gerry Tonkin-Hill, Zhirong Yang
+// See LICENSE files
 
 #include "wtsne.hpp"
 

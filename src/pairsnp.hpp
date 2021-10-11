@@ -9,10 +9,6 @@
 #include "kseq.h"
 #include "progress.hpp"
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
 #include <boost/dynamic_bitset.hpp>
 
 template <typename T>
@@ -32,6 +28,10 @@ KSEQ_INIT(gzFile, gzread)
 inline std::tuple<std::vector<uint64_t>, std::vector<uint64_t>,
                   std::vector<double>, std::vector<std::string>>
 pairsnp(const char *fasta, int n_threads, int dist, int knn) {
+  if (knn > 0 && dist > 0) {
+    throw std::runtime_error("Specify only one of knn or dist");
+  }
+
   using namespace std::literals;
   const auto start = std::chrono::steady_clock::now();
 
@@ -175,63 +175,75 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   }
   kseq_destroy(seq);
   gzclose(fp);
+  knn = knn >= (long)n_seqs ? n_seqs - 1 : knn;
 
   // Set up progress meter
-  uint64_t dist_rows = n_seqs * n_seqs;
-  static const int progressBitshift = 10;
-  uint64_t progress_blocks = 1 << progressBitshift;
-  uint64_t update_every = dist_rows >> progressBitshift;
-  if (progress_blocks > dist_rows || update_every < 1) {
-    progress_blocks = dist_rows;
-    update_every = 1;
+  static const uint64_t n_progress_ticks = 1000;
+  uint64_t update_every = 1;
+  if (n_seqs > n_progress_ticks) {
+    update_every = n_seqs / n_progress_ticks;
   }
-  ProgressMeter dist_progress(progress_blocks, true);
+  ProgressMeter dist_progress(n_progress_ticks, true);
   int progress = 0;
 
+  // Shared variables for openmp loop
   std::vector<std::vector<uint64_t>> rows(n_seqs);
   std::vector<std::vector<uint64_t>> cols(n_seqs);
   std::vector<std::vector<double>> distances(n_seqs);
   uint64_t len = 0;
+  bool interrupt = false;
 
 #pragma omp parallel for schedule(static) reduction(+:len) num_threads(n_threads)
   for (uint64_t i = 0; i < n_seqs; i++) {
+    // Cannot throw in an openmp block, short circuit instead
+    if (interrupt || PyErr_CheckSignals() != 0) {
+      interrupt = true;
+    } else {
+      std::vector<int> comp_snps(n_seqs);
+      boost::dynamic_bitset<> res(seq_length);
 
-    std::vector<int> comp_snps(n_seqs);
-    boost::dynamic_bitset<> res(seq_length);
+      for (uint64_t j = 0; j < n_seqs; j++) {
 
-    for (uint64_t j = 0; j < n_seqs; j++) {
+        res = A_snps[i] & A_snps[j];
+        res |= C_snps[i] & C_snps[j];
+        res |= G_snps[i] & G_snps[j];
+        res |= T_snps[i] & T_snps[j];
 
-      res = A_snps[i] & A_snps[j];
-      res |= C_snps[i] & C_snps[j];
-      res |= G_snps[i] & G_snps[j];
-      res |= T_snps[i] & T_snps[j];
+        comp_snps[j] = seq_length - res.count();
+      }
 
-      comp_snps[j] = seq_length - res.count();
-      if (((i * n_seqs) + j) % update_every == 0) {
-#pragma omp atomic
-        progress++;
-        dist_progress.tick(1);
+      // if using knn find the distance needed
+      int row_dist_cutoff = dist;
+      if (knn > 0) {
+        std::vector<int> s_comp = comp_snps;
+        std::sort(s_comp.begin(), s_comp.end());
+        row_dist_cutoff =
+            s_comp[knn]; // knn is 1-indexed, so self will be ignored
+      }
+
+      // output distances
+      for (size_t j = 0; j < n_seqs; j++) {
+        if ((row_dist_cutoff < 0) || (comp_snps[j] <= row_dist_cutoff)) {
+          rows[i].push_back(i);
+          cols[i].push_back(j);
+          distances[i].push_back(comp_snps[j]);
+        }
+      }
+      len += distances[i].size();
+
+      if (i % update_every == 0) {
+#pragma omp critical
+        dist_progress.tick_count(++progress);
       }
     }
-
-    // if using knn find the distance needed
-    if (knn >= 0) {
-      std::vector<int> s_comp = comp_snps;
-      std::sort(s_comp.begin(), s_comp.end());
-      dist = s_comp[knn + 1];
-    }
-
-    // output distances
-    for (size_t j = 0; j < n_seqs; j++) {
-      if ((dist == -1) || (comp_snps[j] <= dist)) {
-        rows[i].push_back(i);
-        cols[i].push_back(j);
-        distances[i].push_back(comp_snps[j]);
-      }
-    }
-    len += distances[i].size();
   }
-  dist_progress.finalise();
+
+  // Finalise
+  if (interrupt) {
+    check_interrupts();
+  } else {
+    dist_progress.finalise();
+  }
 
   // Combine the lists from each thread
   std::vector<double> distances_all = combine_vectors(distances, len);

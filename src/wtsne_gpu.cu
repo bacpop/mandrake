@@ -1,12 +1,5 @@
-/*
- ============================================================================
- Author      : Zhirong Yang
- Copyright   : Copyright by Zhirong Yang. All rights are reserved.
- Description : Weighted t-SNE with stochastic optimization
- ============================================================================
- */
-
-// Modified by John Lees 2021
+// 2021 John Lees, Gerry Tonkin-Hill, Zhirong Yang
+// See LICENSE files
 
 #include <cfloat>
 #include <cub/cub.cuh>

@@ -4,7 +4,7 @@
 '''Methods for making plots of embeddings'''
 
 import sys
-import collections
+from collections import defaultdict
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -34,8 +34,8 @@ def plotSCE_html(embedding, names, labels, output_prefix, hover_labels=True, dbs
                                 'Label': [str(x) for x in labels]})
 
     random_colour_map = {}
-    rng = np.random.default_rng(1)
-    for label in pd.unique(plot_df['Label']):
+    rng = np.random.default_rng(seed=42)
+    for label in sorted(pd.unique(plot_df['Label'])):
         # Alternative approach with hsl representation
         # from hsluv import hsluv_to_hex ## outside of loop
         # hue = rng.uniform(0, 360)
@@ -109,15 +109,20 @@ def plotSCE_hex(embedding, output_prefix):
 def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
     # Set the style by group
     if embedding.shape[0] > 10000:
-        pt_scale = 1
+        pt_scale = 1.5
     elif embedding.shape[0] > 1000:
         pt_scale = 3
     else:
         pt_scale = 7
+
+    # If labels are strings
     unique_labels = set(labels)
-    rng = np.random.default_rng(1)
-    style_dict = collections.defaultdict(dict)
-    for k in unique_labels:
+    if not isinstance(labels, np.ndarray):
+        labels = np.array(labels, dtype="object")
+
+    rng = np.random.default_rng(seed=42)
+    style_dict = defaultdict(dict)
+    for k in sorted(unique_labels):
         if k == -1 and dbscan:
             style_dict['ptsize'][k] = 1 * pt_scale
             style_dict['col'][k] = 'k'
@@ -126,8 +131,8 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
         else:
             style_dict['ptsize'][k] = 2 * pt_scale
             style_dict['col'][k] = tuple(rng.uniform(size=3))
-            style_dict['mec'][k] = 'k'
-            style_dict['mew'][k] = 0.2 * pt_scale
+            style_dict['mec'][k] = 'k' if embedding.shape[0] <= 10000 else None
+            style_dict['mew'][k] = 0.2 * pt_scale if embedding.shape[0] <= 10000 else 0
 
     # Static figure is a scatter plot, drawn by class
     plt.figure(figsize=(8, 8), dpi=320, facecolor='w', edgecolor='k')
