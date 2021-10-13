@@ -159,6 +159,17 @@ def main():
         I, J, dists, names = loadIJdist(args.distances)
 
     #***********************#
+    #* read labels         *#
+    #***********************#
+    cluster_labels = None
+    if args.labels != None:
+        label_file = pd.read_csv(args.labels, sep="\t", header=None, index_col=0)
+        cluster_labels = list(label_file.loc[names][1].values)
+        if len(cluster_labels) != len(names):
+            sys.stderr.write("Problem reading labels (duplicates or missing data?)\n")
+            cluster_labels = np.full((len(names),), -1)
+
+    #***********************#
     #* run SCE             *#
     #***********************#
     sys.stderr.write("Running SCE\n")
@@ -187,7 +198,7 @@ def main():
     #* run HDBSCAN         *#
     #***********************#
     dbscan = False
-    if args.labels == None:
+    if cluster_labels == None:
         if args.no_clustering:
             cluster_labels = np.full((embedding_array.shape[0],), -1)
         else:
@@ -195,9 +206,6 @@ def main():
           sys.stderr.write("Running clustering\n")
           cluster_labels = runHDBSCAN(embedding_array)
           write_hdbscan_clusters(cluster_labels, names, args.output)
-    else:
-        label_file = pd.read_csv(args.labels, sep="\t", header=None, index_col=0)
-        cluster_labels = list(label_file.loc[names][1].values)
 
     #***********************#
     #* plot embedding      *#
