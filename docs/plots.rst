@@ -40,6 +40,13 @@ between runs:
    :alt:  Static view of the embedding
    :align: center
 
+Changing colours in the plots
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The colours for each label are chosen at (pseudo)random, so while they will be
+consistent between runs, they may also be fairly putrescent. To try a new
+set of colours, give a different ``--seed``. This should be an integer, and
+setting ``--seed 1`` will be the default colours.
+
 Density plot
 ------------
 Due to the nature of the SCE algorithm, many points are likely to be overploted.

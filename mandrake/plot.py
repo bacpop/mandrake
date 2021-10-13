@@ -19,7 +19,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.animation as animation
 
 # Interactive HTML plot using plotly
-def plotSCE_html(embedding, names, labels, output_prefix, hover_labels=True, dbscan=True):
+def plotSCE_html(embedding, names, labels, output_prefix, hover_labels=True, dbscan=True, seed=42):
     if dbscan:
         not_noise = labels != -1
         not_noise_list = list(np.where(not_noise)[0])
@@ -34,7 +34,7 @@ def plotSCE_html(embedding, names, labels, output_prefix, hover_labels=True, dbs
                                 'Label': [str(x) for x in labels]})
 
     random_colour_map = {}
-    rng = np.random.default_rng(seed=42)
+    rng = np.random.default_rng(seed=seed)
     for label in sorted(pd.unique(plot_df['Label'])):
         # Alternative approach with hsl representation
         # from hsluv import hsluv_to_hex ## outside of loop
@@ -106,7 +106,7 @@ def plotSCE_hex(embedding, output_prefix):
     plt.savefig(output_prefix + ".embedding_density.pdf")
 
 # Matplotlib static plot, and animation if available
-def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
+def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True, seed=42):
     # Set the style by group
     if embedding.shape[0] > 10000:
         pt_scale = 1.5
@@ -120,7 +120,7 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, dbscan=True):
     if not isinstance(labels, np.ndarray):
         labels = np.array(labels, dtype="object")
 
-    rng = np.random.default_rng(seed=42)
+    rng = np.random.default_rng(seed=seed)
     style_dict = defaultdict(dict)
     for k in sorted(unique_labels):
         if k == -1 and dbscan:
