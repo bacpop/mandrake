@@ -17,6 +17,7 @@
  * Kernels                  *
  ****************************/
 
+// Change from sample stride to dimension stride
 template <typename real_t>
 KERNEL void destride_embedding(real_t *Y_interleaved, real_t *Y_blocked,
                                size_t size, size_t n_samples) {
@@ -28,7 +29,14 @@ KERNEL void destride_embedding(real_t *Y_interleaved, real_t *Y_blocked,
   }
 }
 
-// Updates the embedding
+// Update s (Eq) and advance iteration
+template <typename real_t>
+KERNEL void update_eq(real_t *Eq, real_t nsq, real_t *qsum, uint64_t *qcount, uint64_t *iter_d) {
+  *Eq = (*Eq * nsq + *qsum) / (*nsq + *qcount);
+  *(iter_d)++;
+}
+
+// Updates the embedding Y
 // NB: strides of Y are switched in the GPU code compared to the CPU code
 template <typename real_t>
 KERNEL void wtsneUpdateYKernel(uint32_t *rng_state,
@@ -142,41 +150,6 @@ template <typename real_t> struct kernel_ptrs {
   int n_workers;
 };
 
-template <typename real_t> struct callBackData_t {
-  real_t *Eq;
-  real_t *nsq;
-  real_t *qsum;
-  uint64_t *qcount;
-  real_t *eta0;
-  int *n_write;
-  unsigned long long int *n_clashes;
-  uint64_t *iter;
-  uint64_t *maxIter;
-};
-
-// Callback, which is a CUDA host function that updates the progress meter
-// and calculates Eq
-template <typename real_t> void CUDART_CB Eq_callback(void *data) {
-  callBackData_t<real_t> *tmp = (callBackData_t<real_t> *)(data);
-  real_t *Eq = tmp->Eq;
-  real_t *nsq = tmp->nsq;
-  real_t *qsum = tmp->qsum;
-  uint64_t *qcount = tmp->qcount;
-  *Eq = (*Eq * *nsq + *qsum) / (*nsq + *qcount);
-
-  uint64_t *iter = tmp->iter;
-  uint64_t *maxIter = tmp->maxIter;
-  if (*iter % MAX(1, *maxIter / 1000) == 0) {
-    real_t *eta0 = tmp->eta0;
-    real_t eta = *eta0 * (1 - static_cast<real_t>(*iter) / (*maxIter - 1));
-    eta = MAX(eta, *eta0 * 1e-4);
-
-    int *n_write = tmp->n_write;
-    unsigned long long int *n_clashes = tmp->n_clashes;
-    update_progress(*iter, *maxIter, eta, *Eq, *n_write, *n_clashes);
-  }
-}
-
 // This is the class that does all the work
 template <typename real_t> class sce_gpu {
 public:
@@ -189,8 +162,8 @@ public:
         progress_callback_fn_(Eq_callback<real_t>),
         rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y),
         Y_destride_(Y.size()), Y_host_(Y), I_(I), J_(J), Eq_host_(1.0),
-        Eq_device_(1.0), qsum_(n_workers), qsum_total_host_(0.0),
-        qsum_total_device_(0.0), qcount_(n_workers), qcount_total_host_(0),
+        Eq_device_(1.0), qsum_(n_workers),
+        qsum_total_device_(0.0), qcount_(n_workers),
         qcount_total_device_(0) {
     // Initialise CUDA
     CUDA_CALL(cudaSetDevice(device_id));
@@ -218,18 +191,12 @@ public:
                                        cudaHostRegisterDefault));
     CUDA_CALL_NOTHROW(
         cudaHostRegister(&Eq_host_, sizeof(real_t), cudaHostRegisterDefault));
-    CUDA_CALL_NOTHROW(cudaHostRegister(&qsum_total_host_, sizeof(real_t),
-                                       cudaHostRegisterDefault));
-    CUDA_CALL_NOTHROW(cudaHostRegister(&qcount_total_host_, sizeof(uint64_t),
-                                       cudaHostRegisterDefault));
   }
 
   ~sce_gpu() {
     // Unpin host memory
     CUDA_CALL_NOTHROW(cudaHostUnregister(Y_host_.data()));
     CUDA_CALL_NOTHROW(cudaHostUnregister(&Eq_host_));
-    CUDA_CALL_NOTHROW(cudaHostUnregister(&qsum_total_host_));
-    CUDA_CALL_NOTHROW(cudaHostUnregister(&qcount_total_host_));
 #ifdef USE_CUDA_PROFILER
     CUDA_CALL_NOTHROW(cudaProfilerStop());
 #endif
@@ -261,26 +228,12 @@ public:
     cuda_stream capture_stream, copy_stream, graph_stream;
 
     // Pin host memory
-    CUDA_CALL_NOTHROW(
-        cudaHostRegister(&iter_h, sizeof(uint64_t), cudaHostRegisterDefault));
     CUDA_CALL_NOTHROW(cudaHostRegister(
         &n_clashes_h, sizeof(unsigned long long int), cudaHostRegisterDefault));
 
-    // Set up pointers used for kernel parameters in graph
-    progress_callback_params_.Eq = &Eq_host_;
-    progress_callback_params_.nsq = &nsq_;
-    progress_callback_params_.qsum = &qsum_total_host_;
-    progress_callback_params_.qcount = &qcount_total_host_;
-    progress_callback_params_.eta0 = &eta0;
-    progress_callback_params_.n_write = &write_per_worker;
-    progress_callback_params_.n_clashes = &n_clashes_h;
-    progress_callback_params_.iter = &iter_h;
-    progress_callback_params_.maxIter = &maxIter;
-
-    // SCE updates kernel with workers, then updates Eq
     // Start capture
     capture_stream.capture_start();
-    iter_d.set_value_async(&iter_h, capture_stream.stream());
+    // Y update
     wtsneUpdateYKernel<real_t>
         <<<block_count, block_size, 0, capture_stream.stream()>>>(
             device_ptrs.rng, get_node_table(), get_edge_table(), device_ptrs.Y,
@@ -289,21 +242,18 @@ public:
             device_ptrs.nsq, bInit, iter_d.data(), maxIter,
             device_ptrs.n_workers, n_clashes_d.data());
 
+
+    // s (Eq) update
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
                            qsum_.data(), qsum_total_device_.data(),
                            qsum_.size(), capture_stream.stream());
     cub::DeviceReduce::Sum(
         qcount_tmp_storage_.data(), qcount_tmp_storage_bytes_, qcount_.data(),
         qcount_total_device_.data(), qcount_.size(), capture_stream.stream());
-    qsum_total_device_.get_value_async(&qsum_total_host_,
-                                       capture_stream.stream());
-    qcount_total_device_.get_value_async(&qcount_total_host_,
-                                         capture_stream.stream());
-    n_clashes_d.get_value_async(&n_clashes_h, capture_stream.stream());
-
-    capture_stream.add_host_fn(progress_callback_fn_,
-                               (void *)&progress_callback_params_);
-    Eq_device_.set_value_async(&Eq_host_, capture_stream.stream());
+    update_eq<real_t><<<1, 1, 0, capture_stream.stream()>>>(
+      device_ptrs.Eq, device_ptrs.nsq, qsum_total_device_.data(),
+      qcount_total_device_.data(), iter_d.data()
+    );
 
     capture_stream.capture_end(graph.graph());
     // End capture
@@ -319,9 +269,20 @@ public:
     for (iter_h = 0; iter_h < maxIter; ++iter_h) {
       graph.launch(graph_stream.stream());
       if (iter_h % MAX(1, maxIter / 1000) == 0) {
+        // Update progress meter
+        Eq_device_.get_value_async(&Eq_host_, graph_stream.stream());
+        n_clashes_d.get_value_async(&n_clashes_h, graph_stream.stream());
+        real_t eta = eta0 * (1 - static_cast<real_t>(iter_h) / (maxIter - 1));
+
+        // Check for interrupts while copying
         check_interrupts();
+
+        // Make sure copies have finished
+        graph_stream.sync();
+        update_progress(iter_h, maxIter, eta, Eq_host_, write_per_worker, n_clashes_h);
       }
       if (results->is_sample_frame(iter_h)) {
+        Eq_device_.get_value_async(&Eq_host_, copy_stream.stream());
         update_frames(results, graph_stream, copy_stream, curr_iter, curr_Eq,
                       iter_h, Eq_host_);
       }
@@ -342,7 +303,6 @@ public:
               << std::endl;
 
     // Unpin host memory
-    CUDA_CALL_NOTHROW(cudaHostUnregister(&iter_h));
     CUDA_CALL_NOTHROW(cudaHostUnregister(&n_clashes_h));
   }
 
@@ -449,10 +409,8 @@ private:
   real_t Eq_host_;
   device_value<real_t> Eq_device_;
   device_array<real_t> qsum_;
-  real_t qsum_total_host_;
   device_value<real_t> qsum_total_device_;
   device_array<uint64_t> qcount_;
-  uint64_t qcount_total_host_;
   device_value<uint64_t> qcount_total_device_;
 
   // cub space
