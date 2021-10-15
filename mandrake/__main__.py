@@ -215,7 +215,7 @@ def main():
       not args.no_html_labels, dbscan, args.seed)
     plotSCE_hex(embedding_array, args.output)
     plotSCE_mpl(embedding_array, embedding_results, cluster_labels,
-      args.output, dbscan, args.seed)
+      args.output, args.cpus, dbscan, args.seed)
 
     sys.exit(0)
 
