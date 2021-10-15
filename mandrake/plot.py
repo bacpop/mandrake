@@ -20,6 +20,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.animation as animation
 
+from .sound import write_wav
+
 # Interactive HTML plot using plotly
 def plotSCE_html(embedding, names, labels, output_prefix, hover_labels=True, dbscan=True, seed=42):
     if dbscan:
@@ -108,7 +110,8 @@ def plotSCE_hex(embedding, output_prefix):
     plt.savefig(output_prefix + ".embedding_density.pdf")
 
 # Matplotlib static plot, and animation if available
-def plotSCE_mpl(embedding, results, labels, output_prefix, threads=1, dbscan=True, seed=42):
+def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
+                threads=1, dbscan=True, seed=42):
     # Set the style by group
     if embedding.shape[0] > 10000:
         pt_scale = 1.5
@@ -180,15 +183,26 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, threads=1, dbscan=Tru
                     range(results.n_frames()),
                     max_workers=threads)
 
+        # Get sound for the video
+        fps = 20
+        if sound:
+            audio_file = write_wav(results, len(ims) / fps)
+            extra_args = "-i " + audio_file.name
+
         # Write the animation (list of lists) to an mp4
         ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
                                         repeat=False)
         writer = animation.FFMpegWriter(
-            fps=20, metadata=dict(title='Mandrake animation'), bitrate=-1)
+            fps=fps, metadata=dict(title='Mandrake animation'), bitrate=-1,
+             extra_args=extra_args)
         progress_callback = \
           lambda i, n: sys.stderr.write('Saving frame ' + str(i) + ' of ' + str(len(ims)) + '    \r')
         ani.save(output_prefix + ".embedding_animation.mp4", writer=writer,
                 dpi=320, progress_callback=progress_callback)
+
+        # Finish up
+        if sound:
+          audio_file.close()
         progress_callback(len(ims), len(ims))
         sys.stderr.write("\n")
 

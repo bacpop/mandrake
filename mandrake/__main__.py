@@ -42,6 +42,7 @@ def get_options():
     ioGroup.add_argument('--labels', default=None, help='Sample labels for plotting (overrides DBSCAN clusters)')
     ioGroup.add_argument('--no-html-labels', default=False, action='store_true', help='Turn off hover labels on html output (for large datasets)')
     ioGroup.add_argument('--animate', default=False, action='store_true', help='Create an animation of the embedding process')
+    ioGroup.add_argument('--animate-sound', default=False, action='store_true', help='Add sound to the animation')
 
     distGroup = parser.add_argument_group('Distance options')
     dist_me_Group = distGroup.add_mutually_exclusive_group()
@@ -215,7 +216,7 @@ def main():
       not args.no_html_labels, dbscan, args.seed)
     plotSCE_hex(embedding_array, args.output)
     plotSCE_mpl(embedding_array, embedding_results, cluster_labels,
-      args.output, args.cpus, dbscan, args.seed)
+      args.output, args.animate_sound, args.cpus, dbscan, args.seed)
 
     sys.exit(0)
 
