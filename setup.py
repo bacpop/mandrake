@@ -77,8 +77,8 @@ class CMakeBuild(build_ext):
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
 
-        target = os.getenv('SKETCHLIB_INSTALL', None)
-        if target == 'conda_cuda':
+        target = os.getenv('SCE_BUILD_ENV', None)
+        if target == 'conda_forge_cuda':
             subprocess.check_call(['make', 'python', 'LIBLOC="' + os.environ['PREFIX'] + '"'], cwd=ext.sourcedir + '/src', env=env)
             subprocess.check_call(['make', 'install_python', 'LIBLOC="' + os.environ['PREFIX'] + '"', 'PYTHON_LIB_PATH=' + extdir], cwd=ext.sourcedir + '/src', env=env)
         else:
