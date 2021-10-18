@@ -3,10 +3,14 @@
 
 # Adds sound to the visualisation
 
+import sys
+
 from tempfile import NamedTemporaryFile
 import numpy as np
 from scipy.io.wavfile import write
+from tqdm import tqdm
 
+from .utils import norm_and_centre
 
 def wave(t):
     x = t % 1.0
@@ -40,12 +44,12 @@ def envelope(t, duration):
     return amp
 
 class Oscillator:
-    def __init__(freq, start, duration):
+    def __init__(self, freq, start, duration):
         self.freq = freq
         self.start = start
         self.duration = duration
 
-    def get_amp(t, sample_rate):
+    def get_amp(self, t, sample_rate):
         amp = 0
         if t >= self.start:
             amp = wave((t - self.start) / sample_rate * self.freq)
@@ -54,16 +58,19 @@ class Oscillator:
 
 def write_wav(results, total_duration, sample_rate=44100):
     # Extract oscillator frequencies from data
-    em_prev = results.get_embedding(0)
+    em_prev = np.array(results.get_embedding_frame(0)).reshape(-1, 2)
+    norm_and_centre(em_prev)
     freqs = np.zeros((results.n_frames() - 1, 2))
     for frame in range(1, results.n_frames()):
-        em_next = results.get_embedding(frame)
-        freqs[frame - -1, :] = np.max(np.abs(em_prev - em_next, axis=0), axis=0)
+        em_next = np.array(results.get_embedding_frame(frame)).reshape(-1, 2)
+        norm_and_centre(em_next)
+        freqs[frame - 1, :] = np.max(np.abs(em_prev - em_next), axis=0)
         em_prev = em_next
     # Normalise to 120-1200Hz
     freqs -= np.min(freqs)
     freqs /= np.max(freqs)
     freqs = 120 + 1200 * np.square(freqs)
+    print(freqs)
 
     # Create a list of oscillators across the time series
     oscillators_x = []
@@ -73,10 +80,11 @@ def write_wav(results, total_duration, sample_rate=44100):
         oscillators_y.append(Oscillator(freq[1], float(idx) / total_duration, sample_rate / 8))
 
     # Sample from the oscillators across the time series, at the sample rate
-    t_series = np.linspace(0., total_duration, sample_rate * total_duration)
+    t_series = np.linspace(0., total_duration, int(sample_rate * total_duration))
     amp_series = np.zeros((t_series.shape[0], 2), dtype=np.int16)
-    for idx, t_point in enumerate(t_series):
-        for osc_x, osc_y in (oscillators_x, oscillators_y):
+    sys.stderr.write("Creating audio")
+    for idx, t_point in tqdm(enumerate(t_series), total=t_series.shape[0], unit="samples"):
+        for osc_x, osc_y in zip(oscillators_x, oscillators_y):
             amp_series[idx, 0] += osc_x.get_amp(t_point, sample_rate)
             amp_series[idx, 1] += osc_y.get_amp(t_point, sample_rate)
 

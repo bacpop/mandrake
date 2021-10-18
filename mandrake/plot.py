@@ -8,7 +8,6 @@ from collections import defaultdict
 from functools import partial
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
 from tqdm.contrib.concurrent import thread_map
 import plotly.express as px
 import plotly.graph_objects as go
@@ -20,6 +19,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.animation as animation
 
+from .utils import norm_and_centre
 from .sound import write_wav
 
 # Interactive HTML plot using plotly
@@ -187,7 +187,9 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
         fps = 20
         if sound:
             audio_file = write_wav(results, len(ims) / fps)
-            extra_args = "-i " + audio_file.name
+            extra_args = ["-i " + audio_file.name]
+        else:
+            extra_args = None
 
         # Write the animation (list of lists) to an mp4
         ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
@@ -201,19 +203,12 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
                 dpi=320, progress_callback=progress_callback)
 
         # Finish up
-        if sound:
-          audio_file.close()
+        #if sound:
+        #    audio_file.close()
         progress_callback(len(ims), len(ims))
         sys.stderr.write("\n")
 
 # Internal functions
-
-# Transforms the provided array to normalise and centre it
-def _norm_and_centre(array):
-    means = np.mean(array, axis=0)
-    array -= means
-    scales = np.std(array, axis=0)
-    array /= scales
 
 # Function to plot a frame of the animation, which can be called in parallel
 def _plot_frame(frame, iter_series, eq_series, results, labels, style_dict, ax1, ax2):
@@ -226,7 +221,7 @@ def _plot_frame(frame, iter_series, eq_series, results, labels, style_dict, ax1,
 
   # Scatter plot at top, for current frame
   embedding = np.array(results.get_embedding_frame(frame)).reshape(-1, 2)
-  _norm_and_centre(embedding)
+  norm_and_centre(embedding)
   for k in set(labels):
       class_member_mask = (labels == k)
       xy = embedding[class_member_mask]
