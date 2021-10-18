@@ -186,7 +186,7 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
 
 // Function prototypes
 // in wtsne_cpu.cpp
-std::shared_ptr<sce_results<double>>
+std::shared_ptr<sce_results>
 wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       std::vector<double> &dists, std::vector<double> &weights,
       const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
@@ -194,7 +194,7 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       const int n_workers, const int n_threads, const unsigned int seed);
 // in wtsne_gpu.cu
 template <typename real_t>
-std::shared_ptr<sce_results<real_t>>
+std::shared_ptr<sce_results>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           std::vector<real_t> &dists, std::vector<real_t> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,

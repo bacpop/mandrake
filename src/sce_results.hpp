@@ -5,7 +5,7 @@
 
 const int n_sample_frames = 400;
 
-template <typename real_t> class sce_results {
+class sce_results {
 public:
   sce_results(const bool make_animation, const size_t n_workers,
               const uint64_t max_iter)
@@ -20,8 +20,16 @@ public:
     }
   }
 
+  sce_results(const bool make_animation,
+             std::tuple<std::vector<uint64_t>, std::vector<double>>& time_series,
+             std::vector<std::vector<double>>& embedding_series) :
+    make_animation_(make_animation), iter_series_(std::get<0>(time_series)),
+    eq_series_(std::get<1>(time_series), embedding_series_(embedding_series))
+    {}
+
+  template <typename real_t>
   void add_result(const uint64_t iter, const real_t Eq,
-                  std::vector<real_t> &embedding) {
+                  std::vector<double> &embedding) {
     embedding_series_.push_back(std::move(embedding));
     if (make_animation_) {
       iter_series_.push_back(iter * n_workers_);
@@ -34,8 +42,9 @@ public:
            iter >= *sample_it_;
   }
 
+  template <typename real_t>
   void add_frame(const uint64_t iter, const real_t Eq,
-                 const std::vector<real_t> &embedding) {
+                 const std::vector<double> &embedding) {
     if (is_sample_frame(iter)) {
       iter_series_.push_back(iter * n_workers_);
       eq_series_.push_back(Eq);
@@ -46,15 +55,15 @@ public:
 
   bool is_animated() const { return make_animation_; }
   size_t n_frames() const { return eq_series_.size(); }
-  std::tuple<std::vector<uint64_t>, std::vector<real_t>> get_eq() const {
+  std::tuple<std::vector<uint64_t>, std::vector<double>> get_eq() const {
     return std::make_tuple(iter_series_, eq_series_);
   }
 
   // Get the result (last frame)
-  std::vector<real_t> get_embedding() const { return embedding_series_.back(); }
+  std::vector<double> get_embedding() const { return embedding_series_.back(); }
 
   // Get a specific frame (for animation)
-  std::vector<real_t> get_embedding_frame(const size_t frame) const {
+  std::vector<double> get_embedding_frame(const size_t frame) const {
     if (frame < n_frames()) {
       return embedding_series_[frame];
     } else {
@@ -62,12 +71,15 @@ public:
     }
   }
 
+  // Get all embeddings (for pickling)
+  std::vector<std::vector<real_t>> get_all_embeddings() const { return embedding_series_; }
+
 private:
   bool make_animation_;
   size_t n_workers_;
   std::vector<uint64_t> sample_points_;
   std::vector<uint64_t>::const_iterator sample_it_;
   std::vector<uint64_t> iter_series_;
-  std::vector<real_t> eq_series_;
-  std::vector<std::vector<real_t>> embedding_series_;
+  std::vector<double> eq_series_;
+  std::vector<std::vector<double>> embedding_series_;
 };
