@@ -20,13 +20,6 @@ public:
     }
   }
 
-  sce_results(const bool make_animation,
-             std::tuple<std::vector<uint64_t>, std::vector<double>>& time_series,
-             std::vector<std::vector<double>>& embedding_series) :
-    make_animation_(make_animation), iter_series_(std::get<0>(time_series)),
-    eq_series_(std::get<1>(time_series), embedding_series_(embedding_series))
-    {}
-
   template <typename real_t>
   void add_result(const uint64_t iter, const real_t Eq,
                   std::vector<double> &embedding) {
@@ -70,9 +63,6 @@ public:
       throw std::runtime_error("Frame does not exist");
     }
   }
-
-  // Get all embeddings (for pickling)
-  std::vector<std::vector<real_t>> get_all_embeddings() const { return embedding_series_; }
 
 private:
   bool make_animation_;

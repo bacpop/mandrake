@@ -12,28 +12,15 @@ PYBIND11_MODULE(SCE, m) {
   m.attr("version") = VERSION_INFO;
 
   // Results class (need to define here to be able to return this type)
-  py::class_<sce_results<double>, std::shared_ptr<sce_results<double>>>(
+  py::class_<sce_results, std::shared_ptr<sce_results>>(
       m, "sce_result")
       .def(py::init<const bool, const size_t, const uint64_t>())
-      .def("animated", &sce_results<double>::is_animated)
-      .def("n_frames", &sce_results<double>::n_frames)
-      .def("get_eq", &sce_results<double>::get_eq)
-      .def("get_embedding", &sce_results<double>::get_embedding)
-      .def("get_embedding_frame", &sce_results<double>::get_embedding_frame,
-           py::arg("frame"))
-      // TODO - do this with a smart pointer instead
-      .def(py::pickle(
-        [](const sce_results<double> &results) {
-          return py::make_tuple(p.is_animated(), p.get_eq(), p.get_all_embeddings());
-        },
-        [](py::tuple t) {
-          if (t.size() != 3) {
-            throw std::runtime_error("Invalid state during pickle of SCE results")
-          }
-          sce_results results(t[0], t[1], t[2]);
-          return results;
-        }
-      ));
+      .def("animated", &sce_results::is_animated)
+      .def("n_frames", &sce_results::n_frames)
+      .def("get_eq", &sce_results::get_eq)
+      .def("get_embedding", &sce_results::get_embedding)
+      .def("get_embedding_frame", &sce_results::get_embedding_frame,
+           py::arg("frame"));
 
   // Exported functions
   m.def("wtsne", &wtsne, py::return_value_policy::take_ownership,

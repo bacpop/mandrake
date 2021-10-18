@@ -8,7 +8,7 @@ from collections import defaultdict
 from functools import partial
 import pandas as pd
 import numpy as np
-from tqdm.contrib.concurrent import thread_map
+from tqdm import tqdm
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -170,18 +170,31 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
         ax2.set_ylabel('Eq')
         ax2.set_ylim(bottom=0)
 
+        ims = []
         iter_series, eq_series = results.get_eq()
         plt.tight_layout()
-        ims = thread_map(partial(_plot_frame,
-                          iter_series = iter_series,
-                          eq_series = eq_series,
-                          results = results,
-                          labels = labels,
-                          style_dict = style_dict,
-                          ax1 = ax1,
-                          ax2 = ax2),
-                    range(results.n_frames()),
-                    max_workers=threads)
+        for frame in tqdm(range(results.n_frames()), unit="frames"):
+            animated = True if frame > 0 else False
+
+            # Eq plot at bottom, for current frame
+            eq_im, = ax2.plot(iter_series[0:(frame+1)], eq_series[0:(frame+1)],
+                              color='cornflowerblue', lw=2, animated=animated)
+            frame_ims = [eq_im]
+
+            # Scatter plot at top, for current frame
+            embedding = np.array(results.get_embedding_frame(frame)).reshape(-1, 2)
+            norm_and_centre(embedding)
+            for k in set(labels):
+                class_member_mask = (labels == k)
+                xy = embedding[class_member_mask]
+                im, = ax1.plot(xy[:, 0], xy[:, 1], '.',
+                          color=style_dict['col'][k],
+                          markersize=style_dict['ptsize'][k],
+                          mec=style_dict['mec'][k],
+                          mew=style_dict['mew'][k],
+                          animated=animated)
+                frame_ims.append(im)
+            ims.append(frame_ims)
 
         # Get sound for the video
         fps = 20
@@ -207,29 +220,3 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
         #    audio_file.close()
         progress_callback(len(ims), len(ims))
         sys.stderr.write("\n")
-
-# Internal functions
-
-# Function to plot a frame of the animation, which can be called in parallel
-def _plot_frame(frame, iter_series, eq_series, results, labels, style_dict, ax1, ax2):
-  animated = True if frame > 0 else False
-
-  # Eq plot at bottom, for current frame
-  eq_im, = ax2.plot(iter_series[0:(frame+1)], eq_series[0:(frame+1)],
-                    color='cornflowerblue', lw=2, animated=animated)
-  frame_ims = [eq_im]
-
-  # Scatter plot at top, for current frame
-  embedding = np.array(results.get_embedding_frame(frame)).reshape(-1, 2)
-  norm_and_centre(embedding)
-  for k in set(labels):
-      class_member_mask = (labels == k)
-      xy = embedding[class_member_mask]
-      im, = ax1.plot(xy[:, 0], xy[:, 1], '.',
-                color=style_dict['col'][k],
-                markersize=style_dict['ptsize'][k],
-                mec=style_dict['mec'][k],
-                mew=style_dict['mew'][k],
-                animated=animated)
-      frame_ims.append(im)
-  return(frame_ims)
