@@ -388,10 +388,6 @@ private:
   uint64_t ne_;
   real_t nsq_;
 
-  // CUDA types to run callback (Eq + progress) in the graph
-  cudaHostFn_t progress_callback_fn_;
-  callBackData_t<real_t> progress_callback_params_;
-
   // Uniform draw tables
   device_array<uint32_t> rng_state_;
   discrete_table_device<real_t> node_table_;
@@ -423,13 +419,13 @@ private:
 // These two templates are explicitly instantiated here as the instantiation
 // in python_bindings.cpp is not seen by nvcc, leading to a unlinked function
 // when imported
-template std::shared_ptr<sce_results<float>>
+template std::shared_ptr<sce_results>
 wtsne_gpu<float>(const std::vector<uint64_t> &, const std::vector<uint64_t> &,
                  std::vector<float> &, std::vector<float> &, const float,
                  const uint64_t, const int, const int, const uint64_t,
                  const float, const bool, const bool, const int, const int,
                  const unsigned int);
-template std::shared_ptr<sce_results<double>>
+template std::shared_ptr<sce_results>
 wtsne_gpu<double>(const std::vector<uint64_t> &, const std::vector<uint64_t> &,
                   std::vector<double> &, std::vector<double> &, const double,
                   const uint64_t, const int, const int, const uint64_t,
