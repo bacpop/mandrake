@@ -32,7 +32,7 @@ KERNEL void destride_embedding(T *Y_interleaved, U *Y_blocked,
 // Update s (Eq) and advance iteration
 template <typename real_t>
 KERNEL void update_eq(real_t *Eq, real_t nsq, real_t *qsum, uint64_t *qcount, uint64_t *iter_d) {
-  *Eq = (*Eq * nsq + *qsum) / (*nsq + *qcount);
+  *Eq = (*Eq * nsq + *qsum) / (nsq + *qcount);
   *(iter_d)++;
 }
 
@@ -159,7 +159,6 @@ public:
           const int device_id, const unsigned int seed)
       : n_workers_(n_workers), nn_(weights.size()), ne_(P.size()),
         nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
-        progress_callback_fn_(Eq_callback<real_t>),
         rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y),
         Y_destride_(Y.size()), Y_host_(Y.begin(), Y.end()), I_(I), J_(J), Eq_host_(1.0),
         Eq_device_(1.0), qsum_(n_workers),
