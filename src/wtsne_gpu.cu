@@ -186,7 +186,7 @@ public:
 
     // Pin host memory
     CUDA_CALL_NOTHROW(cudaHostRegister(Y_host_.data(),
-                                       Y_host_.size() * sizeof(real_t),
+                                       Y_host_.size() * sizeof(double),
                                        cudaHostRegisterDefault));
     CUDA_CALL_NOTHROW(
         cudaHostRegister(&Eq_host_, sizeof(real_t), cudaHostRegisterDefault));
