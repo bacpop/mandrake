@@ -20,6 +20,10 @@ You will see two further progress bars after plotting::
 The first is saving static images of each frame, the second is encoding these into
 a video using ``ffmpeg``.
 
+You can also add sound by additing the ``--animate-sound`` flag. This will
+add a soundtrack to the video which is based on how the animation changes at
+each frame (see below).
+
 Details
 -------
 - The colours are the 'final' colours of HDBSCAN run on the embedding result,
@@ -32,3 +36,6 @@ Details
   greater rate and points move more, and less frequently at the end, when learning is
   slow and points move less. Specifically, samples are taken at a rate such that the
   total amount of learning is divided equally, which is proportional to :math:`1 - \sqrt{1-x}`.
+- Sound is created by adding a note with frequency proportional to the maximum
+  change of any point between each frame. The x-axis gives the left channel, the
+  y-axis gives the right channel.

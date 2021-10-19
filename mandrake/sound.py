@@ -3,8 +3,9 @@
 
 # Adds sound to the visualisation
 
+import os
 import subprocess
-from tempfile import NamedTemporaryFile
+from tempfile import mkstemp
 import numpy as np
 from scipy.io.wavfile import write
 
@@ -26,17 +27,30 @@ def write_wav(results, video_file, total_duration, sample_rate=44100, threads=1)
     freqs -= np.min(freqs)
     freqs /= np.max(freqs)
     freqs = 120 + 1200 * np.square(freqs)
-    print(freqs)
 
     # Create a list of oscillators across the time series
-    x_audio = np.array(gen_audio(list(freqs[:, 0]), total_duration, sample_rate, threads), dtype=np.int16)
-    y_audio = np.array(gen_audio(list(freqs[:, 1]), total_duration, sample_rate, threads), dtype=np.int16)
+    # Normalise amplitude based on 16-bit signed ints
+    x_audio = np.array(gen_audio(list(freqs[:, 0]), total_duration, sample_rate, threads))
+    x_audio *= np.iinfo(np.int16).max / np.max(np.abs(x_audio))
+    x_audio = x_audio.astype(np.int16, copy=False)
+    y_audio = np.array(gen_audio(list(freqs[:, 1]), total_duration, sample_rate, threads))
+    y_audio *= np.iinfo(np.int16).max / np.max(np.abs(y_audio))
+    y_audio = y_audio.astype(np.int16, copy=False)
 
-    #outfile = NamedTemporaryFile(suffix=".wav", delete=False)
-    #write(outfile.name, sample_rate, np.column_stack((x_audio, y_audio)))
-    outfile = "tmp.wav"
-    write(outfile, sample_rate, np.column_stack((x_audio, y_audio)))
-    subprocess.run(["ffmpeg", "-i", video_file, "-i", outfile, "-c:v",
-     "copy", "-map", "0:v:0", "-map", "1:a:0", "-c:a aac", "-b:a 192k",
-      "tmp.mp4"], check=True)
+    # Save the audio as an uncompressed WAV
+    wav_tmp = mkstemp(suffix=".wav")[1]
+    write(wav_tmp, sample_rate, np.column_stack((x_audio, y_audio)))
+    # Compress (aac) and add to the video
+    vid_tmp = mkstemp(suffix=".mp4")[1]
+    try:
+        subprocess.run("ffmpeg -y -i " + video_file + " -i " + wav_tmp + \
+          " -c:v copy -map 0:v:0 -map 1:a:0 -c:a aac -b:a 192k " + \
+          vid_tmp, shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        os.remove(vid_tmp)
+        os.remove(wav_tmp)
+        raise e
 
+    # Sort out tmp files so output is correct
+    os.rename(vid_tmp, video_file)
+    os.remove(wav_tmp)

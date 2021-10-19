@@ -1,12 +1,15 @@
 #pragma once
 
+// Thanks to Timo Bingmann for inspiration for this procedure
+// See: https://github.com/bingmann/sound-of-sorting/blob/master/src/SortSound.cpp
+
 #include <cmath>
 #include <vector>
 
 class oscillator {
 public:
   oscillator(double freq, double start, double duration)
-      : freq_(freq), start_(start), duration_(duration) {}
+      : freq_(freq), start_(start), duration_(duration), triangular_(true) {}
 
   double get_amp(double t) const {
     double amp = 0.0;
@@ -22,12 +25,17 @@ private:
     double t0 = (t - start_) * freq_;
     double x = fmod(t0, 1.0);
     double amp = 0.0;
-    if (x <= 0.25) {
-      amp = 4.0 * x;
-    } else if (x <= 0.75) {
-      amp = 2.0 - 4.0 * x;
+    if (triangular_) {
+      if (x <= 0.25) {
+        amp = 4.0 * x;
+      } else if (x <= 0.75) {
+        amp = 2.0 - 4.0 * x;
+      } else {
+        amp = 4.0 * x - 4.0;
+      }
     } else {
-      amp = 4.0 * x - 4.0;
+      // sawtooth
+      amp = x;
     }
     return amp;
   }
@@ -62,6 +70,7 @@ private:
   double freq_;
   double start_;
   double duration_;
+  bool triangular_;
 };
 
 std::vector<double> sample_wave(const std::vector<double> &f_series,
@@ -75,6 +84,8 @@ std::vector<double> sample_wave(const std::vector<double> &f_series,
     osc_vec.push_back(oscillator(f_series[idx], idx / total_duration, 1.0 / 8.0));
   }
 
+  // This is inefficient because many oscillators are zero, but seems fast
+  // enough to be real time
 #pragma omp parallel for schedule(static) num_threads(n_threads)
   for (size_t t = 0; t < n_steps; ++t) {
     for (auto osc = osc_vec.cbegin(); osc != osc_vec.cend(); ++osc) {

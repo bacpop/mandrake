@@ -211,5 +211,6 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
 
         # Get sound for the video
         if sound:
+            sys.stderr.write("Generating sound\n")
             write_wav(results, output_prefix + ".embedding_animation.mp4",
                       len(ims) / fps, threads=threads)
