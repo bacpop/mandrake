@@ -4,6 +4,7 @@
 '''Methods for making plots of embeddings'''
 
 import sys
+import operator
 from collections import defaultdict
 from functools import partial
 import pandas as pd
@@ -141,9 +142,11 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
 
     # Static figure is a scatter plot, drawn by class
     plt.figure(figsize=(8, 8), dpi=320, facecolor='w', edgecolor='k')
-    for k in unique_labels:
+    cluster_sizes = {}
+    for k in sorted(unique_labels):
         class_member_mask = (labels == k)
         xy = embedding[class_member_mask]
+        cluster_sizes[k] = xy.shape[0]
         plt.plot(xy[:, 0], xy[:, 1], '.',
                  color=style_dict['col'][k],
                  markersize=style_dict['ptsize'][k],
@@ -161,23 +164,38 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
     # Make animation
     if results.animated():
         sys.stderr.write("Creating animation\n")
-        plt.figure(facecolor='w', edgecolor='k')
-        fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 1]})
-        fig.set_size_inches(6, 8, True)
-        ax1.set_xlabel('SCE dimension 1')
-        ax1.set_ylabel('SCE dimension 2')
-        ax2.set_xlabel('Iteration')
-        ax2.set_ylabel('Eq')
-        ax2.set_ylim(bottom=0)
+        plt.style.use('dark_background')
+        fig = plt.figure(facecolor='k', edgecolor='w', constrained_layout=True)
+        fig.set_size_inches(16, 8, True)
+        gs = fig.add_gridspec(2, 2)
+        ax_em = fig.add_subplot(gs[:, 0])
+        ax_em.set_xlabel('SCE dimension 1')
+        ax_em.set_ylabel('SCE dimension 2')
+        ax_eq = fig.add_subplot(gs[1, 1])
+        ax_eq.set_xlabel('Iteration')
+        ax_eq.set_ylabel('Eq')
+        ax_eq.set_ylim(bottom=0)
+        ax_leg = fig.add_subplot(gs[0, 1])
+        ax_leg.axis("off")
+
+        # Set a legend, up to fifteen classes
+        cluster_sizes = sorted(cluster_sizes.items(),
+                               key=operator.itemgetter(1), reverse=True)
+        for idx, sizes in enumerate(cluster_sizes):
+            k = sizes[0]
+            if idx < 30:
+                style_dict['label'][k] = k
+            else:
+                style_dict['label'][k] = None
+
 
         ims = []
         iter_series, eq_series = results.get_eq()
-        plt.tight_layout()
         for frame in tqdm(range(results.n_frames()), unit="frames"):
             animated = True if frame > 0 else False
 
             # Eq plot at bottom, for current frame
-            eq_im, = ax2.plot(iter_series[0:(frame+1)], eq_series[0:(frame+1)],
+            eq_im, = ax_eq.plot(iter_series[0:(frame+1)], eq_series[0:(frame+1)],
                               color='cornflowerblue', lw=2, animated=animated)
             frame_ims = [eq_im]
 
@@ -187,13 +205,24 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
             for k in set(labels):
                 class_member_mask = (labels == k)
                 xy = embedding[class_member_mask]
-                im, = ax1.plot(xy[:, 0], xy[:, 1], '.',
+                im, = ax_em.plot(xy[:, 0], xy[:, 1], '.',
                           color=style_dict['col'][k],
                           markersize=style_dict['ptsize'][k],
                           mec=style_dict['mec'][k],
                           mew=style_dict['mew'][k],
+                          label=style_dict['label'][k],
                           animated=animated)
                 frame_ims.append(im)
+
+            # Legend is the same every frame
+            if frame == 0:
+                h, l = ax_em.get_legend_handles_labels()
+                legend = ax_leg.legend(h, l, borderaxespad=0, loc="center",
+                                       ncol=4, markerscale=7/pt_scale,
+                                       mode="expand", title="Top 30 classes")
+            frame_ims.append(legend)
+
+            # All axes make the frame
             ims.append(frame_ims)
 
         # Write the animation (list of lists) to an mp4
