@@ -196,10 +196,6 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
                 frame_ims.append(im)
             ims.append(frame_ims)
 
-
-            extra_args = ["-i", audio_file.name]
-
-
         # Write the animation (list of lists) to an mp4
         fps = 20
         ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
