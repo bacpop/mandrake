@@ -1,7 +1,8 @@
 #pragma once
 
 // Thanks to Timo Bingmann for inspiration for this procedure
-// See: https://github.com/bingmann/sound-of-sorting/blob/master/src/SortSound.cpp
+// See:
+// https://github.com/bingmann/sound-of-sorting/blob/master/src/SortSound.cpp
 
 #include <cmath>
 #include <vector>
@@ -75,13 +76,13 @@ private:
 
 std::vector<double> sample_wave(const std::vector<double> &f_series,
                                 const double total_duration,
-                                const double sample_rate,
-                                const int n_threads) {
+                                const double sample_rate, const int n_threads) {
   size_t n_steps = static_cast<size_t>(total_duration * sample_rate);
   std::vector<double> amp_wave(n_steps, 0.0);
   std::vector<oscillator> osc_vec;
   for (size_t idx = 0; idx < f_series.size(); ++idx) {
-    osc_vec.push_back(oscillator(f_series[idx], idx / total_duration, 1.0 / 8.0));
+    osc_vec.push_back(
+        oscillator(f_series[idx], idx / total_duration, 1.0 / 8.0));
   }
 
   // This is inefficient because many oscillators are zero, but seems fast

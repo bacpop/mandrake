@@ -2,8 +2,8 @@
 // See LICENSE files
 
 #include "pairsnp.hpp"
-#include "wtsne.hpp"
 #include "sound.hpp"
+#include "wtsne.hpp"
 
 #include <pybind11/stl.h>
 namespace py = pybind11;
@@ -13,8 +13,7 @@ PYBIND11_MODULE(SCE, m) {
   m.attr("version") = VERSION_INFO;
 
   // Results class (need to define here to be able to return this type)
-  py::class_<sce_results, std::shared_ptr<sce_results>>(
-      m, "sce_result")
+  py::class_<sce_results, std::shared_ptr<sce_results>>(m, "sce_result")
       .def(py::init<const bool, const size_t, const uint64_t>())
       .def("animated", &sce_results::is_animated)
       .def("n_frames", &sce_results::n_frames)
@@ -37,8 +36,8 @@ PYBIND11_MODULE(SCE, m) {
         py::arg("knn"));
 
   m.def("gen_audio", &sample_wave, py::return_value_policy::take_ownership,
-        "Generate audio for animation", py::arg("frequencies"), py::arg("duration"),
-        py::arg("sample_rate"), py::arg("n_threads"));
+        "Generate audio for animation", py::arg("frequencies"),
+        py::arg("duration"), py::arg("sample_rate"), py::arg("n_threads"));
 
 #ifdef GPU_AVAILABLE
   // NOTE: python always uses fp64 so cannot easily template these (which

@@ -7,7 +7,7 @@ import os
 import subprocess
 from tempfile import mkstemp
 import numpy as np
-from scipy.io.wavfile import write
+from scipy.io.wavfile import write as write_wav
 
 from .utils import norm_and_centre
 
@@ -27,9 +27,11 @@ def write_wav(results, video_file, total_duration, sample_rate=44100, threads=1)
     freqs -= np.min(freqs)
     freqs /= np.max(freqs)
     freqs = 120 + 1200 * np.square(freqs)
+    # Encode
+    x_audio = _freq_to_wave(list(freqs[:, 0]), total_duration, sample_rate, threads)
+    y_audio = _freq_to_wave(list(freqs[:, 1]), total_duration, sample_rate, threads)
+    audio = np.column_stack((x_audio, y_audio))
 
-    # Create a list of oscillators across the time series
-    # Normalise amplitude based on 16-bit signed ints
     x_audio = np.array(gen_audio(list(freqs[:, 0]), total_duration, sample_rate, threads))
     x_audio *= np.iinfo(np.int16).max / np.max(np.abs(x_audio))
     x_audio = x_audio.astype(np.int16, copy=False)
@@ -39,7 +41,7 @@ def write_wav(results, video_file, total_duration, sample_rate=44100, threads=1)
 
     # Save the audio as an uncompressed WAV
     wav_tmp = mkstemp(suffix=".wav")[1]
-    write(wav_tmp, sample_rate, np.column_stack((x_audio, y_audio)))
+    write_wav(wav_tmp, sample_rate, audio)
     # Compress (aac) and add to the video
     vid_tmp = mkstemp(suffix=".mp4")[1]
     try:
@@ -54,3 +56,13 @@ def write_wav(results, video_file, total_duration, sample_rate=44100, threads=1)
     # Sort out tmp files so output is correct
     os.rename(vid_tmp, video_file)
     os.remove(wav_tmp)
+
+# internal functions
+
+# Create a list of oscillators across the time series
+# Normalise amplitude based on 16-bit signed ints
+def _freq_to_wave(freq_list, duration, sample_rate, threads):
+    audio = np.array(gen_audio(freq_list, duration, sample_rate, threads))
+    audio *= np.iinfo(np.int16).max / np.max(np.abs(audio))
+    audio = audio.astype(np.int16, copy=False)
+    return audio

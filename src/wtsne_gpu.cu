@@ -19,8 +19,8 @@
 
 // Change from sample stride to dimension stride
 template <typename T, typename U = T>
-KERNEL void destride_embedding(T *Y_interleaved, U *Y_blocked,
-                               size_t size, size_t n_samples) {
+KERNEL void destride_embedding(T *Y_interleaved, U *Y_blocked, size_t size,
+                               size_t n_samples) {
   for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < size;
        idx += blockDim.x * gridDim.x) {
     int i = idx / DIM;
@@ -31,7 +31,8 @@ KERNEL void destride_embedding(T *Y_interleaved, U *Y_blocked,
 
 // Update s (Eq) and advance iteration
 template <typename real_t>
-KERNEL void update_eq(real_t *Eq, real_t nsq, real_t *qsum, uint64_t *qcount, uint64_t *iter_d) {
+KERNEL void update_eq(real_t *Eq, real_t nsq, real_t *qsum, uint64_t *qcount,
+                      uint64_t *iter_d) {
   *Eq = (*Eq * nsq + *qsum) / (nsq + *qcount);
   *(iter_d)++;
 }
@@ -160,10 +161,9 @@ public:
       : n_workers_(n_workers), nn_(weights.size()), ne_(P.size()),
         nsq_(static_cast<real_t>(nn_) * (nn_ - 1)),
         rng_state_(load_rng<real_t>(n_workers, seed)), Y_(Y),
-        Y_destride_(Y.size()), Y_host_(Y.begin(), Y.end()), I_(I), J_(J), Eq_host_(1.0),
-        Eq_device_(1.0), qsum_(n_workers),
-        qsum_total_device_(0.0), qcount_(n_workers),
-        qcount_total_device_(0) {
+        Y_destride_(Y.size()), Y_host_(Y.begin(), Y.end()), I_(I), J_(J),
+        Eq_host_(1.0), Eq_device_(1.0), qsum_(n_workers),
+        qsum_total_device_(0.0), qcount_(n_workers), qcount_total_device_(0) {
     // Initialise CUDA
     CUDA_CALL(cudaSetDevice(device_id));
 #ifdef USE_CUDA_PROFILER
@@ -241,7 +241,6 @@ public:
             device_ptrs.nsq, bInit, iter_d.data(), maxIter,
             device_ptrs.n_workers, n_clashes_d.data());
 
-
     // s (Eq) update
     cub::DeviceReduce::Sum(qsum_tmp_storage_.data(), qsum_tmp_storage_bytes_,
                            qsum_.data(), qsum_total_device_.data(),
@@ -250,9 +249,8 @@ public:
         qcount_tmp_storage_.data(), qcount_tmp_storage_bytes_, qcount_.data(),
         qcount_total_device_.data(), qcount_.size(), capture_stream.stream());
     update_eq<real_t><<<1, 1, 0, capture_stream.stream()>>>(
-      device_ptrs.Eq, device_ptrs.nsq, qsum_total_device_.data(),
-      qcount_total_device_.data(), iter_d.data()
-    );
+        device_ptrs.Eq, device_ptrs.nsq, qsum_total_device_.data(),
+        qcount_total_device_.data(), iter_d.data());
 
     capture_stream.capture_end(graph.graph());
     // End capture
@@ -278,7 +276,8 @@ public:
 
         // Make sure copies have finished
         graph_stream.sync();
-        update_progress(iter_h, maxIter, eta, Eq_host_, write_per_worker, n_clashes_h);
+        update_progress(iter_h, maxIter, eta, Eq_host_, write_per_worker,
+                        n_clashes_h);
       }
       if (results->is_sample_frame(iter_h)) {
         Eq_device_.get_value_async(&Eq_host_, copy_stream.stream());
@@ -449,8 +448,7 @@ wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       wtsne_init<real_t>(I, J, dists, weights, perplexity, cpu_threads, seed);
 
   // These classes set up and manage all of the memory
-  auto results =
-      std::make_shared<sce_results>(animated, n_workers, maxIter);
+  auto results = std::make_shared<sce_results>(animated, n_workers, maxIter);
   sce_gpu<real_t> embedding(Y, I, J, P, weights, n_workers, device_id, seed);
 
   // Run the algorithm
