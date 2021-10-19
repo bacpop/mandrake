@@ -37,6 +37,6 @@ def write_wav(results, video_file, total_duration, sample_rate=44100, threads=1)
     outfile = "tmp.wav"
     write(outfile, sample_rate, np.column_stack((x_audio, y_audio)))
     subprocess.run(["ffmpeg", "-i", video_file, "-i", outfile, "-c:v",
-     "copy", "-map", "0:v:0", "-map", "1:a:0", "-c:a aac", "-b:a", "192k",
+     "copy", "-map", "0:v:0", "-map", "1:a:0", "-c:a aac", "-b:a 192k",
       "tmp.mp4"], check=True)
 

@@ -8,18 +8,18 @@ public:
   oscillator(double freq, double start, double duration)
       : freq_(freq), start_(start), duration_(duration) {}
 
-  double get_amp(double t, double sample_rate) const {
+  double get_amp(double t) const {
     double amp = 0.0;
-    if (t > start_) {
-      amp = wave(t, sample_rate);
+    if (t >= start_) {
+      amp = wave(t);
       amp *= envelope(t);
     }
     return amp;
   }
 
 private:
-  double wave(double t, double sample_rate) const {
-    double t0 = (t - start_) * freq_ / sample_rate;
+  double wave(double t) const {
+    double t0 = (t - start_) * freq_;
     double x = fmod(t0, 1.0);
     double amp = 0.0;
     if (x <= 0.25) {
@@ -78,7 +78,7 @@ std::vector<double> sample_wave(const std::vector<double> &f_series,
 #pragma omp parallel for schedule(static) num_threads(n_threads)
   for (size_t t = 0; t < n_steps; ++t) {
     for (auto osc = osc_vec.cbegin(); osc != osc_vec.cend(); ++osc) {
-      amp_wave[t] += osc->get_amp(t / total_duration, sample_rate);
+      amp_wave[t] += osc->get_amp(t / sample_rate);
     }
   }
   return amp_wave;
