@@ -3,7 +3,7 @@
 
 #include "wtsne.hpp"
 
-std::shared_ptr<sce_results<double>>
+std::shared_ptr<sce_results>
 wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       std::vector<double> &dists, std::vector<double> &weights,
       const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
@@ -17,8 +17,7 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   uint64_t ne = P.size();
 
   // Setup output
-  auto results =
-      std::make_shared<sce_results<double>>(animated, n_workers, maxIter);
+  auto results = std::make_shared<sce_results>(animated, n_workers, maxIter);
 
   // Set up random number generation
   discrete_table<double> node_table(weights, n_threads);

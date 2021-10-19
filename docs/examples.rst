@@ -55,9 +55,9 @@ Running mandrake on gene presence/absence matrix from `panaroo <https://gtonkinh
 
 Running mandrake on a very large multiple sequence alignment::
 
-    mandrake --cpus 10 \
+    mandrake --cpus 60 \
     --alignment SC2.fasta \
-    --output sc2million_v3 \
+    --output sc2million \
     --kNN 50 --perplexity 15 --bInit 0 --maxIter 10000000000
 
 .. figure:: images/sc2_embedding.jpeg
@@ -66,8 +66,11 @@ Running mandrake on a very large multiple sequence alignment::
 
    Embedding of ~1M SARS-CoV-2 genomes
 
-Running mandrake using a GPU::
+Re-running mandrake using a GPU::
 
-    mandrake --distances HIV_5k.npz --cpus 32 --maxIter 100000000 \
-    --n-workers 16384 --blockSize 128 --use-gpu --fp 32
-
+    mandrake --cpus 60 \
+    --distances SC2.fasta \
+    --output sc2million.npz \
+    --perplexity 50 --no-clustering\
+    --n-workers 94976 --maxIter 1000000000000 --use-gpu \
+    --animate --labels sc2million_pangolin.txt --no-html-labels

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef> // size_t
 #include <cstdint>
@@ -151,20 +152,33 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   normalise_vector(P, true, n_threads);
   normalise_vector(weights, true, n_threads);
 
-  // Set starting Y0
+  // Set starting Y0 (on hypersphere)
+  // See https://en.wikipedia.org/wiki/N-sphere#Spherical_coordinates
   pRNG<real_t> rng_state(
       n_threads, xoshiro_initial_seed<real_t>(static_cast<uint32_t>(seed)));
   rng_state.long_jump(); // Independent RNG from SCE algorithm
   std::vector<real_t> Y(nn * DIM);
 #pragma omp parallel for schedule(static) num_threads(n_threads)
-  for (uint64_t coor = 0; coor < nn * DIM; ++coor) {
+  for (uint64_t i = 0; i < nn; ++i) {
 #ifdef _OPENMP
     const int thread_idx = omp_get_thread_num();
 #else
     static const int thread_idx = 1;
 #endif
     rng_state_t<real_t> &thread_rng_state = rng_state.state(thread_idx);
-    Y[coor] = unif_rand(thread_rng_state) * static_cast<real_t>(1e-4);
+    std::array<real_t, DIM> u, u_squared;
+    std::fill(u.begin(), u.end(), 1.0);
+    std::transform(u.begin(), u.end(), u_squared.begin(),
+                   [](real_t u1) -> real_t { return u1 * u1; });
+    while (std::accumulate(u_squared.begin(), u_squared.end(), 0.0) > 1) {
+      std::generate(u.begin(), u.end(), [&thread_rng_state]() -> real_t {
+        return 2 * unif_rand(thread_rng_state) - 1;
+      });
+      std::transform(u.begin(), u.end(), u_squared.begin(),
+                     [](real_t u1) -> real_t { return u1 * u1; });
+    }
+    std::transform(u.begin(), u.end(), Y.begin() + i * DIM,
+                   [](real_t yi) -> real_t { return yi * 1e-4; });
   }
 
   return std::make_tuple(Y, P);
@@ -172,7 +186,7 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
 
 // Function prototypes
 // in wtsne_cpu.cpp
-std::shared_ptr<sce_results<double>>
+std::shared_ptr<sce_results>
 wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       std::vector<double> &dists, std::vector<double> &weights,
       const double perplexity, const uint64_t maxIter, const uint64_t nRepuSamp,
@@ -180,7 +194,7 @@ wtsne(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
       const int n_workers, const int n_threads, const unsigned int seed);
 // in wtsne_gpu.cu
 template <typename real_t>
-std::shared_ptr<sce_results<real_t>>
+std::shared_ptr<sce_results>
 wtsne_gpu(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
           std::vector<real_t> &dists, std::vector<real_t> &weights,
           const real_t perplexity, const uint64_t maxIter, const int block_size,

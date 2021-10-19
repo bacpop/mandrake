@@ -2,6 +2,7 @@
 // See LICENSE files
 
 #include "pairsnp.hpp"
+#include "sound.hpp"
 #include "wtsne.hpp"
 
 #include <pybind11/stl.h>
@@ -12,23 +13,13 @@ PYBIND11_MODULE(SCE, m) {
   m.attr("version") = VERSION_INFO;
 
   // Results class (need to define here to be able to return this type)
-  py::class_<sce_results<double>, std::shared_ptr<sce_results<double>>>(
-      m, "sce_result")
+  py::class_<sce_results, std::shared_ptr<sce_results>>(m, "sce_result")
       .def(py::init<const bool, const size_t, const uint64_t>())
-      .def("animated", &sce_results<double>::is_animated)
-      .def("n_frames", &sce_results<double>::n_frames)
-      .def("get_eq", &sce_results<double>::get_eq)
-      .def("get_embedding", &sce_results<double>::get_embedding)
-      .def("get_embedding_frame", &sce_results<double>::get_embedding_frame,
-           py::arg("frame"));
-  py::class_<sce_results<float>, std::shared_ptr<sce_results<float>>>(
-      m, "sce_result_fp32")
-      .def(py::init<const bool, const size_t, const uint64_t>())
-      .def("animated", &sce_results<float>::is_animated)
-      .def("n_frames", &sce_results<float>::n_frames)
-      .def("get_eq", &sce_results<float>::get_eq)
-      .def("get_embedding", &sce_results<float>::get_embedding)
-      .def("get_embedding_frame", &sce_results<float>::get_embedding_frame,
+      .def("animated", &sce_results::is_animated)
+      .def("n_frames", &sce_results::n_frames)
+      .def("get_eq", &sce_results::get_eq)
+      .def("get_embedding", &sce_results::get_embedding)
+      .def("get_embedding_frame", &sce_results::get_embedding_frame,
            py::arg("frame"));
 
   // Exported functions
@@ -43,6 +34,10 @@ PYBIND11_MODULE(SCE, m) {
   m.def("pairsnp", &pairsnp, py::return_value_policy::take_ownership,
         "Run pairsnp", py::arg("fasta"), py::arg("n_threads"), py::arg("dist"),
         py::arg("knn"));
+
+  m.def("gen_audio", &sample_wave, py::return_value_policy::take_ownership,
+        "Generate audio for animation", py::arg("frequencies"),
+        py::arg("duration"), py::arg("sample_rate"), py::arg("n_threads"));
 
 #ifdef GPU_AVAILABLE
   // NOTE: python always uses fp64 so cannot easily template these (which

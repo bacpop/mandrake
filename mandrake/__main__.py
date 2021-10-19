@@ -42,6 +42,7 @@ def get_options():
     ioGroup.add_argument('--labels', default=None, help='Sample labels for plotting (overrides DBSCAN clusters)')
     ioGroup.add_argument('--no-html-labels', default=False, action='store_true', help='Turn off hover labels on html output (for large datasets)')
     ioGroup.add_argument('--animate', default=False, action='store_true', help='Create an animation of the embedding process')
+    ioGroup.add_argument('--animate-sound', default=False, action='store_true', help='Add sound to the animation')
 
     distGroup = parser.add_argument_group('Distance options')
     dist_me_Group = distGroup.add_mutually_exclusive_group()
@@ -159,6 +160,17 @@ def main():
         I, J, dists, names = loadIJdist(args.distances)
 
     #***********************#
+    #* read labels         *#
+    #***********************#
+    cluster_labels = None
+    if args.labels != None:
+        label_file = pd.read_csv(args.labels, sep="\t", header=None, index_col=0)
+        cluster_labels = list(label_file.loc[names][1].values)
+        if len(cluster_labels) != len(names):
+            sys.stderr.write("Problem reading labels (duplicates or missing data?)\n")
+            cluster_labels = np.full((len(names),), -1)
+
+    #***********************#
     #* run SCE             *#
     #***********************#
     sys.stderr.write("Running SCE\n")
@@ -187,7 +199,7 @@ def main():
     #* run HDBSCAN         *#
     #***********************#
     dbscan = False
-    if args.labels == None:
+    if cluster_labels == None:
         if args.no_clustering:
             cluster_labels = np.full((embedding_array.shape[0],), -1)
         else:
@@ -195,19 +207,16 @@ def main():
           sys.stderr.write("Running clustering\n")
           cluster_labels = runHDBSCAN(embedding_array)
           write_hdbscan_clusters(cluster_labels, names, args.output)
-    else:
-        label_file = pd.read_csv(args.labels, sep="\t", header=None, index_col=0)
-        cluster_labels = list(label_file.loc[names][1].values)
 
     #***********************#
     #* plot embedding      *#
     #***********************#
     sys.stderr.write("Drawing plots\n")
     plotSCE_html(embedding_array, names, cluster_labels, args.output,
-      not args.no_html_labels, dbscan)
+      not args.no_html_labels, dbscan, args.seed)
     plotSCE_hex(embedding_array, args.output)
     plotSCE_mpl(embedding_array, embedding_results, cluster_labels,
-      args.output, dbscan)
+      args.output, args.animate_sound, args.cpus, dbscan, args.seed)
 
     sys.exit(0)
 
