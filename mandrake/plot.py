@@ -196,27 +196,24 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
                 frame_ims.append(im)
             ims.append(frame_ims)
 
-        # Get sound for the video
-        fps = 20
-        if sound:
-            audio_file = write_wav(results, len(ims) / fps)
-            extra_args = ["-i " + audio_file.name]
-        else:
-            extra_args = None
+
+            extra_args = ["-i", audio_file.name]
+
 
         # Write the animation (list of lists) to an mp4
+        fps = 20
         ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
                                         repeat=False)
         writer = animation.FFMpegWriter(
-            fps=fps, metadata=dict(title='Mandrake animation'), bitrate=-1,
-             extra_args=extra_args)
+            fps=fps, metadata=dict(title='Mandrake animation'), bitrate=-1)
         progress_callback = \
           lambda i, n: sys.stderr.write('Saving frame ' + str(i) + ' of ' + str(len(ims)) + '    \r')
         ani.save(output_prefix + ".embedding_animation.mp4", writer=writer,
                 dpi=320, progress_callback=progress_callback)
-
-        # Finish up
-        #if sound:
-        #    audio_file.close()
         progress_callback(len(ims), len(ims))
         sys.stderr.write("\n")
+
+        # Get sound for the video
+        if sound:
+            write_wav(results, output_prefix + ".embedding_animation.mp4",
+                      len(ims) / fps, threads)

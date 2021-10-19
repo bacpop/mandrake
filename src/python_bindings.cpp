@@ -3,6 +3,7 @@
 
 #include "pairsnp.hpp"
 #include "wtsne.hpp"
+#include "sound.hpp"
 
 #include <pybind11/stl.h>
 namespace py = pybind11;
@@ -34,6 +35,10 @@ PYBIND11_MODULE(SCE, m) {
   m.def("pairsnp", &pairsnp, py::return_value_policy::take_ownership,
         "Run pairsnp", py::arg("fasta"), py::arg("n_threads"), py::arg("dist"),
         py::arg("knn"));
+
+  m.def("gen_audio", &sample_wave, py::return_value_policy::take_ownership,
+        "Generate audio for animation", py::arg("frequencies"), py::arg("duration"),
+        py::arg("sample_rate"), py::arg("n_threads"));
 
 #ifdef GPU_AVAILABLE
   // NOTE: python always uses fp64 so cannot easily template these (which
