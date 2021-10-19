@@ -184,7 +184,7 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
         for idx, sizes in enumerate(cluster_sizes):
             k = sizes[0]
             if idx < 30:
-                style_dict['label'][k] = k
+                style_dict['label'][k] = str(k) + " (" + str(sizes[1]) + ")"
             else:
                 style_dict['label'][k] = None
 
@@ -219,7 +219,7 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
                 h, l = ax_em.get_legend_handles_labels()
                 legend = ax_leg.legend(h, l, borderaxespad=0, loc="center",
                                        ncol=4, markerscale=7/pt_scale,
-                                       mode="expand", title="Top 30 classes")
+                                       mode="expand", title="30 largest classes (size)")
             frame_ims.append(legend)
 
             # All axes make the frame
