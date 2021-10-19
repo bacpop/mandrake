@@ -13,7 +13,7 @@ from .utils import norm_and_centre
 
 from SCE import gen_audio
 
-def write_wav(results, video_file, total_duration, sample_rate=44100, threads=1):
+def encode_audio(results, video_file, total_duration, sample_rate=44100, threads=1):
     # Extract oscillator frequencies from data
     em_prev = np.array(results.get_embedding_frame(0)).reshape(-1, 2)
     norm_and_centre(em_prev)

@@ -21,7 +21,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.animation as animation
 
 from .utils import norm_and_centre
-from .sound import write_wav
+from .sound import encode_audio
 
 # Interactive HTML plot using plotly
 def plotSCE_html(embedding, names, labels, output_prefix, hover_labels=True, dbscan=True, seed=42):
@@ -241,5 +241,5 @@ def plotSCE_mpl(embedding, results, labels, output_prefix, sound=False,
         # Get sound for the video
         if sound:
             sys.stderr.write("Generating sound\n")
-            write_wav(results, output_prefix + ".embedding_animation.mp4",
-                      len(ims) / fps, threads=threads)
+            encode_audio(results, output_prefix + ".embedding_animation.mp4",
+                         len(ims) / fps, threads=threads)
