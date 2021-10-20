@@ -34,7 +34,7 @@ template <typename real_t>
 KERNEL void update_eq(real_t *Eq, real_t nsq, real_t *qsum, uint64_t *qcount,
                       uint64_t *iter_d) {
   *Eq = (*Eq * nsq + *qsum) / (nsq + *qcount);
-  *(iter_d)++;
+  (*iter_d)++;
 }
 
 // Updates the embedding Y
