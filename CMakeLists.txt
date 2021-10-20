@@ -7,7 +7,7 @@ cmake_policy(SET CMP0104 OLD) # Can't get CUDA_ARCHITECTURES to work with NEW
 set(TARGET_NAME SCE)
 add_compile_definitions(PYTHON_EXT)
 
-IF(CMAKE_COMPILER_IS_GNUCC OR ENV{SCE_BUILD_ENV} EQUAL "conda_forge")
+IF(CMAKE_COMPILER_IS_GNUCC OR $ENV{SCE_BUILD_ENV} STREQUAL "conda_forge")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 ENDIF()
 
