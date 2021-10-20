@@ -26,7 +26,7 @@ def encode_audio(results, video_file, total_duration, sample_rate=44100, threads
     # Normalise to 120-1200Hz
     freqs -= np.min(freqs)
     freqs /= np.max(freqs)
-    freqs = 120 + 1200 * np.square(freqs)
+    freqs = 120 + 1200 * freqs
     # Encode
     x_audio = _freq_to_wave(list(freqs[:, 0]), total_duration, sample_rate, threads)
     y_audio = _freq_to_wave(list(freqs[:, 1]), total_duration, sample_rate, threads)
