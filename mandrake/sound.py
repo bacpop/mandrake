@@ -46,7 +46,7 @@ def encode_audio(results, video_file, total_duration, sample_rate=44100, threads
     vid_tmp = mkstemp(suffix=".mp4")[1]
     try:
         subprocess.run("ffmpeg -y -i " + video_file + " -i " + wav_tmp + \
-          " -c:v copy -map 0:v:0 -map 1:a:0 -c:a aac -b:a 192k " + \
+          " -shortest -c:v copy -map 0:v:0 -map 1:a:0 -c:a aac -b:a 192k " + \
           vid_tmp, shell=True, check=True)
     except subprocess.CalledProcessError as e:
         os.remove(vid_tmp)
