@@ -19,8 +19,13 @@ CUDA_LDLIBS=-lcudadevrt -lcudart_static $(LDLIBS)
 CPPFLAGS += -DPYTHON_EXT -DNDEBUG -DSCE_EXPORTS $(shell python3 -m pybind11 --includes)
 PYTHON_LIB = SCE$(shell python3-config --extension-suffix)
 
+ifdef GENARCH
+	GENCODE=${GENARCH}
+else
+	GENCODE=-gencode arch=compute_70,code=sm_70 -gencode arch=compute_75,code=sm_75  -gencode arch=compute_80,code=sm_80 -gencode arch=compute_86,code=sm_86
+endif
 CUDA_LDFLAGS =-L$(LIBLOC)/lib -L${CUDA_HOME}/targets/x86_64-linux/lib/stubs -L${CUDA_HOME}/targets/x86_64-linux/lib
-CUDAFLAGS +=-Xcompiler -fPIC -Xptxas -dlcm=ca --cudart static --relocatable-device-code=true -gencode arch=compute_70,code=sm_70 -gencode arch=compute_75,code=sm_75 -gencode arch=compute_80,code=sm_80 -gencode arch=compute_86,code=sm_86
+CUDAFLAGS +=-Xcompiler -fPIC -Xptxas -dlcm=ca --cudart static --relocatable-device-code=true $(GENCODE)
 
 CPU_OBJS=wtsne_cpu.o python_bindings.o
 GPU_OBJS=wtsne_gpu.cu.o
