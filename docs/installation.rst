@@ -8,9 +8,6 @@ try our `web version <https://gtonkinhill.github.io/mandrake-web/>`__
 
 Installing with conda (recommended)
 -----------------------------------
-.. important::
-    Our conda package is currently pending. Until it is available
-    please follow the manual installation information below.
 
 If you do not have ``conda`` you can install it through
 `miniconda <https://conda.io/miniconda.html>`_ and then add the necessary

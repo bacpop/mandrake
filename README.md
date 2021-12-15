@@ -2,6 +2,8 @@
 
 <!-- badges: start -->
 [![Build and run tests](https://github.com/johnlees/mandrake/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/johnlees/mandrake/actions/workflows/python-package-conda.yml)
+[![Anaconda package](https://anaconda.org/conda-forge/mandrake/badges/version.svg
+)](https://anaconda.org/conda-forge/mandrake)
 [![Documentation Status](https://readthedocs.org/projects/mandrake/badge/?version=latest)](https://mandrake.readthedocs.io/)
 <!-- badges: end -->
 
@@ -12,6 +14,12 @@ Documentation available at: https://mandrake.readthedocs.io/en/latest/
 ## Installation (briefly)
 
 See https://mandrake.readthedocs.io/en/latest/installation.html for more details.
+
+1. Install [miniconda](https://docs.conda.io/en/latest/miniconda.html).
+2. Run `conda create -n mandrake_env mandrake` to install into a clean environment.
+3. Run `conda activate mandrake_env` to use the environment.
+
+### Semi-manual
 
 You will need some dependencies, which you can install through `conda`:
 ```
