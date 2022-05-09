@@ -10,7 +10,7 @@ jobs:
         python-version: [ '3.8', '3.9' ]
         sketchlib-version: [ '1.7.4', '2.0.0' ]
       max-parallel: 5
-
+    name: linux python_${{ matrix.python-version }}_pp-sketchlib_${{ matrix.sketchlib-version }}
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
