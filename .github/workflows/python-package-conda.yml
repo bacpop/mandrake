@@ -6,6 +6,8 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     strategy:
+      matrix:
+        sketchlib-version: ['1.7.4', '2.0.0']
       max-parallel: 5
 
     steps:
@@ -21,6 +23,7 @@ jobs:
     - name: Install dependencies
       run: |
         conda env update --file environment.yml --name base
+        conda install pp-sketchlib=${{ matrix.sketchlib-version }}
     - name: Lint with flake8
       run: |
         conda install flake8
