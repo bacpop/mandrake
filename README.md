@@ -1,7 +1,7 @@
 # mandrake <img src='docs/images/mandragora.png' align="right" height="139" />
 
 <!-- badges: start -->
-[![Build and run tests](https://github.com/johnlees/mandrake/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/johnlees/mandrake/actions/workflows/python-package-conda.yml)
+[![Build and run tests](https://github.com/bacpop/mandrake/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/bacpop/mandrake/actions/workflows/python-package-conda.yml)
 [![Anaconda package](https://anaconda.org/conda-forge/mandrake/badges/version.svg
 )](https://anaconda.org/conda-forge/mandrake)
 [![Documentation Status](https://readthedocs.org/projects/mandrake/badge/?version=latest)](https://mandrake.readthedocs.io/)
@@ -18,6 +18,9 @@ See https://mandrake.readthedocs.io/en/latest/installation.html for more details
 1. Install [miniconda](https://docs.conda.io/en/latest/miniconda.html).
 2. Run `conda create -n mandrake_env mandrake` to install into a clean environment.
 3. Run `conda activate mandrake_env` to use the environment.
+
+Refer to the [conda-forge](https://conda-forge.org/docs/user/tipsandtricks.html#installing-cuda-enabled-packages-like-tensorflow-and-pytorch) documentation if
+you want to install a CUDA (GPU) enabled version.
 
 ### Semi-manual
 

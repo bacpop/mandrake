@@ -109,7 +109,7 @@ def main():
         if args.kNN < 0:
             raise ValueError("Invalid value for kNN")
         kNN = args.kNN
-        threshold = -1
+        threshold = -1.0
     elif args.threshold is not None:
         if args.threshold <= 0 or args.threshold > 1:
             raise ValueError("Invalid value for threshold")
