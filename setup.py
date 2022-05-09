@@ -107,9 +107,9 @@ setup(
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Bio-Informatics',
         'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
-    python_requires='>=3.7.0',
+    python_requires='>=3.8.0',
     keywords='bacteria genomics population-genetics k-mer visualisation',
     packages=['mandrake'],
     entry_points={

@@ -7,15 +7,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        sketchlib-version: ['1.7.4', '2.0.0']
+        python-version: [ '3.8', '3.9' ]
+        sketchlib-version: [ '1.7.4', '2.0.0' ]
       max-parallel: 5
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.8
+    - name: Set up Python ${{ matrix.sketchlib-version }}
       uses: actions/setup-python@v2
       with:
-        python-version: 3.8
+        python-version: ${{ matrix.sketchlib-version }}
     - name: Add conda to system path
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
@@ -23,7 +24,7 @@ jobs:
     - name: Install dependencies
       run: |
         conda env update --file environment.yml --name base
-        conda install pp-sketchlib=${{ matrix.sketchlib-version }}
+        conda install -y -c conda-forge pp-sketchlib=${{ matrix.sketchlib-version }}
     - name: Lint with flake8
       run: |
         conda install flake8
