@@ -61,31 +61,34 @@ def sketchlibDists(sketch_db, dist_col, kNN, threshold, cpus, use_gpu, device_id
             jaccard = False
         if threshold > 0:
             raise ValueError("Use kNN with --sketches")
-        I, J, dists = pp_sketchlib.querySelfSparse(sketch_db,
-                                                   names,
-                                                   kmers,
-                                                   True,
-                                                   jaccard,
-                                                   kNN,
-                                                   dist_col,
-                                                   cpus)
+        I, J, dists = pp_sketchlib.querySelfSparse(ref_db_name=sketch_db,
+                                                   rList=names,
+                                                   klist=kmers,
+                                                   random_correct=True,
+                                                   jaccard=jaccard,
+                                                   kNN=kNN,
+                                                   dist_cutoff=0,
+                                                   dist_col=dist_col,
+                                                   num_threads=cpus,
+                                                   use_gpu=use_gpu,
+                                                   device_id=device_id)
     else:
         # older versions of sketchlib do a dense query then sparsify the
         # return. Ok for smaller data, but runs out of memory on big datasets
         # sketchlib API needs positive int for kNN
         if kNN < 0:
             kNN = 0
-        I, J, dists = pp_sketchlib.queryDatabaseSparse(sketch_db,
-                                                      sketch_db,
-                                                      names,
-                                                      names,
-                                                      kmers,
-                                                      True,
-                                                      threshold,
-                                                      kNN,
-                                                      dist_col == 0,
-                                                      cpus,
-                                                      use_gpu,
-                                                      device_id)
+        I, J, dists = pp_sketchlib.queryDatabaseSparse(ref_db_name=sketch_db,
+                                                       query_db_name=sketch_db,
+                                                       rlist=names,
+                                                       qlist=names,
+                                                       klist=kmers,
+                                                       random_correct=True,
+                                                       dist_cutoff=threshold,
+                                                       kNN=kNN,
+                                                       core=(dist_col == 0),
+                                                       num_threads=cpus,
+                                                       use_gpu=use_gpu,
+                                                       device_id=device_id)
 
     return I, J, dists, names
