@@ -78,10 +78,12 @@ def sketchlibDists(sketch_db, dist_col, kNN, threshold, cpus, use_gpu, device_id
         # sketchlib API needs positive int for kNN
         if kNN < 0:
             kNN = 0
+        if threshold <= 0:
+            threshold = 0.0
         I, J, dists = pp_sketchlib.queryDatabaseSparse(ref_db_name=sketch_db,
                                                        query_db_name=sketch_db,
-                                                       rlist=names,
-                                                       qlist=names,
+                                                       rList=names,
+                                                       qList=names,
                                                        klist=kmers,
                                                        random_correct=True,
                                                        dist_cutoff=threshold,
