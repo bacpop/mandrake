@@ -28,14 +28,13 @@ subprocess.run(python_cmd + " ../mandrake-runner.py --version", shell=True, chec
 sys.stderr.write("Running with each input type\n")
 subprocess.run(python_cmd + " ../mandrake-runner.py --alignment sub5k_hiv_refs_prrt_trim.fas --kNN 50 --cpus 2 --maxIter 1000000", shell=True, check=True)
 subprocess.run(python_cmd + " ../mandrake-runner.py --sketches listeria.h5 --kNN 50 --cpus 2 --maxIter 1000000", shell=True, check=True)
+subprocess.run(python_cmd + " ../mandrake-runner.py --sketches listeria.h5 --use-accessory --kNN 50 --cpus 2 --maxIter 1000000", shell=True, check=True)
 subprocess.run(python_cmd + " ../mandrake-runner.py --accessory gene_presence_absence.Rtab --kNN 50 --cpus 2 --maxIter 1000000", shell=True, check=True)
 
 sys.stderr.write("kNN and threshold both work\n")
 subprocess.run(python_cmd + " ../mandrake-runner.py --alignment sub5k_hiv_refs_prrt_trim.fas --threshold 0.1 --cpus 2 --maxIter 1000000", shell=True, check=True)
-subprocess.run(python_cmd + " ../mandrake-runner.py --sketches listeria.h5 --threshold 0.1 --use-accessory --cpus 2 --maxIter 1000000", shell=True, check=True)
 subprocess.run(python_cmd + " ../mandrake-runner.py --accessory gene_presence_absence.Rtab --threshold 0.2 --cpus 2 --maxIter 1000000", shell=True, check=True)
 
-# test updating order is correct
 sys.stderr.write("Processing can be turned off\n")
 # This won't necessarily work
 # subprocess.run(python_cmd + " ../mandrake-runner.py --sketches listeria.h5 --kNN 50 --maxIter 10000000 --no-preprocessing", shell=True, check=True)
