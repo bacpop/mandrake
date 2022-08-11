@@ -1,11 +1,12 @@
 Citations
 =========
 
-Mandrake paper (forthcoming):
+Mandrake paper:
 
-Lees J, Tonkin-Hill G, Yang Z, Corander J.
-Visualising pathogen population structures by embedding millions of genomes
-into lower dimensional representations. 2021.
+John A Lees, Gerry Tonkin-Hill, Zhirong Yang and Jukka Corander
+Mandrake: visualizing microbial population structure by embedding millions of
+genomes into a low-dimensional representation. *Philosophical Transactions of
+The Royal Society B*. August 2022.
 
 The original SCE preprint:
 

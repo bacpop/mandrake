@@ -6,6 +6,11 @@ mandrake's documentation
    :alt:  mandrake (stochastic cluster embedding with genetic distances)
    :align: center
 
+.. image:: images/mandrake_logo_v2.png
+   :height: 140px
+   :alt:  mandrake
+   :align: center
+
 mandrake is a tool for creating visualisations of pathogen populations from
 their genome data. The visualisation produces are optimised to produce clusters of similar sequences,
 represented in a two dimensional embedding.
@@ -63,6 +68,7 @@ mandrake is very fast, and can be used on millions of input samples.
    animation.rst
    parallelisation.rst
    citing.rst
+   misc.rst
 
 * :ref:`genindex`
 * :ref:`search`
