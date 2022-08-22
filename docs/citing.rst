@@ -3,10 +3,10 @@ Citations
 
 Mandrake paper:
 
-John A Lees, Gerry Tonkin-Hill, Zhirong Yang and Jukka Corander
+Lees JA, Tonkin-Hill G, Yang Z, Corander J.
 Mandrake: visualizing microbial population structure by embedding millions of
 genomes into a low-dimensional representation. *Philosophical Transactions of
-The Royal Society B*. August 2022.
+The Royal Society B*. 2022;377: 20210237.
 
 The original SCE preprint:
 
