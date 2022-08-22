@@ -1,4 +1,4 @@
-# mandrake <img src='docs/images/mandragora.png' align="right" height="139" />
+# mandrake <img src='docs/images/mandrake_logo_v2.1.png' align="right" height="140" />
 
 <!-- badges: start -->
 [![Build and run tests](https://github.com/bacpop/mandrake/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/bacpop/mandrake/actions/workflows/python-package-conda.yml)
@@ -7,7 +7,16 @@
 [![Documentation Status](https://readthedocs.org/projects/mandrake/badge/?version=latest)](https://mandrake.readthedocs.io/)
 <!-- badges: end -->
 
-Fast visualisation of the population structure of pathogens using Stochastic Cluster Embedding
+Fast visualisation of the population structure of pathogens using Stochastic Cluster Embedding.
+
+Paper:
+
+Lees JA, Tonkin-Hill G, Yang Z, Corander J.
+Mandrake: visualizing microbial population structure by embedding millions of
+genomes into a low-dimensional representation. *Philosophical Transactions of
+The Royal Society B*. 2022;377: 20210237.
+
+https://doi.org/10.1098/rstb.2021.0237
 
 Documentation available at: https://mandrake.readthedocs.io/en/latest/
 

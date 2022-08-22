@@ -63,6 +63,7 @@ mandrake is very fast, and can be used on millions of input samples.
    animation.rst
    parallelisation.rst
    citing.rst
+   misc.rst
 
 * :ref:`genindex`
 * :ref:`search`
