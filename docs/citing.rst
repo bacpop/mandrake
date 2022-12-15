@@ -8,10 +8,15 @@ Mandrake: visualizing microbial population structure by embedding millions of
 genomes into a low-dimensional representation. *Philosophical Transactions of
 The Royal Society B*. 2022;377: 20210237.
 
-The original SCE preprint:
+https://doi.org/10.1098/rstb.2021.0237
 
-Yang Z, Chen Y, Sedov D, Kaski S, Corander J. Stochastic Cluster Embedding.
-arXiv [cs.LG]. 2021. Available: http://arxiv.org/abs/2108.08003
+Stochastic Cluster Embedding paper:
+
+Yang Z, Chen Y, Sedov D, Kaski S, Corander J.
+Stochastic cluster embedding.
+Stat Comput 33, 12 (2023).
+
+https://doi.org/10.1007/s11222-022-10186-z
 
 Original SCE code:
 
