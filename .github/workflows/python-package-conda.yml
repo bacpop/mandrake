@@ -5,26 +5,12 @@ on: [push]
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [ '3.8', '3.9' ]
-        sketchlib-version: [ '1.7.4', '2.0.0' ]
-      max-parallel: 5
-    name: linux python_${{ matrix.python-version }}_pp-sketchlib_${{ matrix.sketchlib-version }}
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Add conda to system path
-      run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        echo $CONDA/bin >> $GITHUB_PATH
-    - name: Install dependencies
-      run: |
-        conda env update --file environment.yml --name base
-        conda install -y -c conda-forge pp-sketchlib=${{ matrix.sketchlib-version }}
     - name: Lint with flake8
       run: |
         conda install flake8
@@ -32,9 +18,12 @@ jobs:
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Build and test
+    - name: Install Conda environment from environment.yml
+      uses: mamba-org/provision-with-micromamba@main
+      with:
+        cache-env: true
+    - name: Install and run_test.py
+      shell: bash -l {0}
       run: |
-        PATH=$CONDA/bin/bin:$PATH
-        source $CONDA/bin/activate base
-        $CONDA/bin/python -m pip install --no-deps --ignore-installed .
-        cd test && export MANDRAKE_PYTHON=$CONDA/bin/python && $CONDA/bin/python run_test.py
+        python -m pip install --no-deps --ignore-installed -v .
+        cd test && python run_test.py
