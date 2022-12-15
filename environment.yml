@@ -6,6 +6,7 @@ channels:
   - r
 dependencies:
   - pip
+  - flake8
   - numpy
   - scipy
   - pandas
