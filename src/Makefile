@@ -26,6 +26,9 @@ else
 endif
 CUDA_LDFLAGS =-L$(LIBLOC)/lib -L${CUDA_HOME}/targets/x86_64-linux/lib/stubs -L${CUDA_HOME}/targets/x86_64-linux/lib
 CUDAFLAGS +=-Xcompiler -fPIC -Xptxas -dlcm=ca --cudart static --relocatable-device-code=true $(GENCODE)
+CXXFLAGS += -DGPU_AVAILABLE
+CPPFLAGS += -DGPU_AVAILABLE
+
 
 CPU_OBJS=wtsne_cpu.o python_bindings.o
 GPU_OBJS=wtsne_gpu.cu.o
