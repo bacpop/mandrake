@@ -22,3 +22,5 @@ dependencies:
   - libgomp
   - tqdm
   - ffmpeg
+  - setuptools
+  - distutils
