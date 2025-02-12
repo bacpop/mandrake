@@ -30,6 +30,8 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Install and run_test.py
       shell: bash -l {0}
+      env:
+        ENV CONDA_OVERRIDE_ARCHSPEC: skylake
       run: |
         python -m pip install --no-deps --ignore-installed -v .
         cd test && python run_test.py
