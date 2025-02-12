@@ -4,6 +4,7 @@ on: [push]
 
 env:
   ENV CONDA_OVERRIDE_ARCHSPEC: "skylake"
+  SCE_BUILD_ENV: "conda_forge_cuda"
 jobs:
   build-linux:
     runs-on: ubuntu-latest
