@@ -33,6 +33,5 @@ jobs:
     - name: Install and run_test.py
       shell: bash -el {0}
       run: |
-        python setup.py install
         python -m pip install --no-deps --ignore-installed -v .
         cd test && python run_test.py
