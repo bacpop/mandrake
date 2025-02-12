@@ -17,6 +17,8 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Conda environment from environment.yml
+      env:
+        ENV CONDA_OVERRIDE_ARCHSPEC: "skylake"
       uses: conda-incubator/setup-miniconda@v3
       with:
         environment-file: environment.yml
