@@ -17,12 +17,12 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Conda environment from environment.yml
-      uses: mamba-org/setup-micromamba@v2
+      uses: conda-incubator/setup-miniconda@v3
       with:
         environment-file: environment.yml
-        cache-environment: true
-        create-args: >-
-          python=${{ matrix.python-version }}
+        activate-environment: sce_env
+        python-version: ${{ matrix.python-version }}
+        auto-activate-base: false
     - name: Lint with flake8
       shell: bash -l {0}
       run: |
