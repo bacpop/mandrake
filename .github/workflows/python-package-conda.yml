@@ -19,6 +19,7 @@ jobs:
       with:
         environment-file: environment.yml
         cache-environment: true
+        generate-run-shell: true
         create-args: >-
           python=${{ matrix.python-version }}
     - name: Lint with flake8
@@ -29,8 +30,7 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Install and run_test.py
-      shell: bash -l {0}
+      shell: micromamba-shell {0}
       run: |
-        python setup.py install
         python -m pip install --no-deps --ignore-installed -v .
         cd test && python run_test.py
