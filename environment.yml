@@ -23,4 +23,3 @@ dependencies:
   - tqdm
   - ffmpeg
   - setuptools
-  - distutils
