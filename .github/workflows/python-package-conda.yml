@@ -18,7 +18,7 @@ jobs:
       uses: mamba-org/setup-micromamba@v2
       with:
         environment-file: environment.yml
-        cache-environment: true
+        # cache-environment: true
         create-args: >-
           python=${{ matrix.python-version }}
     - name: Lint with flake8
