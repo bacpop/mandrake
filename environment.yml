@@ -22,6 +22,3 @@ dependencies:
   - libgomp
   - tqdm
   - ffmpeg
-  - cudatoolkit
-  - nvcc_linux-64
-  - libgfortran-ng
