@@ -25,4 +25,3 @@ dependencies:
   - cudatoolkit
   - nvcc_linux-64
   - libgfortran-ng
-  - cuda
