@@ -5,9 +5,10 @@
 #include "sound.hpp"
 #include "wtsne.hpp"
 
+#include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 namespace py = pybind11;
-
+      
 PYBIND11_MODULE(SCE, m) {
   m.doc() = "Stochastic cluster embedding";
   m.attr("version") = VERSION_INFO;
