@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(SCE)
 set(CMAKE_CXX_STANDARD 14)
-cmake_policy(SET CMP0104 OLD) # Can't get CUDA_ARCHITECTURES to work with NEW
+# cmake_policy(SET CMP0104 OLD) # Can't get CUDA_ARCHITECTURES to work with NEW
 
 # Variable definitions
 set(TARGET_NAME SCE)
