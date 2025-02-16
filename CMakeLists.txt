@@ -34,7 +34,8 @@ endif()
 
 # Add libraries
 find_package(ZLIB)
-find_package(pybind11 REQUIRED)
+find_package(Python COMPONENTS Interpreter Development)
+find_package(pybind11 CONFIG REQUIRED)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 
 # Check for CUDA and compiles GPU library
