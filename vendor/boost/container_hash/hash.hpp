@@ -128,8 +128,8 @@ namespace boost
 #else
         template <typename T>
         struct hash_base {
-            typedef T argument_type;
-            typedef std::size_t result_type;
+            using argument_type = T;
+            using result_type = std::size_t;
         };
 #endif
 
