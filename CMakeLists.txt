@@ -19,7 +19,7 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
 
 if(UNIX AND NOT APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS")
-    set(CMAKE_LD_FLAGS "${CMAKE_LDFLAGS} -Wl,--as-needed")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--as-needed")
 endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -ffast-math -funroll-loops -m64")
 
@@ -47,7 +47,7 @@ if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
     set(CUDA_OPTS "-Wreorder -Xcompiler -fPIC -Xcompiler -Wall -Xcompiler -fopenmp -Xptxas -dlcm=ca --cudart static --relocatable-device-code=false")
     if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-        set(CMAKE_CUDA_ARCHITECTURES 80 86 90)
+        set(CMAKE_CUDA_ARCHITECTURES "80;86;90" CACHE STRING "CUDA architectures")
     endif()
     if(CMAKE_BUILD_TYPE MATCHES Debug)
         string(APPEND CUDA_OPTS " -G")
@@ -59,24 +59,19 @@ if(CMAKE_CUDA_COMPILER)
     set(CMAKE_CUDA_FLAGS "${CUDA_OPTS}")
 
     add_compile_definitions(GPU_AVAILABLE)
-    add_library("${TARGET_NAME}_CUDA" OBJECT src/wtsne_gpu.cu)
-    target_include_directories("${TARGET_NAME}_CUDA" PRIVATE "${pybind11_INCLUDE_DIRS}")
-    set_property(TARGET "${TARGET_NAME}_CUDA"
-                 PROPERTY POSITION_INDEPENDENT_CODE ON
-                 CUDA_SEPARABLE_COMPILATION OFF
-                 CUDA_RESOLVE_DEVICE_SYMBOLS ON   # try and ensure device link with nvcc
-                 CUDA_VISIBILITY_PRESET "hidden")
-else()
+    # Create Python extension module with CUDA support
+    pybind11_add_module(${TARGET_NAME}_CUDA src/wtsne_gpu.cu)
+
+    # Set CUDA properties (optional, but recommended)
+    set_target_properties(${TARGET_NAME}_CUDA PROPERTIES
+        CUDA_SEPARABLE_COMPILATION ON  # Allows linking multiple CUDA files
+        POSITION_INDEPENDENT_CODE ON    # Required for shared libraries
+    )
     message(STATUS "CUDA not found, compiling CPU code only")
 endif()
 
 # Compile CPU library
-add_library("${TARGET_NAME}" MODULE src/wtsne_cpu.cpp src/python_bindings.cpp)
-set_target_properties("${TARGET_NAME}" PROPERTIES
-    CXX_VISIBILITY_PRESET "hidden"
-    PREFIX "${PYTHON_MODULE_PREFIX}"
-    SUFFIX "${PYTHON_MODULE_EXTENSION}"
-)
+pybind11_add_module("${TARGET_NAME}" src/wtsne_cpu.cpp src/python_bindings.cpp)
 if(UNIX AND (NOT APPLE OR NOT CMAKE_COMPILER_IS_GNUCC))
     set_target_properties("${TARGET_NAME}" PROPERTIES
                           INTERPROCEDURAL_OPTIMIZATION ON)
@@ -84,11 +79,9 @@ endif()
 
 if(CMAKE_CUDA_COMPILER)
     target_link_libraries("${TARGET_NAME}" PRIVATE "${TARGET_NAME}_CUDA")
-    set_property(TARGET "${TARGET_NAME}" PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 
-target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module)
-if(DEFINED ENV{CONDA_PREFIX} AND (NOT APPLE OR CMAKE_COMPILER_IS_GNUCC OR ENV{SCE_BUILD_ENV} EQUAL "conda_forge"))
+if(DEFINED ENV{CONDA_PREFIX} AND (NOT APPLE OR CMAKE_COMPILER_IS_GNUCC OR "$ENV{SCE_BUILD_ENV}" STREQUAL "conda_forge"))
   target_link_libraries("${TARGET_NAME}" PRIVATE gomp z)
 else()
   target_link_libraries("${TARGET_NAME}" PRIVATE ZLIB::ZLIB)
