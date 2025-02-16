@@ -36,6 +36,7 @@ endif()
 find_package(ZLIB)
 find_package(Python COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG REQUIRED)
+set(PYBIND11_CPP_STANDARD -std=c++14)  # Match your C++ standard
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 
 # Check for CUDA and compiles GPU library
