@@ -68,6 +68,7 @@ if(CMAKE_CUDA_COMPILER)
         CUDA_SEPARABLE_COMPILATION ON  # Allows linking multiple CUDA files
         POSITION_INDEPENDENT_CODE ON    # Required for shared libraries
     )
+else()
     message(STATUS "CUDA not found, compiling CPU code only")
 endif()
 
@@ -90,3 +91,5 @@ else()
       target_link_libraries("${TARGET_NAME}" PRIVATE OpenMP::OpenMP_CXX)
   endif()
 endif()
+
+target_include_directories("${TARGET_NAME}" PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
