@@ -16,7 +16,7 @@ dependencies:
   - hdbscan
   - h5py
   - pp-sketchlib >=1.7.0
-  - pybind11
+  - pybind11 >= 2.12.0
   - zlib
   - cmake >= 3.19
   - libgomp
