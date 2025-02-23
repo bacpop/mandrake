@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19)
 project(SCE)
-set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ version selection") 
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ version selection") 
 cmake_policy(SET CMP0104 NEW) # Can't get CUDA_ARCHITECTURES to work with NEW
 
 # Variable definitions
@@ -11,15 +11,10 @@ IF(CMAKE_COMPILER_IS_GNUCC OR "$ENV{SCE_BUILD_ENV}" STREQUAL "conda_forge")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 ENDIF()
 
-if(CMAKE_COMPILER_IS_GNUCC)
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
-        add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
-        # Or other GCC 13 specific accommodations
-    endif()
-endif()
-
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
+target_compile_definitions("${TARGET_NAME}" PRIVATE _FORTIFY_SOURCE=0)
+
 # Set these to profile
 # set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g")
 # set(CMAKE_CUDA_FLAGS_RELEASE "-O2 -DUSE_CUDA_PROFILER")
@@ -97,6 +92,4 @@ else()
       target_link_libraries("${TARGET_NAME}" PRIVATE OpenMP::OpenMP_CXX)
   endif()
 endif()
-
-target_include_directories("${TARGET_NAME}" PRIVATE src)
 
