@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19)
 project(SCE)
-set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ version selection") 
+set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ version selection") 
 cmake_policy(SET CMP0104 NEW) # Can't get CUDA_ARCHITECTURES to work with NEW
 
 # Variable definitions
@@ -10,6 +10,13 @@ add_compile_definitions(PYTHON_EXT)
 IF(CMAKE_COMPILER_IS_GNUCC OR "$ENV{SCE_BUILD_ENV}" STREQUAL "conda_forge")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 ENDIF()
+
+if(CMAKE_COMPILER_IS_GNUCC)
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
+        add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
+        # Or other GCC 13 specific accommodations
+    endif()
+endif()
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
