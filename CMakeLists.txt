@@ -91,3 +91,5 @@ else()
   endif()
 endif()
 
+target_include_directories("${TARGET_NAME}" PRIVATE src)
+

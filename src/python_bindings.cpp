@@ -1,8 +1,6 @@
 // 2021 John Lees, Gerry Tonkin-Hill, Zhirong Yang
 // See LICENSE files
 
-#include <cstdint>
-#include <algorithm>
 #include "pairsnp.hpp"
 #include "sound.hpp"
 #include "wtsne.hpp"
