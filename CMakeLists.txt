@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19)
 project(SCE)
-set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ version selection") 
+set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ version selection") 
 cmake_policy(SET CMP0104 NEW) # Can't get CUDA_ARCHITECTURES to work with NEW
 
 # Variable definitions
@@ -25,7 +25,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -ffast-math -funroll-loops -m64")
 
 # Set paths for non standard lib/ and include/ locations
 if(DEFINED ENV{CONDA_PREFIX})
-    target_include_directories(${TARGET_NAME} PUBLIC $ENV{CONDA_PREFIX}/include)
+    include_directories($ENV{CONDA_PREFIX}/include)
     link_directories($ENV{CONDA_PREFIX}/lib)
     link_directories($ENV{CONDA_PREFIX}/lib/intel64)
 else()
@@ -33,11 +33,10 @@ else()
 endif()
 
 # Add libraries
-find_package(ZLIB REQUIRED)
+find_package(ZLIB)
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
-target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/vendor)
-
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 
 # Check for CUDA and compiles GPU library
 include(CheckLanguage)
@@ -92,4 +91,5 @@ else()
   endif()
 endif()
 
+target_include_directories("${TARGET_NAME}" PRIVATE src)
 
