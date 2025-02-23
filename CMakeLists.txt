@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19)
 project(SCE)
-set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ version selection") 
+set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ version selection") 
 cmake_policy(SET CMP0104 NEW) # Can't get CUDA_ARCHITECTURES to work with NEW
 
 # Variable definitions
@@ -13,7 +13,7 @@ ENDIF()
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
-target_compile_definitions("${TARGET_NAME}" PRIVATE _FORTIFY_SOURCE=0)
+
 
 # Set these to profile
 # set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g")
@@ -93,3 +93,4 @@ else()
   endif()
 endif()
 
+target_compile_definitions("${TARGET_NAME}" PRIVATE _FORTIFY_SOURCE=0)
