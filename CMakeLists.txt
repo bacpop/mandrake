@@ -75,7 +75,7 @@ endif()
 
 # Compile CPU library
 pybind11_add_module("${TARGET_NAME}" src/wtsne_cpu.cpp src/python_bindings.cpp)
-# target_compile_definitions("${TARGET_NAME}" PRIVATE _FORTIFY_SOURCE=0)
+target_compile_definitions("${TARGET_NAME}" PRIVATE _FORTIFY_SOURCE=0)
 
 if(UNIX AND (NOT APPLE OR NOT CMAKE_COMPILER_IS_GNUCC))
     set_target_properties("${TARGET_NAME}" PROPERTIES
