@@ -196,17 +196,17 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   std::mutex gil_mutex; 
   std::atomic<bool> interrupt{false};
 
-#pragma omp parallel for schedule(dynamic) reduction(+:len) num_threads(n_threads)
+#pragma omp parallel for schedule(static) reduction(+:len) num_threads(n_threads)
   for (uint64_t i = 0; i < n_seqs; i++) {
     // Cannot throw in an openmp block, short circuit instead
     // Check for interrupts in a thread-safe way
     {
         std::lock_guard<std::mutex> lock(gil_mutex);
-        PyGILState_STATE gstate = PyGILState_Ensure();
+        // PyGILState_STATE gstate = PyGILState_Ensure();
         if (PyErr_CheckSignals() != 0) {
             interrupt.store(true);
         }
-        PyGILState_Release(gstate);
+        // PyGILState_Release(gstate);
     }
     if (interrupt.load(std::memory_order_relaxed)) {
       continue;
@@ -253,9 +253,9 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
 
   // Finalise
   if (interrupt.load(std::memory_order_relaxed)) {
-    PyGILState_STATE gstate = PyGILState_Ensure();
+    // PyGILState_STATE gstate = PyGILState_Ensure();
     check_interrupts(); 
-    PyGILState_Release(gstate);
+    // PyGILState_Release(gstate);
   } else {
     dist_progress.finalise();
   }
