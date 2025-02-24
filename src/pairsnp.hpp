@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <string>
 #include <zlib.h>
-#include <mutex>
 #include <atomic>
 #include <omp.h>
 
