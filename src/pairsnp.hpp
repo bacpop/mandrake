@@ -12,6 +12,7 @@
 #include "progress.hpp"
 
 #include <boost/dynamic_bitset.hpp>
+#include <Python.h>
 
 template <typename T>
 std::vector<T> combine_vectors(const std::vector<std::vector<T>> &vec,
@@ -186,29 +187,28 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
     update_every = n_seqs / n_progress_ticks;
   }
   ProgressMeter dist_progress(n_progress_ticks, true);
-  int progress = 0;
+  std::atomic<int> progress{0};
 
   // Shared variables for openmp loop
   std::vector<std::vector<uint64_t>> rows(n_seqs);
   std::vector<std::vector<uint64_t>> cols(n_seqs);
   std::vector<std::vector<double>> distances(n_seqs);
   uint64_t len = 0;
-  std::mutex gil_mutex; 
+
   std::atomic<bool> interrupt{false};
 
-#pragma omp parallel for schedule(static) reduction(+:len) num_threads(n_threads)
+#pragma omp parallel for schedule(dynamic) reduction(+:len) num_threads(n_threads)
   for (uint64_t i = 0; i < n_seqs; i++) {
     // Cannot throw in an openmp block, short circuit instead
     // Check for interrupts in a thread-safe way
     {
-        std::lock_guard<std::mutex> lock(gil_mutex);
         PyGILState_STATE gstate = PyGILState_Ensure();  // Restore the calls to manage GIL
         if (PyErr_CheckSignals() != 0) {
-            interrupt.store(true);
+          interrupt = true;
         }
         PyGILState_Release(gstate);  // Restore the release of GIL
     }
-    if (interrupt.load(std::memory_order_relaxed)) {
+    if (interrupt) {
       continue;
     }
       
@@ -252,10 +252,10 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   }
 
   // Finalise
-  if (interrupt.load(std::memory_order_relaxed)) {
-    // PyGILState_STATE gstate = PyGILState_Ensure(); // Manage GIL for cleanup
+  if (interrupt) {
+    PyGILState_STATE gstate = PyGILState_Ensure(); // Manage GIL for cleanup
     check_interrupts(); 
-    // PyGILState_Release(gstate); // Release GIL
+    PyGILState_Release(gstate); // Release GIL
   } else {
     dist_progress.finalise();
   }
