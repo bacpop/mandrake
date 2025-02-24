@@ -196,7 +196,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   std::mutex gil_mutex; 
   std::atomic<bool> interrupt{false};
 
-#pragma omp parallel for schedule(dynamic) reduction(+:len) num_threads(n_threads)
+#pragma omp parallel for schedule(static) reduction(+:len) num_threads(n_threads)
   for (uint64_t i = 0; i < n_seqs; i++) {
     // Cannot throw in an openmp block, short circuit instead
     // Check for interrupts in a thread-safe way
