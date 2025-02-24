@@ -249,9 +249,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
 
   // Finalise
   if (interrupt) {
-    PyGILState_STATE gstate = PyGILState_Ensure(); // Manage GIL for cleanup
     check_interrupts(); 
-    PyGILState_Release(gstate); // Release GIL
   } else {
     dist_progress.finalise();
   }
