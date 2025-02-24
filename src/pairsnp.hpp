@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <string>
 #include <zlib.h>
+#include <mutex>
+
 
 #include "kseq.h"
 #include "progress.hpp"
@@ -196,50 +198,62 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
 #pragma omp parallel for schedule(static) reduction(+:len) num_threads(n_threads)
   for (uint64_t i = 0; i < n_seqs; i++) {
     // Cannot throw in an openmp block, short circuit instead
-    if (interrupt || PyErr_CheckSignals() != 0) {
-      interrupt = true;
-    } else {
-      std::vector<int> comp_snps(n_seqs);
-      boost::dynamic_bitset<> res(seq_length);
-
-      for (uint64_t j = 0; j < n_seqs; j++) {
-
-        res = A_snps[i] & A_snps[j];
-        res |= C_snps[i] & C_snps[j];
-        res |= G_snps[i] & G_snps[j];
-        res |= T_snps[i] & T_snps[j];
-
-        comp_snps[j] = seq_length - res.count();
-      }
-
-      // if using knn find the distance needed
-      int row_dist_cutoff = dist;
-      if (knn > 0) {
-        std::vector<int> s_comp = comp_snps;
-        std::sort(s_comp.begin(), s_comp.end());
-        row_dist_cutoff =
-            s_comp[knn]; // knn is 1-indexed, so self will be ignored
-      }
-
-      // output distances
-      for (size_t j = 0; j < n_seqs; j++) {
-        if ((row_dist_cutoff < 0) || (comp_snps[j] <= row_dist_cutoff)) {
-          rows[i].push_back(i);
-          cols[i].push_back(j);
-          distances[i].push_back(comp_snps[j]);
+    std::mutex gil_mutex;
+    // Check for interrupts in a thread-safe way
+    {
+        std::lock_guard<std::mutex> lock(gil_mutex);
+        PyGILState_STATE gstate = PyGILState_Ensure();
+        if (PyErr_CheckSignals() != 0) {
+            interrupt = true;
         }
-      }
-      len += distances[i].size();
+        PyGILState_Release(gstate);
+    }
+    if (interrupt) continue;
+      
+    std::vector<int> comp_snps(n_seqs);
+    boost::dynamic_bitset<> res(seq_length);
 
-      if (i % update_every == 0) {
-#pragma omp critical
-        dist_progress.tick_count(++progress);
+    for (uint64_t j = 0; j < n_seqs; j++) {
+
+      res = A_snps[i] & A_snps[j];
+      res |= C_snps[i] & C_snps[j];
+      res |= G_snps[i] & G_snps[j];
+      res |= T_snps[i] & T_snps[j];
+
+      comp_snps[j] = seq_length - res.count();
+    }
+
+    // if using knn find the distance needed
+    int row_dist_cutoff = dist;
+    if (knn > 0) {
+      std::vector<int> s_comp = comp_snps;
+      std::sort(s_comp.begin(), s_comp.end());
+      row_dist_cutoff =
+          s_comp[knn]; // knn is 1-indexed, so self will be ignored
+    }
+
+    // output distances
+    for (size_t j = 0; j < n_seqs; j++) {
+      if ((row_dist_cutoff < 0) || (comp_snps[j] <= row_dist_cutoff)) {
+        rows[i].push_back(i);
+        cols[i].push_back(j);
+        distances[i].push_back(comp_snps[j]);
       }
     }
+    len += distances[i].size();
+
+    if (i % update_every == 0) {
+#pragma omp critical
+      dist_progress.tick_count(++progress);
+    }
+    
   }
 
   // Finalise
   if (interrupt) {
+    PyGILState_STATE gstate = PyGILState_Ensure();
+    PyErr_CheckSignals();
+    PyGILState_Release(gstate);
     check_interrupts();
   } else {
     dist_progress.finalise();
