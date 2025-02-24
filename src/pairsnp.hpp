@@ -6,7 +6,7 @@
 #include <string>
 #include <zlib.h>
 #include <mutex>
-#include <atomic>
+
 
 #include "kseq.h"
 #include "progress.hpp"
@@ -194,7 +194,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   std::vector<std::vector<double>> distances(n_seqs);
   uint64_t len = 0;
   std::mutex gil_mutex; 
-  std::atomic<bool> interrupt{false};
+  bool interrupt = false;
 
 #pragma omp parallel for schedule(static) reduction(+:len) num_threads(n_threads)
   for (uint64_t i = 0; i < n_seqs; i++) {
@@ -202,15 +202,11 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
     // Check for interrupts in a thread-safe way
     {
         std::lock_guard<std::mutex> lock(gil_mutex);
-        // PyGILState_STATE gstate = PyGILState_Ensure();
         if (PyErr_CheckSignals() != 0) {
-            interrupt.store(true);
+            interrupt = true;
         }
-        // PyGILState_Release(gstate);
     }
-    if (interrupt.load(std::memory_order_relaxed)) {
-      continue;
-    }
+    if (interrupt) continue;
       
     std::vector<int> comp_snps(n_seqs);
     boost::dynamic_bitset<> res(seq_length);
@@ -252,10 +248,8 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   }
 
   // Finalise
-  if (interrupt.load(std::memory_order_relaxed)) {
-    // PyGILState_STATE gstate = PyGILState_Ensure();
+  if (interrupt) {
     check_interrupts(); 
-    // PyGILState_Release(gstate);
   } else {
     dist_progress.finalise();
   }
