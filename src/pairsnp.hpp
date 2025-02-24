@@ -202,11 +202,11 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
     // Check for interrupts in a thread-safe way
     {
         std::lock_guard<std::mutex> lock(gil_mutex);
-        // PyGILState_STATE gstate = PyGILState_Ensure();
+        PyGILState_STATE gstate = PyGILState_Ensure();  // Restore the calls to manage GIL
         if (PyErr_CheckSignals() != 0) {
             interrupt.store(true);
         }
-        // PyGILState_Release(gstate);
+        PyGILState_Release(gstate);  // Restore the release of GIL
     }
     if (interrupt.load(std::memory_order_relaxed)) {
       continue;
@@ -253,9 +253,9 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
 
   // Finalise
   if (interrupt.load(std::memory_order_relaxed)) {
-    // PyGILState_STATE gstate = PyGILState_Ensure();
+    PyGILState_STATE gstate = PyGILState_Ensure(); // Manage GIL for cleanup
     check_interrupts(); 
-    // PyGILState_Release(gstate);
+    PyGILState_Release(gstate); // Release GIL
   } else {
     dist_progress.finalise();
   }
