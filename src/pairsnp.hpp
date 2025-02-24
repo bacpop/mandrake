@@ -253,9 +253,9 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
 
   // Finalise
   if (interrupt.load(std::memory_order_relaxed)) {
-    PyGILState_STATE gstate = PyGILState_Ensure(); // Manage GIL for cleanup
+    // PyGILState_STATE gstate = PyGILState_Ensure(); // Manage GIL for cleanup
     check_interrupts(); 
-    PyGILState_Release(gstate); // Release GIL
+    // PyGILState_Release(gstate); // Release GIL
   } else {
     dist_progress.finalise();
   }
