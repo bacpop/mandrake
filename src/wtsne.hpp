@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstring>   // Ensure C string functions are included first
+#include <cwchar>    // Then include wide character support
 #include <algorithm>
 #include <array>
 #include <chrono>
