@@ -7,6 +7,7 @@
 #include <zlib.h>
 #include <mutex>
 #include <atomic>
+#include <omp.h>
 
 #include "kseq.h"
 #include "progress.hpp"
@@ -200,13 +201,8 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
 #pragma omp parallel for schedule(dynamic) reduction(+:len) num_threads(n_threads)
   for (uint64_t i = 0; i < n_seqs; i++) {
     // Cannot throw in an openmp block, short circuit instead
-    // Check for interrupts in a thread-safe way
-    {
-        PyGILState_STATE gstate = PyGILState_Ensure();  // Restore the calls to manage GIL
-        if (PyErr_CheckSignals() != 0) {
-          interrupt = true;
-        }
-        PyGILState_Release(gstate);  // Restore the release of GIL
+    if (omp_get_thread_num() == 0 && PyErr_CheckSignals() != 0) {
+      interrupt = true;
     }
     if (interrupt) {
       continue;
