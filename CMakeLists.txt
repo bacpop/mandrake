@@ -76,6 +76,7 @@ set_target_properties("${TARGET_NAME}" PROPERTIES
     PREFIX "${PYTHON_MODULE_PREFIX}"
     SUFFIX "${PYTHON_MODULE_EXTENSION}"
 )
+target_compile_definitions("${TARGET_NAME}" PRIVATE _FORTIFY_SOURCE=0)
 if(UNIX AND (NOT APPLE OR NOT CMAKE_COMPILER_IS_GNUCC))
     set_target_properties("${TARGET_NAME}" PROPERTIES
                           INTERPROCEDURAL_OPTIMIZATION ON)
