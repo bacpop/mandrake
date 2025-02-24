@@ -195,7 +195,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
   uint64_t len = 0;
   bool interrupt = false;
 
-#pragma omp parallel for schedule(static) reduction(+:len) num_threads(n_threads)
+#pragma omp parallel for schedule(dynamic) reduction(+:len) num_threads(n_threads)
   for (uint64_t i = 0; i < n_seqs; i++) {
     // Cannot throw in an openmp block, short circuit instead
     std::mutex gil_mutex;
