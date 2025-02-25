@@ -5,7 +5,6 @@
 #include <chrono>
 #include <cstddef> // size_t
 #include <cstdint>
-#include <locale>
 #include <iostream>
 #include <limits>
 #include <memory>
