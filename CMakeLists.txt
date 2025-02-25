@@ -23,7 +23,7 @@ if(UNIX AND NOT APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--as-needed")
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O1 -ffast-math -funroll-loops -m64")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -ffast-math -funroll-loops -m64")
 
 # Set paths for non standard lib/ and include/ locations
 if(DEFINED ENV{CONDA_PREFIX})
