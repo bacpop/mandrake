@@ -1,7 +1,7 @@
 // 2021 John Lees, Gerry Tonkin-Hill, Zhirong Yang
 // See LICENSE files
 
-#include <wchar.h>
+#include <cwchar>
 #include "pairsnp.hpp"
 #include "sound.hpp"
 #include "wtsne.hpp"
