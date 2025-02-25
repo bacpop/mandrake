@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cwchar>
-#include <wchar.h>
 #include <algorithm>
 #include <array>
 #include <chrono>

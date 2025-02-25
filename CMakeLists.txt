@@ -36,9 +36,10 @@ endif()
 
 # Add libraries
 find_package(ZLIB REQUIRED)
+find_package(Boost REQUIRED)
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor)
+include_directories(${Boost_INCLUDE_DIRS})
 
 # Check for CUDA and compiles GPU library
 include(CheckLanguage)
