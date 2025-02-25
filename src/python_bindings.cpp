@@ -2,6 +2,7 @@
 // See LICENSE files
 
 #include <cwchar>
+#include <wchar.h>
 #include "pairsnp.hpp"
 #include "sound.hpp"
 #include "wtsne.hpp"
