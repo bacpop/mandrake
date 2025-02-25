@@ -73,14 +73,22 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
 // https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/manifold/_utils.pyx
 #pragma omp parallel for schedule(static) num_threads(n_threads)
     for (uint64_t sample_idx = 0; sample_idx < n_samples; ++sample_idx) {
-      real_t beta_min = -std::numeric_limits<real_t>::infinity();
-      real_t beta_max = std::numeric_limits<real_t>::infinity();
+      real_t beta_min = -std::numeric_limits<real_t>::max();
+      real_t beta_max = std::numeric_limits<real_t>::max();
       real_t beta = 1.0;
+
+      const uint64_t start_idx = row_start_idx[sample_idx];
+      const uint64_t end_idx = row_start_idx[sample_idx + 1];
+      // skip empty
+      if (end_idx == start_idx) {
+        continue;
+      }
+
       real_t sum_Pi, sum_disti_Pi, entropy, entropy_diff;
       for (int l = 0; l < n_steps; ++l) {
         sum_Pi = 0.0;
-        for (uint64_t j = row_start_idx[sample_idx];
-             j < row_start_idx[sample_idx + 1]; ++j) {
+        for (uint64_t j = start_idx; j < end_idx; ++j)
+        {
           P[j] = std::exp(-dists[j] * beta);
           sum_Pi += P[j];
         }
@@ -90,8 +98,8 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
         }
         sum_disti_Pi = 0.0;
 
-        for (uint64_t j = row_start_idx[sample_idx];
-             j < row_start_idx[sample_idx + 1]; ++j) {
+        for (uint64_t j = start_idx; j < end_idx; ++j)
+        {
           P[j] /= sum_Pi;
           sum_disti_Pi += dists[j] * P[j];
         }
@@ -105,14 +113,14 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
 
         if (entropy_diff > 0.0) {
           beta_min = beta;
-          if (beta_max == std::numeric_limits<real_t>::infinity()) {
+          if (beta_max == std::numeric_limits<real_t>::max()) {
             beta *= 2.0;
           } else {
             beta = (beta + beta_max) * 0.5;
           }
         } else {
           beta_max = beta;
-          if (beta_min == -std::numeric_limits<real_t>::infinity()) {
+          if (beta_min == -std::numeric_limits<real_t>::max()) {
             beta *= 0.5;
           } else {
             beta = (beta + beta_min) * 0.5;
@@ -147,6 +155,11 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   // Preprocess distances
   std::vector<double> P =
       conditional_probabilities<real_t>(I, J, dists, nn, perplexity, n_threads);
+  
+  // Print all P values
+  for (size_t i = 0; i < P.size(); ++i) {
+    std::cout << "P[" << i << "] = " << P[i] << std::endl;
+  }
 
   // Normalise distances and weights
   normalise_vector(P, true, n_threads);
