@@ -15,8 +15,11 @@ inline void normalise_vector(std::vector<T> &vec, const bool check_positive,
 #pragma omp parallel for schedule(static) reduction(+: sum) reduction(&: all_positive) num_threads(n_threads)
   for (uint64_t it = 0; it < vec.size(); ++it) {
     sum += vec[it];
+    std::cout << vec[it] << std::endl;
     all_positive &= vec[it] >= 0;
   }
+  std::cout << "Positive: " << all_positive << std::endl;
+  std::cout << "Sum: " << sum << std::endl;
 
   if (check_positive && !all_positive) {
     throw std::runtime_error("Probability vector has negative entries");
