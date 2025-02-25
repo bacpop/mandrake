@@ -77,17 +77,10 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
       real_t beta_max = std::numeric_limits<real_t>::max();
       real_t beta = 1.0;
 
-      const uint64_t start_idx = row_start_idx[sample_idx];
-      const uint64_t end_idx = row_start_idx[sample_idx + 1];
-      // skip empty
-      if (end_idx == start_idx) {
-        continue;
-      }
-
       real_t sum_Pi, sum_disti_Pi, entropy, entropy_diff;
       for (int l = 0; l < n_steps; ++l) {
         sum_Pi = 0.0;
-        for (uint64_t j = start_idx; j < end_idx; ++j)
+        for (uint64_t j = row_start_idx[sample_idx]; j < row_start_idx[sample_idx + 1]; ++j)
         {
           P[j] = std::exp(-dists[j] * beta);
           sum_Pi += P[j];
@@ -98,7 +91,7 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
         }
         sum_disti_Pi = 0.0;
 
-        for (uint64_t j = start_idx; j < end_idx; ++j)
+        for (uint64_t j = row_start_idx[sample_idx]; j < row_start_idx[sample_idx + 1]; ++j)
         {
           P[j] /= sum_Pi;
           sum_disti_Pi += dists[j] * P[j];
@@ -156,11 +149,6 @@ wtsne_init(const std::vector<uint64_t> &I, const std::vector<uint64_t> &J,
   std::vector<double> P =
       conditional_probabilities<real_t>(I, J, dists, nn, perplexity, n_threads);
   
-  // Print all P values
-  for (size_t i = 0; i < P.size(); ++i) {
-    std::cout << "P[" << i << "] = " << P[i] << std::endl;
-  }
-
   // Normalise distances and weights
   normalise_vector(P, true, n_threads);
   normalise_vector(weights, true, n_threads);
