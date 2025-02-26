@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string>
 #include <zlib.h>
+#include <omp.h>
 
 #include "kseq.h"
 #include "progress.hpp"
@@ -196,7 +197,7 @@ pairsnp(const char *fasta, int n_threads, int dist, int knn) {
 #pragma omp parallel for schedule(static) reduction(+:len) num_threads(n_threads)
   for (uint64_t i = 0; i < n_seqs; i++) {
     // Cannot throw in an openmp block, short circuit instead
-    if (interrupt || PyErr_CheckSignals() != 0) {
+    if (interrupt || (omp_get_thread_num() == 0 && PyErr_CheckSignals() != 0)) {
       interrupt = true;
     } else {
       std::vector<int> comp_snps(n_seqs);

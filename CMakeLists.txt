@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19)
 project(SCE)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ version selection") 
 cmake_policy(SET CMP0104 OLD) # Can't get CUDA_ARCHITECTURES to work with NEW
 
 # Variable definitions
@@ -19,7 +19,7 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
 
 if(UNIX AND NOT APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS")
-    set(CMAKE_LD_FLAGS "${CMAKE_LDFLAGS} -Wl,--as-needed")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--as-needed")
 endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -ffast-math -funroll-loops -m64")
 
@@ -29,13 +29,14 @@ if(DEFINED ENV{CONDA_PREFIX})
     link_directories($ENV{CONDA_PREFIX}/lib)
     link_directories($ENV{CONDA_PREFIX}/lib/intel64)
 else()
-  find_package(OpenMP)
+    find_package(OpenMP)
 endif()
 
 # Add libraries
-find_package(ZLIB)
+find_package(ZLIB REQUIRED)
+find_package(Boost REQUIRED)
 find_package(pybind11 REQUIRED)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor)
+include_directories(${Boost_INCLUDE_DIRS})
 
 # Check for CUDA and compiles GPU library
 include(CheckLanguage)
@@ -46,7 +47,7 @@ if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
     set(CUDA_OPTS "-Wreorder -Xcompiler -fPIC -Xcompiler -Wall -Xcompiler -fopenmp -Xptxas -dlcm=ca --cudart static --relocatable-device-code=false")
     if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-        set(CMAKE_CUDA_ARCHITECTURES 80 86 90)
+        set(CMAKE_CUDA_ARCHITECTURES "80;86;90" CACHE STRING "CUDA architectures")
     endif()
     if(CMAKE_BUILD_TYPE MATCHES Debug)
         string(APPEND CUDA_OPTS " -G")

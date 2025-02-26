@@ -73,8 +73,8 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
 // https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/manifold/_utils.pyx
 #pragma omp parallel for schedule(static) num_threads(n_threads)
     for (uint64_t sample_idx = 0; sample_idx < n_samples; ++sample_idx) {
-      real_t beta_min = -std::numeric_limits<real_t>::infinity();
-      real_t beta_max = std::numeric_limits<real_t>::infinity();
+      real_t beta_min = -std::numeric_limits<real_t>::max();
+      real_t beta_max = std::numeric_limits<real_t>::max();
       real_t beta = 1.0;
       real_t sum_Pi, sum_disti_Pi, entropy, entropy_diff;
       for (int l = 0; l < n_steps; ++l) {
@@ -105,14 +105,14 @@ std::vector<double> conditional_probabilities(const std::vector<uint64_t> &I,
 
         if (entropy_diff > 0.0) {
           beta_min = beta;
-          if (beta_max == std::numeric_limits<real_t>::infinity()) {
+          if (beta_max == std::numeric_limits<real_t>::max()) {
             beta *= 2.0;
           } else {
             beta = (beta + beta_max) * 0.5;
           }
         } else {
           beta_max = beta;
-          if (beta_min == -std::numeric_limits<real_t>::infinity()) {
+          if (beta_min == -std::numeric_limits<real_t>::max()) {
             beta *= 0.5;
           } else {
             beta = (beta + beta_min) * 0.5;

@@ -9,7 +9,6 @@ import os
 from functools import partial
 import numpy as np
 import pandas as pd
-
 # C++ extensions
 from SCE import wtsne
 try:
@@ -31,8 +30,9 @@ def save_input(I, J, dists, names, output_prefix):
         sys.stderr.write("Distances calculated, but not running SCE\n")
         sys.exit(1)
 
-    pd.Series(names).to_csv(output_prefix + '.names.txt',
-                            sep='\n', header=False, index=False)
+    pd.Series(names).to_csv(
+        output_prefix + ".names.txt", header=False, index=False
+    )
 
     _saveDists(output_prefix, I, J, dists, names)
 
