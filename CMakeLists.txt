@@ -29,7 +29,7 @@ if(DEFINED ENV{CONDA_PREFIX})
     link_directories($ENV{CONDA_PREFIX}/lib)
     link_directories($ENV{CONDA_PREFIX}/lib/intel64)
 else()
-    find_package(OpenMP REQUIRED)  # Ensures OpenMP is found
+    find_package(OpenMP)
 endif()
 
 # Add libraries
