@@ -4,3 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1"
+indicatif = "0.17"
+ndarray = "0.16"
+rayon = "1.10"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "mandrake"
+path = "src/main.rs"

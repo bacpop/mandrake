@@ -1,38 +1,3 @@
-Read agents.md. Write and update this plan as you progress through each
-step.
-
-## Definition of Done
-
-- [ ] Builds with `cargo build`
-- [ ] Tests pass
-- [ ] Public API documented
-- [ ] Benchmark within 5% of C++ implementation
-- [ ] plan.md updated
-
-
-# Current aim
-
-1. Create a function `wtsne` which takes the sparse distance vectors,
-   and returns an embedding.
-
-## wtsne notes (1)
-
-- Parallelise the function, ideally using rayon. Take care for the race
-condition when updating the embedding (C++ uses omp atomic update to
-guard these lines), so a suitable atomic is likely needed here.
-- Use a suitable progress bar.
-- Use an RNG which is compatible with parallel threads
-- Conditional probabilities as in `wtsne.hpp` will also need to be
-  implemented, and parallelised.
-
-# Next aim
-
-2. Create a version of the `sce_results.hpp` object `sce_results` which
-   outputs intermediate embedding states at regular 'frames' which are
-   either exponentially distributed in time (more frames early on), or
-   evenly distributed through time.
-
-
 Read AGENTS.md before starting work.
 
 This file is the working plan. Keep it up to date.
@@ -51,6 +16,13 @@ Before finishing:
 - Update Current Status.
 - Update Next Task so another session can continue without context.
 - Record any deviations from the original plan.
+
+## Definition of Done
+
+- [] Builds with `cargo build`
+- [] Tests pass
+- [] Public API documented
+- [] plan.md updated
 
 ---
 
@@ -107,7 +79,7 @@ Returns an `ndarray` embedding.
 Expose:
 
 - Rust library
-- CLI
+- CLI (deferred until an input/output file contract is defined)
 
 ---
 
@@ -115,28 +87,31 @@ Expose:
 
 ## Objective
 
-Implement the Rust `wtsne()` function.
+Implement the Rust v1 `wtsne()` library function: accept C++-compatible COO
+vectors and return a final 2D `ndarray::Array2<f64>` embedding. Animation
+(`sce_results`) and the end-user CLI remain deferred to later tasks.
 
 ### Checklist
 
-- [ ] Sparse graph/vector input
-- [ ] Embedding allocation
-- [ ] Optimisation loop
-- [ ] Parallel updates
-- [ ] Progress reporting
-- [ ] Parallel RNG
-- [ ] Conditional probabilities
-- [ ] Tests
+- [x] Sparse graph/vector input
+- [x] Embedding allocation
+- [x] Optimisation loop
+- [x] Parallel updates
+- [x] Progress reporting
+- [x] Parallel RNG
+- [x] Conditional probabilities
+- [x] Tests
 
 ### Current Status
 
 Working on:
 
-...
+Completed v1 Rust `wtsne` library implementation and invariant tests.
 
 Last verified:
 
-...
+2026-08-07: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
+`cargo test` (6 tests), `cargo build`, and `git diff --check` pass.
 
 ---
 
@@ -145,29 +120,48 @@ Last verified:
 ## Parallelism
 
 - Prefer Rayon.
-- Atomic updates required for embedding writes.
-- Investigate alternatives to atomics if performance suffers.
+- Atomic floating-point updates are required for embedding writes; use a CAS
+  loop over `AtomicU64` bit patterns and retain the C++ optimistic clash retry.
+- Benchmark against the C++ implementation after correctness is established.
 
 ## RNG
 
 - Thread-safe RNG compatible with Rayon.
+- Use independent xoshiro32 streams derived from the configured seed for each
+  logical worker and each initial embedding point; fixed-seed single-worker
+  runs are reproducible.
 
 ## Progress
 
 Use indicatif.
+- Progress is optional through `WtsneOptions::progress` and is updated once per
+  completed optimisation iteration.
 
 ## Conditional probabilities
 
 Port implementation from `wtsne.hpp`.
+- Preserve a valid uniform row when exponentials underflow for extreme finite
+  distances, then normalize the complete edge-probability vector.
+
+## v1 API and scope
+
+- Public input is zero-based COO `I`/`J` endpoint vectors, distance values, and
+  one non-negative weight per node.
+- `wtsne(...)` returns `Result<ndarray::Array2<f64>>` with shape `(n_nodes, 2)`.
+- `WtsneOptions` carries perplexity, iteration count, repulsion samples,
+  learning rate, initial exaggeration, worker count, progress setting, and seed.
+- Tests target public behavior: validation, normalization, finite output,
+  reproducibility for one worker, and successful parallel execution.
+- No Python bindings, CUDA, animation frames, or file-format CLI are part of
+  this milestone.
 
 ---
 
 # Open Questions
 
-- Best representation for sparse graph?
-- Is atomic update the fastest approach?
-- SIMD opportunities? Ideally compiler optimised rather than
-  'hand-optimised'
+- Benchmark the atomic update implementation against the C++ CPU version and
+  investigate alternatives if it misses the 5% target.
+- SIMD opportunities? Ideally compiler optimised rather than 'hand-optimised'.
 
 ---
 
@@ -185,6 +179,17 @@ Requirements:
 
 ---
 
+# Later tasks
+
+- Add the pairsnp code to allow input from a fasta alignment file,
+  starting from src/gene.rs. Add
+  sketchlib.rust as a dependency to call sparse distances as input from
+  a list of fasta files. Wire these up to both the API and the CLI.
+- Code style changes following sketchlib.rust. Move to rust RNG library
+  xoshiro rather than manual implementation
+
+---
+
 # Session Log
 
 ## 2026-08-06
@@ -197,3 +202,19 @@ Discovered:
 
 Next session:
 - ...
+
+Blockers:
+- None for the v1 implementation.
+
+## 2026-08-07
+
+Completed the Rust `wtsne` v1 library: conditional probabilities, alias
+sampling, reproducible xoshiro streams, Rayon workers, atomic embedding
+updates, optional indicatif progress, validation, and public API documentation.
+Input-index conversion is checked before `usize` conversion for wasm32 safety,
+and underflowed probability rows use a uniform fallback. All six integration
+tests, build, formatting, clippy, and diff checks pass.
+
+Next session:
+- Implement `sce_results` with configurable linear or exponentially spaced
+  intermediate embedding frames, then add its public API and tests.
