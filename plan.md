@@ -87,9 +87,11 @@ Expose:
 
 ## Objective
 
-Refactor the completed Rust implementation into deep optimiser, distance, API,
-and CLI modules, and replace the hand-written xoshiro128+ implementation with
-`rand_xoshiro::Xoshiro256PlusPlus` using a deliberate reseeding migration.
+Add a separate PyO3-backed visualization workflow for the completed Rust
+embedding: static output, interactive Plotly HTML, density output, HDBSCAN
+colouring, and optional animation. Preserve the existing embedding CLI and
+keep all Python integration behind a default-enabled `PyO3` feature that can be
+disabled for non-Python and future wasm builds.
 
 Before code changes, this task updates this plan. Before finishing, it records
 completed milestones, design decisions, verification, blockers, and the next
@@ -101,29 +103,30 @@ task here.
 
 ### Checklist
 
-- [x] Update the plan before implementation with this phase’s seams and RNG contract
-- [x] Move public SCE configuration/result types into `api.rs` and preserve root re-exports
-- [x] Move optimiser implementation and `wtsne()` into a dedicated SCE module
-- [x] Refactor distance code into a module directory with private gene parsing
-- [x] Move CLI parsing/execution behind a dedicated binary-only CLI module
-- [x] Replace manual RNG state/transition code with `rand_xoshiro`
-- [x] Add reproducibility and changed-seed regression coverage
-- [x] Run focused tests, formatting, lint, build, documentation, and diff checks
+- [x] Update the plan before implementation with the visualization seam, feature contract, and archive workflow
+- [x] Add default-enabled `PyO3` feature and compile-out path for non-Python builds
+- [x] Add `--save-animation` frame capture and compressed NPZ archive output
+- [x] Add separate `plot` CLI command with prefix-based input discovery
+- [x] Add embedded Python plotting adapter for static, HTML, density, HDBSCAN, and MP4 outputs
+- [x] Add labels, clustering, hover-label, and deterministic-colour behavior matching the Python reference
+- [x] Add actionable dependency, input, archive, and FFmpeg errors
+- [x] Add CLI, archive, PyO3 seam, and visualization artifact coverage
+- [x] Run default-feature and `--no-default-features` formatting, tests, lint, build, docs, and diff checks
 - [x] Update this plan at completion with status, decisions, blockers, log, and next task
 
 ### Current Status
 
 Working on:
 
-Module refactoring and library-backed RNG migration are complete.
+The PyO3 visualization workflow is complete.
 
 Last verified:
 
-2026-08-07: `cargo test --all-targets --offline` (28 tests),
-`cargo build --all-targets --offline`, `cargo doc --no-deps --offline`,
-`cargo fmt --all`, `cargo clippy --all-targets --offline -- -D warnings`, and
-`git diff --check` pass. The online Cargo attempt was blocked by unavailable
-crates.io DNS; all required dependencies were available in the local cache.
+2026-08-07: default-feature `cargo test --all-targets --offline` (30 tests),
+Clippy with warnings denied, build, docs, formatting, and diff checks pass.
+`--no-default-features` tests (28 tests), Clippy, formatting, and diff checks
+also pass. Direct `intel_pp` Python smoke tests produced HTML, static PNG,
+density PDF, NPZ frames, HDBSCAN CSV, and MP4 outputs.
 
 ---
 
@@ -169,7 +172,8 @@ Port implementation from `wtsne.hpp`.
   and frame schedule.
 - Tests target public behavior: validation, normalization, finite output,
   reproducibility for one worker, and successful parallel execution.
-- No Python bindings or CUDA are part of this milestone.
+- No Python extension bindings or CUDA are part of this milestone; PyO3 is an
+  executable-only embedding adapter.
 - Distance constructors return `SparseDistances` and accept
   `Sparsification::Knn` or `Sparsification::Threshold` where the source
   supports that mode.
@@ -234,6 +238,46 @@ Port implementation from `wtsne.hpp`.
 - Frame storage is intentionally in-memory and scales with frame count and
   node count, matching the C++ `sce_results` role.
 
+## Visualization phase design
+
+- Keep the existing root embedding invocation and add a separate
+  `mandrake plot --input-prefix PREFIX` command. The command discovers
+  `<prefix>.embedding.txt`, `<prefix>.names.txt`, and an optional
+  `<prefix>.embedding_frames.npz`; `--output` defaults to the input prefix.
+- Add a default-enabled Cargo feature named exactly `PyO3`, backed by
+  `pyo3 = "0.21.2"` with `auto-initialize`. Plotting code, its CLI arguments,
+  and the Python dependency are compiled out with `--no-default-features`.
+- `--save-animation` on the embedding command retains up to 400 exponentially
+  scheduled frames, capped at `max_iterations + 1`, and writes a compressed
+  NPZ archive with version, embeddings, iteration, worker-update, and Eq arrays.
+  `plot --animate` requires this archive and reports how to create it when it
+  is absent.
+- A binary-only Rust visualization module embeds a self-contained Python asset
+  based on the original `mandrake/plot.py` and `clustering.py`. A small PyO3
+  adapter converts validated Rust arrays and invokes the Python HTML, static,
+  density, HDBSCAN, and animation functions without exposing Python types in
+  the Rust library interface.
+- Visualization writes `.embedding_static.png`, `.embedding_density.pdf`,
+  `.embedding.html`, an HDBSCAN CSV when automatic clustering runs, and an
+  `.embedding_animation.mp4` when animation is requested. Animation sound is
+  out of scope for this phase.
+- Labels remain the original headerless name/tab/label format and must cover
+  the embedding names exactly without duplicate keys. Supplied labels override
+  HDBSCAN; otherwise the original HDBSCAN parameters run unless
+  `--no-clustering` is set. Colours remain deterministic from `--seed`, sample
+  names remain optional HTML hover labels, and HDBSCAN noise remains black.
+- Python runtime requirements are Python 3.8+, NumPy, Pandas, Plotly,
+  Matplotlib, HDBSCAN, tqdm, and FFmpeg, matching `environment.yml`. Missing
+  imports or FFmpeg are surfaced as contextual Rust errors.
+- PyO3 uses `abi3-py38` in addition to `auto-initialize`, allowing the cached
+  PyO3 0.21.2 build to configure against newer host Python versions. The Rust
+  arm64 build is restored with the arm64 system Python; the requested
+  `intel_pp` environment is x86_64 and is therefore used for direct Python
+  artifact smoke tests rather than linked into the arm64 binary.
+- `intel_pp` already contained the scientific Python packages. Its legacy
+  FFmpeg 2.8/x264 mismatch was repaired with `ffmpeg>=4` and `x264>=1!164`,
+  yielding FFmpeg 5.1.2 and x264 164.3095 for MP4 verification.
+
 ---
 
 # Open Questions
@@ -244,11 +288,10 @@ Port implementation from `wtsne.hpp`.
 
 # Next Task
 
-After this refactor and RNG phase is complete:
+After this visualization phase is complete:
 
 - Benchmark the Rust optimiser against the C++ CPU implementation and measure
   peak memory for the distance builders on representative fixtures.
-
 ---
 
 # Session Log
@@ -335,3 +378,56 @@ Next session:
 Blockers:
 - Online crates.io resolution was unavailable in the sandbox, so verification
   used `--offline`; no dependency was missing from the local cache.
+
+## 2026-08-07 (PyO3 visualization phase)
+
+Started:
+- Started the phase by rereading `AGENTS.md` and `plan.md`, then updating this
+  plan before implementation with the CLI workflow, PyO3 feature contract,
+  frame archive schema, plotting outputs, and verification requirements.
+
+Discovered:
+- The original plotting implementation is in `mandrake/plot.py`, with HDBSCAN
+  behavior in `mandrake/clustering.py`; it imports scientific Python packages
+  that are absent from the system interpreter in this checkout.
+- The existing Rust CLI writes only final embedding and names files, so a
+  separate animation command requires an explicit sampled-frame archive.
+
+During implementation:
+- Implement the feature-gated PyO3 adapter, NPZ frame archive, plot command,
+  embedded Python plotting asset, and focused tests; then complete this entry
+  with verification evidence and any dependency blockers.
+
+Initial blocker:
+- The configured system Python currently lacks NumPy, Pandas, Plotly,
+  Matplotlib, HDBSCAN, and FFmpeg. Artifact smoke tests require the project
+  Python environment described by `environment.yml`.
+
+Completed:
+- Added the default `PyO3` feature, preserving a clean `--no-default-features`
+  build for future wasm/non-Python targets.
+- Added `--save-animation` sampled-frame capture and NPZ persistence, plus the
+  prefix-based `plot` subcommand with strict embedding/name/label validation.
+- Added the embedded plotting adapter and Python reference implementation for
+  deterministic labels, HDBSCAN, Plotly HTML, static/density plots, and MP4
+  animations.
+- Verified the Python asset in the repaired `intel_pp` environment, including
+  all five expected artifact types and automatic HDBSCAN output.
+- Ran default and feature-off Rust tests, Clippy, build, docs, formatting, and
+  diff checks successfully.
+
+Discovered:
+- The requested `intel_pp` environment is x86_64 while the Rust toolchain and
+  host are arm64. Linking PyO3 to that environment fails with architecture
+  mismatch, so the Rust binary's in-process Python artifact smoke test remains
+  blocked even though direct Python rendering succeeds.
+
+Next session:
+- Benchmark the Rust optimiser against the C++ CPU implementation and measure
+  peak memory for the distance builders on representative fixtures.
+
+Blockers:
+- No source or test blocker remains. A native arm64 Python environment with the
+  plotting packages is required to run the full Rust-to-Python artifact smoke
+  test; the direct `intel_pp` smoke test is the available evidence for Python
+  behavior.

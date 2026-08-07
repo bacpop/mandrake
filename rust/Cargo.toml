@@ -3,6 +3,10 @@ name = "mandrake"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["PyO3"]
+PyO3 = ["dep:pyo3"]
+
 [dependencies]
 anyhow = "1"
 bzip2 = "0.4"
@@ -14,6 +18,7 @@ indicatif = "0.17"
 log = "0.4"
 ndarray = "0.16"
 needletail = { version = "0.5", features = ["compression"] }
+pyo3 = { version = "0.21.2", optional = true, features = ["abi3-py38", "auto-initialize"] }
 rayon = "1.10"
 rand_xoshiro = "0.6"
 roaring = "0.10"
