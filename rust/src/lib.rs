@@ -10,6 +10,98 @@ const DIMENSIONS: usize = 2;
 const PROBABILITY_TOLERANCE: f64 = 1e-5;
 const PERPLEXITY_STEPS: usize = 100;
 
+/// Controls which optimisation states are retained by [`wtsne`].
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum FrameSchedule {
+    /// Retain only the final optimisation state.
+    #[default]
+    FinalOnly,
+    /// Retain `frame_count` evenly spaced states, including initial and final.
+    Linear { frame_count: usize },
+    /// Retain `frame_count` geometrically spaced states, including initial and
+    /// final, with more frames near the start of optimisation.
+    Exponential { frame_count: usize },
+}
+
+/// One sampled state of a stochastic cluster embedding run.
+#[derive(Clone, Debug)]
+pub struct SceFrame {
+    iteration: usize,
+    worker_updates: u128,
+    eq: f64,
+    embedding: Array2<f64>,
+}
+
+impl SceFrame {
+    /// Number of completed outer optimisation iterations at this frame.
+    pub fn iteration(&self) -> usize {
+        self.iteration
+    }
+
+    /// Number of worker updates completed at this frame.
+    pub fn worker_updates(&self) -> u128 {
+        self.worker_updates
+    }
+
+    /// Current SCE convergence statistic.
+    pub fn eq(&self) -> f64 {
+        self.eq
+    }
+
+    /// Borrow the 2D embedding stored at this frame.
+    pub fn embedding(&self) -> &Array2<f64> {
+        &self.embedding
+    }
+}
+
+/// Final embedding and optional intermediate optimisation states.
+///
+/// Frames are chronological, non-empty, and the final frame is always the
+/// authoritative final embedding. Configured schedules retain all snapshots
+/// in memory, so storage scales with the number of frames and nodes.
+#[derive(Clone, Debug)]
+pub struct SceResults {
+    frames: Vec<SceFrame>,
+}
+
+impl SceResults {
+    /// Borrow the final 2D embedding.
+    pub fn embedding(&self) -> &Array2<f64> {
+        &self
+            .frames
+            .last()
+            .expect("SceResults always contains a final frame")
+            .embedding
+    }
+
+    /// Consume the result and return its final 2D embedding.
+    pub fn into_embedding(self) -> Array2<f64> {
+        self.frames
+            .into_iter()
+            .last()
+            .expect("SceResults always contains a final frame")
+            .embedding
+    }
+
+    /// Borrow all retained frames in chronological order.
+    pub fn frames(&self) -> &[SceFrame] {
+        &self.frames
+    }
+
+    /// Whether initial and intermediate states were retained.
+    pub fn is_animated(&self) -> bool {
+        self.frames.len() > 1
+    }
+
+    /// Return the final convergence statistic.
+    pub fn final_eq(&self) -> f64 {
+        self.frames
+            .last()
+            .expect("SceResults always contains a final frame")
+            .eq
+    }
+}
+
 /// Configuration for [`wtsne`].
 #[derive(Clone, Debug)]
 pub struct WtsneOptions {
@@ -31,6 +123,8 @@ pub struct WtsneOptions {
     pub progress: bool,
     /// Seed for all random-number streams.
     pub seed: u64,
+    /// Which optimisation states to retain in the returned result.
+    pub frame_schedule: FrameSchedule,
 }
 
 impl Default for WtsneOptions {
@@ -44,6 +138,7 @@ impl Default for WtsneOptions {
             workers: 1,
             progress: true,
             seed: 1,
+            frame_schedule: FrameSchedule::FinalOnly,
         }
     }
 }
@@ -52,18 +147,19 @@ impl Default for WtsneOptions {
 ///
 /// `i` and `j` are zero-based COO source and destination node indices;
 /// `distances` contains one distance per COO edge and `weights` contains one
-/// sampling weight per node. The returned array has shape `(weights.len(), 2)`.
+/// sampling weight per node. The final embedding has shape `(weights.len(), 2)`.
 ///
 /// The COO source rows may be in any order, but every node must have at least
 /// one outgoing edge. Inputs and optimiser settings are validated before any
-/// optimisation starts.
+/// optimisation starts. When a frame schedule is enabled, its frame count
+/// includes the initial and final states.
 pub fn wtsne(
     i: &[u64],
     j: &[u64],
     distances: &[f64],
     weights: &[f64],
     options: &WtsneOptions,
-) -> Result<Array2<f64>> {
+) -> Result<SceResults> {
     validate_inputs(i, j, distances, weights, options)?;
 
     let n_nodes = weights.len();
@@ -94,6 +190,20 @@ pub fn wtsne(
 
     let n_squared = n_nodes as f64 * (n_nodes - 1) as f64;
     let mut eq = 1.0;
+    let frame_iterations = frame_iterations(&options.frame_schedule, options.max_iterations)?;
+    let mut next_frame = 0;
+    let mut frames = Vec::with_capacity(frame_iterations.len());
+
+    if frame_iterations[0] == 0 {
+        frames.push(SceFrame {
+            iteration: 0,
+            worker_updates: 0,
+            eq,
+            embedding: embedding.to_array(n_nodes)?,
+        });
+        next_frame += 1;
+    }
+
     for iteration in 0..options.max_iterations {
         let eta = (options.learning_rate
             * (1.0 - iteration as f64 / options.max_iterations as f64))
@@ -127,6 +237,19 @@ pub fn wtsne(
         });
         eq = (eq * n_squared + qsum) / (n_squared + qcount as f64);
 
+        let completed_iteration = iteration + 1;
+        if next_frame < frame_iterations.len()
+            && frame_iterations[next_frame] == completed_iteration
+        {
+            frames.push(SceFrame {
+                iteration: completed_iteration,
+                worker_updates: completed_iteration as u128 * options.workers as u128,
+                eq,
+                embedding: embedding.to_array(n_nodes)?,
+            });
+            next_frame += 1;
+        }
+
         if let Some(bar) = &progress {
             bar.set_position((iteration + 1) as u64);
             bar.set_message(format!("{eta:.4} Eq={eq:.6} clashes={clashes}"));
@@ -136,9 +259,8 @@ pub fn wtsne(
         bar.finish_and_clear();
     }
 
-    embedding
-        .to_array(n_nodes)
-        .context("converting embedding to ndarray")
+    debug_assert_eq!(next_frame, frame_iterations.len());
+    Ok(SceResults { frames })
 }
 
 fn validate_inputs(
@@ -191,7 +313,54 @@ fn validate_inputs(
     if !options.learning_rate.is_finite() || options.learning_rate <= 0.0 {
         bail!("learning_rate must be finite and positive");
     }
+    validate_frame_schedule(&options.frame_schedule, options.max_iterations)?;
     Ok(())
+}
+
+fn validate_frame_schedule(schedule: &FrameSchedule, max_iterations: usize) -> Result<()> {
+    match schedule {
+        FrameSchedule::FinalOnly => Ok(()),
+        FrameSchedule::Linear { frame_count } | FrameSchedule::Exponential { frame_count } => {
+            if *frame_count < 2 || *frame_count > max_iterations.saturating_add(1) {
+                bail!(
+                    "frame count must be between 2 and max_iterations + 1 ({})",
+                    max_iterations.saturating_add(1)
+                );
+            }
+            Ok(())
+        }
+    }
+}
+
+fn frame_iterations(schedule: &FrameSchedule, max_iterations: usize) -> Result<Vec<usize>> {
+    validate_frame_schedule(schedule, max_iterations)?;
+    match schedule {
+        FrameSchedule::FinalOnly => Ok(vec![max_iterations]),
+        FrameSchedule::Linear { frame_count } => {
+            let denominator = (*frame_count - 1) as u128;
+            let maximum = max_iterations as u128;
+            Ok((0..*frame_count)
+                .map(|index| ((index as u128 * maximum) + denominator / 2) / denominator)
+                .map(|position| position as usize)
+                .collect())
+        }
+        FrameSchedule::Exponential { frame_count } => {
+            let denominator = (*frame_count - 1) as f64;
+            let base = max_iterations as f64 + 1.0;
+            let mut positions = Vec::with_capacity(*frame_count);
+            positions.push(0);
+            for index in 1..(*frame_count - 1) {
+                let fraction = index as f64 / denominator;
+                let raw = (base.powf(fraction) - 1.0).round();
+                let candidate = raw.clamp(0.0, max_iterations as f64) as usize;
+                let lower_bound = positions[index - 1] + 1;
+                let upper_bound = max_iterations - (*frame_count - 1 - index);
+                positions.push(candidate.clamp(lower_bound, upper_bound));
+            }
+            positions.push(max_iterations);
+            Ok(positions)
+        }
+    }
 }
 
 fn make_row_edges(i: &[u64], n_nodes: usize) -> Result<Vec<Vec<usize>>> {

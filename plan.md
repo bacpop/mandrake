@@ -19,10 +19,10 @@ Before finishing:
 
 ## Definition of Done
 
-- [] Builds with `cargo build`
-- [] Tests pass
-- [] Public API documented
-- [] plan.md updated
+- [x] Builds with `cargo build`
+- [x] Tests pass
+- [x] Public API documented
+- [x] plan.md updated
 
 ---
 
@@ -74,7 +74,7 @@ Required API:
 pub fn wtsne(...)
 ```
 
-Returns an `ndarray` embedding.
+Returns an `SceResults` object whose final state is an `ndarray` embedding.
 
 Expose:
 
@@ -87,31 +87,29 @@ Expose:
 
 ## Objective
 
-Implement the Rust v1 `wtsne()` library function: accept C++-compatible COO
-vectors and return a final 2D `ndarray::Array2<f64>` embedding. Animation
-(`sce_results`) and the end-user CLI remain deferred to later tasks.
+Implement the Rust `SceResults` result module and migrate `wtsne()` to return
+the result object. Store the final embedding plus optional initial/intermediate
+frames with linear or true exponential iteration spacing.
 
 ### Checklist
 
-- [x] Sparse graph/vector input
-- [x] Embedding allocation
-- [x] Optimisation loop
-- [x] Parallel updates
-- [x] Progress reporting
-- [x] Parallel RNG
-- [x] Conditional probabilities
+- [x] Define result/frame interface
+- [x] Add frame schedule configuration
+- [x] Capture initial/intermediate/final frames
+- [x] Migrate `wtsne()` return type and callers
+- [x] Add result/frame accessors
 - [x] Tests
+- [x] Build, lint, and documentation checks
 
 ### Current Status
 
 Working on:
 
-Completed v1 Rust `wtsne` library implementation and invariant tests.
+Completed `SceResults` and the `wtsne()` result-returning interface.
 
 Last verified:
 
-2026-08-07: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
-`cargo test` (6 tests), `cargo build`, and `git diff --check` pass.
+2026-08-07: `cargo doc --no-deps`, `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` (11 tests), `cargo build`, and `git diff --check` pass.
 
 ---
 
@@ -147,13 +145,31 @@ Port implementation from `wtsne.hpp`.
 
 - Public input is zero-based COO `I`/`J` endpoint vectors, distance values, and
   one non-negative weight per node.
-- `wtsne(...)` returns `Result<ndarray::Array2<f64>>` with shape `(n_nodes, 2)`.
+- `wtsne(...)` returns `Result<SceResults>`; the final frame is an ndarray with
+  shape `(n_nodes, 2)`.
 - `WtsneOptions` carries perplexity, iteration count, repulsion samples,
-  learning rate, initial exaggeration, worker count, progress setting, and seed.
+  learning rate, initial exaggeration, worker count, progress setting, seed,
+  and frame schedule.
 - Tests target public behavior: validation, normalization, finite output,
   reproducibility for one worker, and successful parallel execution.
-- No Python bindings, CUDA, animation frames, or file-format CLI are part of
-  this milestone.
+- No Python bindings, CUDA, or file-format CLI are part of this milestone.
+
+## SceResults design
+
+- `wtsne()` returns `Result<SceResults>`; `SceResults` owns a non-empty,
+  chronological frame sequence and exposes borrowed or consuming final-
+  embedding accessors.
+- `FrameSchedule::FinalOnly` stores only the final state. `Linear` and
+  `Exponential` counts include the initial and final states and require at
+  least two distinct iteration positions.
+- Exponential positions use geometric spacing
+  `round((max_iterations + 1)^u - 1)` with monotonic clamping so the requested
+  count remains exact.
+- Each frame records outer iteration, worker-update count, `Eq`, and a 2D
+  ndarray snapshot. Captures occur only after an optimisation iteration has
+  completed, so snapshots are race-free.
+- Frame storage is intentionally in-memory and scales with frame count and
+  node count, matching the C++ `sce_results` role.
 
 ---
 
@@ -167,15 +183,15 @@ Port implementation from `wtsne.hpp`.
 
 # Next Task
 
-After `wtsne` is complete:
+After `SceResults` is complete:
 
-Implement `sce_results`.
+Benchmark the atomic Rust optimiser against the C++ CPU implementation and
+investigate alternatives if it misses the target.
 
 Requirements:
 
-- intermediate embeddings
-- configurable frame count
-- exponential or linear frame spacing
+- fixed-seed numerical/invariant comparison
+- peak runtime and memory measurements
 
 ---
 
@@ -216,5 +232,20 @@ and underflowed probability rows use a uniform fallback. All six integration
 tests, build, formatting, clippy, and diff checks pass.
 
 Next session:
-- Implement `sce_results` with configurable linear or exponentially spaced
-  intermediate embedding frames, then add its public API and tests.
+- Implement `SceResults`, migrate `wtsne()` to return it, and add schedule and
+  accessor tests.
+
+## 2026-08-07 (SceResults phase)
+
+Completed the `SceResults` phase. Chosen interface: `wtsne()` returns a result
+object; `FinalOnly` is the default; configured frame counts include initial and
+final states; exponential spacing is geometric with exact monotonic clamping.
+Added 11 public integration tests; documentation, formatting, Clippy, build,
+test, and diff checks pass.
+
+Next session:
+- Benchmark the Rust optimiser against the C++ CPU implementation.
+
+Blockers:
+- None for the `SceResults` phase; the C++ performance comparison remains
+  pending.
