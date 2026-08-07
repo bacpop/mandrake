@@ -47,6 +47,30 @@ fn fixed_seed_is_reproducible_with_one_worker() {
 }
 
 #[test]
+fn changing_seed_changes_reproducible_embedding() {
+    let (i, j, distances, weights) = graph();
+    let mut baseline = options();
+    baseline.max_iterations = 1;
+    let mut changed = options();
+    changed.max_iterations = 1;
+    changed.seed += 1;
+    let first = wtsne(&i, &j, &distances, &weights, &baseline)
+        .unwrap()
+        .into_embedding();
+    let second = wtsne(&i, &j, &distances, &weights, &changed)
+        .unwrap()
+        .into_embedding();
+
+    assert_ne!(first, second);
+}
+
+#[test]
+fn public_api_module_exposes_configuration_types() {
+    let options = mandrake::api::WtsneOptions::default();
+    assert_eq!(options.seed, 1);
+}
+
+#[test]
 fn parallel_execution_completes_with_finite_output() {
     let (i, j, distances, weights) = graph();
     let mut parallel_options = options();
